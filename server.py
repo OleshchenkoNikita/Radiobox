@@ -12,8 +12,8 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # ==================================================
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SENDER = "oleshchenko.nikita@gmail.com"  # <--- ВСТАВЬ СЮДА СВОЙ GMAIL
-EMAIL_PASSWORD = "bndj lvjw rmuj qiop"  # <--- ВСТАВЬ СЮДА 16-ЗНАЧНЫЙ ПАРОЛЬ ПРИЛОЖЕНИЯ
+EMAIL_SENDER = "oleshchenko.nikita@gmail.com" 
+EMAIL_PASSWORD = "testing"
 # ==================================================
 
 DB_NAME = "radiobox.db"
