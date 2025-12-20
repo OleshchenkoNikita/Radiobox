@@ -116,7 +116,8 @@
     </header>
 
     <div class="checkout-container">
-        <form id="checkoutForm" class="co-grid">
+        <form id="checkoutForm" class="co-grid" action="/create_order" method="POST">
+            <input type="hidden" name="full_address" id="hiddenAddress">
 
             <div class="co-left">
 
@@ -520,7 +521,7 @@
                             <svg width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
                         </button>
                         <div id="commentBox" class="co-comment-box" hidden>
-                            <textarea id="orderComment" maxlength="254" placeholder="Напишите дополнительную информацию..."></textarea>
+                            <textarea id="orderComment" name="comment" maxlength="254" placeholder="Напишите дополнительную информацию..."></textarea>
                             <div class="co-comment-footer">
                                 <span class="co-chars">Осталось символов: <span id="charCount">254</span></span>
                             </div>
@@ -1473,48 +1474,29 @@
                 else if (paymentType === 'seller_privat') paymentLabel = 'Оплата на счёт ФОП';
                 else if (paymentType === 'card_online') paymentLabel = 'Оплата картой Visa/Mastercard';
 
-                // !!! ЗДЕСЬ ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID !!!
-                const orderId = generateUniqueOrderId();
+                // --- НОВАЯ ЛОГИКА ОТПРАВКИ НА СЕРВЕР ---
 
-                // Логика статуса оплаты
-                let finalPayStatus = 'unpaid';
-                // Если выбрана карта И флаг оплаты true — значит оплачено
-                if (paymentType === 'card_online' && isOrderPaid) {
-                    finalPayStatus = 'paid';
-                }
+                // 1. Записываем собранный адрес в скрытое поле, чтобы Python его увидел
+                // (переменная addressText уже собрана выше в твоем коде, строки 920-946)
+                document.getElementById('hiddenAddress').value = addressText || 'Адрес не указан';
 
-                const orderData = {
-                    id: orderId,
-                    contact: {
-                        name: document.getElementById('coName').value,
-                        surname: document.getElementById('coSurname').value,
-                        phone: document.getElementById('coPhone').value
-                    },
-                    delivery: {
-                        method: deliveryLabel,
-                        address: addressText || 'Адрес уточняется'
-                    },
-                    payment: {
-                        type: paymentType,
-                        label: paymentLabel,
-                        status: finalPayStatus // <--- Статус оплаты
-                    },
-                    comment: document.getElementById('orderComment').value.trim(),
-                    total: document.getElementById('coFinalSum').textContent
-                };
+                // 2. Если корзина хранится только в localStorage, сервер её не увидит.
+                // Добавим её в скрытое поле (создаем его на лету)
+                let cartInput = document.createElement('input');
+                cartInput.type = 'hidden';
+                cartInput.name = 'cart_json'; // В Python получишь через request.form['cart_json']
+                cartInput.value = localStorage.getItem('rb_cart_v1') || '[]';
+                form.appendChild(cartInput);
 
-                localStorage.setItem('rb_last_order_details', JSON.stringify(orderData));
-
+                // 3. Визуальный эффект нажатия
                 const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
                 if(btn) {
                     btn.textContent = 'Оформляем...';
                     btn.disabled = true;
-                    btn.style.opacity = '0.8';
                 }
 
-                setTimeout(() => {
-                    window.location.href = 'order-success.html';
-                }, 800);
+                // 4. Реальная отправка формы на сервер
+                form.submit();
             });
         }
     });

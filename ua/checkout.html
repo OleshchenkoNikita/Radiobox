@@ -117,6 +117,8 @@
 
     <div class="checkout-container">
         <form id="checkoutForm" class="co-grid">
+            <input type="hidden" name="full_address" id="hiddenAddress">
+            <input type="hidden" name="cart_json" id="hiddenCart">
 
             <div class="co-left">
 
@@ -616,6 +618,21 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+
+        try {
+            const sessionRaw = localStorage.getItem('rb_session_v1');
+            if (sessionRaw) {
+                const user = JSON.parse(sessionRaw);
+                const fPhone = document.getElementById('coPhone');
+                const fSurname = document.getElementById('coSurname');
+                const fName = document.getElementById('coName');
+
+                if (user.phone && fPhone && !fPhone.value) fPhone.value = user.phone;
+                if (user.surname && fSurname && !fSurname.value) fSurname.value = user.surname;
+                if (user.name && fName && !fName.value) fName.value = user.name;
+            }
+        } catch (e) {}
+
 
         // ==========================================
         // 1. КОНФИГУРАЦИЯ
@@ -1154,6 +1171,7 @@
 
         loadCartData();
 
+
         // ==========================================
         // ГЕНЕРАТОР УНИКАЛЬНОГО ID ЗАКАЗА
         // ==========================================
@@ -1479,16 +1497,27 @@
 
                 localStorage.setItem('rb_last_order_details', JSON.stringify(orderData));
 
+                // 1. Заполняем скрытые поля данными
+                document.getElementById('hiddenAddress').value = addressText;
+                document.getElementById('hiddenCart').value = localStorage.getItem('rb_cart_v1') || '[]';
+
+                // 2. Визуально блокируем кнопку
                 const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
                 if(btn) {
                     btn.textContent = 'Оформлюємо...';
                     btn.disabled = true;
-                    btn.style.opacity = '0.8';
                 }
 
-                setTimeout(() => {
-                    window.location.href = 'order-success.html';
-                }, 800);
+                localStorage.setItem('rb_session_v1', JSON.stringify({
+                    phone: document.getElementById('coPhone').value,
+                    surname: document.getElementById('coSurname').value,
+                    name: document.getElementById('coName').value
+                }));
+
+                // 3. Отправляем форму на Python (а он сам перекинет на order-success)
+                form.action = "/create_order";
+                form.method = "POST";
+                form.submit();
             });
         }
     });

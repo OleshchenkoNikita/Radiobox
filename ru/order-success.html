@@ -292,20 +292,32 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- НОВОЕ: Пытаемся найти номер заказа в ссылке (?order_id=...) ---
+            const params = new URLSearchParams(window.location.search);
+            const serverOrderId = params.get('order_id');
+            // -------------------------------------------------------------------
+
             const orderRaw = localStorage.getItem('rb_last_order_details');
 
             let order = orderRaw ? JSON.parse(orderRaw) : {
-                id: Math.floor(100000000 + Math.random() * 900000000),
+                // Если данных нет, создаем "рыбу", но ID берем реальный (если есть)
+                id: serverOrderId || Math.floor(100000000 + Math.random() * 900000000),
                 contact: { name: 'Гость', surname: '', phone: '' },
                 delivery: { method: 'Не указано', address: '' },
-                payment: { type: 'seller_privat', label: 'seller_privat' }, // Пример для теста
+                payment: { type: 'seller_privat', label: 'seller_privat' },
                 total: '0 ₴',
                 comment: ''
             };
 
+            // ВАЖНО: Если сервер передал ID, принудительно используем его,
+            // даже если в localStorage лежал старый номер
+            if (serverOrderId) {
+                order.id = serverOrderId;
+            }
+
             // Заполнение полей
             document.getElementById('orderNum').textContent = order.id;
-            document.getElementById('fopOrderNum').textContent = '#' + order.id; // Для ФОП
+            document.getElementById('fopOrderNum').textContent = '#' + order.id;
 
             document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
             document.getElementById('osCustomerPhone').textContent = order.contact.phone;
