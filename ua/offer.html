@@ -1,0 +1,467 @@
+﻿<!doctype html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RadioBox — Публічний договір (оферта)</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+</head>
+<body>
+
+    <!-- ================= CART DRAWER ================ -->
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Кошик">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Кошик</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрити">×</button>
+            </header>
+            <div class="cart-drawer__body">
+                <div class="cart-empty">
+                    <div class="cart-empty__title">Кошик порожній</div>
+                    <div class="cart-empty__text">Перегляньте наш каталог — точно знайдете щось особливе для себе!</div>
+                    <a href="#" class="cart-empty__cta" data-cart-close>До покупок</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- ============================================= -->
+    <!-- ===== Верхня темна смуга ===== -->
+    <div class="b-head-control-panel__container" data-qaid="header-block">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="#" lang="uk" hreflang="uk" aria-current="page">UA</a>
+                <span class="sep">|</span>
+                <a href="../ru/offer.html" lang="ru" hreflang="ru">RU</a>
+            </div>
+
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 відгуки</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Кошик</span>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Верхня темна смуга ===== -->
+    <!-- ===== Сіра смуга ===== -->
+    <div class="b-contacts-bar">
+        <div class="container contacts-inner">
+            <div class="phones">
+                <a href="tel:+380930728887">+380 (93) 072-88-87</a>
+                <a href="tel:+380501755718">+380 (50) 175-57-18</a>
+            </div>
+            <div class="worktime">
+                <a href="#">Графік роботи</a>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Сіра смуга ===== -->
+    <!-- ===== Біла смуга ===== -->
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="Логотип RadioBox" />
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <form class="search-wide" action="#" method="get" role="search">
+                <input type="text" name="q" placeholder="Пошук..." aria-label="Пошук по каталогу">
+                <button type="submit" class="search-btn" aria-label="Знайти">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                        <path d="M20 20 L16.65 16.65" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Кошик</span>
+            </a>
+        </div>
+    </div>
+    <!-- ===== /Біла смуга ===== -->
+    <!-- ===== Синя шапка (навігація) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Головна</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html">
+                            Товари
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльне обладнання</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Все для ремонту, тестери, інструменти</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Витратні матеріали</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осцилографи</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Програматори</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Вимірювальні прилади (мультиметри, тестери, щупи)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радіомодулі</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радіодеталі</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабелі, розʼєми, штекери</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Джерела живлення</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">Про нас</a></li>
+                    <li><a href="contacts.html">Контакти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===== Двоколонкова область ===== -->
+    <section class="home-layout container">
+        <!-- Ліва колонка -->
+        <aside class="home-left">
+            <!-- МЕНЮ (акордеони) -->
+            <div class="side-card menu-card">
+                <div class="side-card__title">МЕНЮ</div>
+                <ul class="menu-list">
+
+                    <!-- ТОВАРИ -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-products" aria-label="Розгорнути розділ «Товари»"></button>
+                            <a href="products.html" class="menu-link"><span class="menu-link__text">Товари</span></a>
+                        </div>
+
+                        <div id="sub-products" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="type_of_product.html?cat=solder" class="submenu-link">Паяльне обладнання</a></li>
+                                <li><a href="type_of_product.html?cat=repair" class="submenu-link">Все для ремонту, тестери, інструменти</a></li>
+                                <li><a href="type_of_product.html?cat=consum" class="submenu-link">Витратні матеріали</a></li>
+                                <li><a href="type_of_product.html?cat=osc" class="submenu-link">Осцилографи</a></li>
+                                <li><a href="type_of_product.html?cat=prog" class="submenu-link">Програматори</a></li>
+                                <li><a href="type_of_product.html?cat=meas" class="submenu-link">Вимірювальні прилади (мультиметри, тести, щупи)</a></li>
+
+                                <!-- Радіомодулі (є підрівень) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiomodules" aria-label="Розгорнути «Радіомодулі»"></button>
+                                        <a href="type_of_product.html?cat=rmods" class="submenu-link">Радіомодулі</a>
+                                    </div>
+                                    <div id="sub-radiomodules" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rmods&sub=dcconv" class="submenu-link">Перетворювачі напруги</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <!-- Радіодеталі (підкатегорії) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiodetails" aria-label="Розгорнути «Радіодеталі»"></button>
+                                        <a href="type_of_product.html?cat=rparts" class="submenu-link">Радіодеталі</a>
+                                    </div>
+                                    <div id="sub-radiodetails" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rparts&sub=resistors" class="submenu-link">Резистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=pots" class="submenu-link">Потенціометри</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=capacitors" class="submenu-link">Конденсатори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=transistors" class="submenu-link">Транзистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=leds" class="submenu-link">Світлодіоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=diodes" class="submenu-link">Діоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=zener" class="submenu-link">Стабілітрони</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=ics" class="submenu-link">Інтегральні мікросхеми</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=switches" class="submenu-link">Перемикачі</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=crystals" class="submenu-link">Кварцові резонатори</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li><a href="type_of_product.html?cat=cables" class="submenu-link">Кабелі, розʼєми, штекери</a></li>
+                                <li><a href="type_of_product.html?cat=psu" class="submenu-link">Джерела живлення</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Про нас -->
+                    <li class="menu-li">
+                        <a href="about.html" class="menu-link"><span class="menu-link__text">Про нас</span></a>
+                    </li>
+
+                    <!-- Відгуки -->
+                    <li class="menu-li">
+                        <a href="reviews.html" class="menu-link"><span class="menu-link__text">Відгуки</span></a>
+                    </li>
+
+                    <!-- Повернення та обмін -->
+                    <li class="menu-li has-accordion open">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="true" aria-controls="sub-returns" aria-label="Розгорнути розділ «Повернення та обмін»"></button>
+                            <a href="return_policy.html" class="menu-link active"><span class="menu-link__text">Повернення та обмін</span></a>
+                        </div>
+
+                        <div id="sub-returns" class="submenu">
+                            <ul class="submenu-list">
+                                <li><a href="offer.html" class="submenu-link" aria-current="page">Договір публічної оферти</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- КОНТАКТИ -->
+            <div class="side-card contacts-card">
+                <div class="side-card__title">КОНТАКТИ</div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОМПАНІЯ</div>
+                    <div class="contact-value">
+                        <img src="../assets/icons/company.png" alt="Компанія" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                        Інтернет-магазин «RadioBox»
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОНТАКТНА ОСОБА</div>
+                    <div class="contact-value"><span class="ci ci-user" aria-hidden="true"></span>Сергій Бугаєнко</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">АДРЕСА</div>
+                    <div class="contact-value"><span class="ci ci-pin" aria-hidden="true"></span>м. Шостка, Україна</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ТЕЛЕФОНИ</div>
+                    <div class="contact-value stack">
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380930728887">+380 (93) 072-88-87</a></div>
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380501755718">+380 (50) 175-57-18</a></div>
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ДОДАТКОВІ ВИДИ ЗВ’ЯЗКУ</div>
+                    <div class="contact-value stack">
+                        <div>
+                            <img src="../assets/icons/mail.png" alt="Email" class="contact-icon">
+                            <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a>
+                        </div>
+                        <div>
+                            <img src="../assets/icons/viber_under_cursor.png" alt="Viber" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                            <a href="viber://chat?number=%2B380930728887" title="Відкрити чат у Viber">+380930728887</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Права колонка -->
+        <div class="home-right">
+
+            <!-- Хлібні крихти -->
+            <nav class="breadcrumbs" aria-label="Хлібні крихти">
+                <a class="crumb-home" href="index.html" aria-label="Головна">🏠</a>
+                <span class="crumb-sep" aria-hidden="true">›</span>
+                <a href="return_policy.html">Умови повернення та обміну</a>
+                <span class="crumb-sep" aria-hidden="true">›</span>
+                <a class="crumb-current" href="offer.html" aria-current="page">Договір публічної оферти</a>
+            </nav>
+
+            <!-- Контент договору -->
+            <section class="contract">
+                <p class="h-big">ПУБЛІЧНИЙ ДОГОВІР (ОФЕРТА)</p>
+                <p class="h-lead">на замовлення, купівлю-продаж і доставку товарів</p>
+
+                <p>Цей договір є офіційною та публічною пропозицією Продавця укласти договір купівлі-продажу Товару, представленого на сайті https://radiobox.in.ua. Даний договір є публічним, тобто відповідно до статті 633 Цивільного кодексу України, його умови є однаковими для всіх покупців незалежно від їх статусу (фізична особа, юридична особа, фізична особа-підприємець) без надання переваги одному покупцю перед іншим. Шляхом укладення цього Договору покупець в повному обсязі приймає умови та порядок оформлення замовлення, оплати товару, доставки товару, повернення товару, відповідальності за недобросовісне замовлення та усі інші умови договору. Договір вважається укладеним з моменту натискання кнопки «Підтвердити Замовлення» на сторінці оформлення замовлення в Розділі «Кошик» і отримання Покупцем від Продавця підтвердження замовлення в електронному вигляді.</p>
+
+                <p class="h-sec"><strong>1. Визначення термінів</strong></p>
+                <p>1.1. <em>Публічна оферта</em> (далі - «Оферта») — публічна пропозиція Продавця, адресована невизначеному колу осіб, укласти з Продавцем договір купівлі-продажу товару дистанційним способом (далі — «Договір») на умовах, що містяться в цій Оферті.</p>
+                <p>1.2. <em>Товар або Послуга</em> — об'єкт угоди сторін, який був обраний покупцем на сайті Інтернет-магазину та поміщений у кошик, або вже придбаний Покупцем у Продавця дистанційним способом.</p>
+                <p>1.3. <em>Інтернет-магазин</em> — сайт Продавця за адресою https://radiobox.in.ua, створений для укладення договорів роздрібної та оптової купівлі-продажу на підставі ознайомлення Покупця із запропонованим Продавцем описом Товару за допомогою мережі Інтернет.</p>
+                <p>1.4. <em>Покупець</em> — дієздатна фізична особа, яка досягла 18 років, отримує інформацію від Продавця, розміщує замовлення щодо купівлі товару, що представлений на сайті Інтернет-магазину для цілей, що не пов'язані зі здійсненням підприємницької діяльності, або юридична особа чи фізична особа-підприємець.</p>
+                <p>1.5. <em>Продавець</em> — ФОП Бугаєнко Сергій Анатолійович (ідентифікаційний код 2950600630), юридична особа, яка створена і діє відповідно до чинного законодавства України, місцезнаходження: Україна, м. Харків, пр. Ювілейний, буд. 76.</p>
+
+                <p class="h-sec"><strong>2. Предмет Договору</strong></p>
+                <p>2.1. Продавець зобов’язується передати у власність Покупцю Товар, а Покупець зобов’язується оплатити і прийняти Товар на умовах цього Договору.</p>
+                <p>2.2. Датою укладення Договору-оферти (акцептом оферти) та моментом повного й беззаперечного прийняття Покупцем умов Договору вважається дата заповнення Покупцем форми замовлення, розташованої на сайті Інтернет-магазину, за умови отримання Покупцем від Продавця підтвердження замовлення в електронному вигляді.</p>
+
+                <p class="h-sec"><strong>3. Оформлення Замовлення</strong></p>
+                <p>3.1. Покупець самостійно оформлює замовлення в Інтернет-магазині через форму «Кошика», або зробивши замовлення електронною поштою чи за номером телефону, вказаним в розділі контактів Інтернет-магазину.</p>
+                <p>3.2. Продавець має право відмовитися від передання замовлення Покупцеві у випадку, якщо відомості, вказані Покупцем під час оформлення замовлення, є неповними або викликають підозру щодо їх дійсності.</p>
+                <p>3.3. При оформленні замовлення на сайті Інтернет-магазину Покупець зобов'язується надати наступну обов’язкову інформацію, необхідну Продавцю для виконання замовлення:</p>
+                <ul class="bullets">
+                    <li>прізвище, ім'я;</li>
+                    <li>адреса доставки (якщо доставка на адресу Покупця);</li>
+                    <li>контактний телефон;</li>
+                    <li>ідентифікаційний код (для юр. осіб і ФОП).</li>
+                </ul>
+                <p>3.4. Найменування, кількість, артикул та ціна обраного Покупцем Товару вказуються у кошику Покупця на сайті Інтернет-магазину.</p>
+                <p>3.5. Якщо будь-якій із Сторін потрібна додаткова інформація, вона має право запросити її в іншої сторони. У разі її ненадання Продавець не несе відповідальності за якість обслуговування.</p>
+                <p>3.6. При оформленні замовлення через оператора Покупець також зобов'язаний надати інформацію, зазначену в п. 3.3–3.4.</p>
+                <p>3.7. Прийняття умов оферти здійснюється шляхом внесення відповідних даних у реєстраційну форму або при оформленні Замовлення через оператора. Після оформлення Замовлення через Оператора дані про Покупця вносяться до бази даних Продавця.</p>
+                <p>3.8. Покупець несе відповідальність за достовірність наданої інформації при оформленні Замовлення.</p>
+                <p>3.9. Укладаючи Договір, тобто акцептуючи умови цієї пропозиції шляхом оформлення Замовлення, Покупець підтверджує:</p>
+                <p>а) Повне ознайомлення і згоду з умовами цієї оферти;</p>
+                <p>б) Дозвіл на обробку, зберігання та передачу персональних даних без обмеження строку дії. Він повідомлений про права згідно із Законом України «Про захист персональних даних» і згоден з передачею даних третім особам для виконання умов Договору.</p>
+
+                <p class="h-sec"><strong>4. Ціна і Доставка Товару</strong></p>
+                <p>4.1. Ціни визначаються Продавцем і зазначені на сайті у гривнях.</p>
+                <p>4.2. Ціни можуть змінюватися Продавцем в односторонньому порядку, окрім випадків, коли товар вже оплачений Покупцем.</p>
+                <p>4.3. Вартість доставки не включена у ціну товару і оплачується Покупцем за тарифами перевізника.</p>
+                <p>4.4. При замовленні доставки на адресу Покупця її вартість також оплачується окремо.</p>
+                <p>4.5. Продавець може вказати орієнтовну вартість доставки на запит Покупця.</p>
+                <p>4.6. Зобов'язання Покупця щодо оплати вважаються виконаними після надходження коштів на рахунок Продавця.</p>
+                <p>4.7. Розрахунки між Продавцем і Покупцем за Товар здійснюються способами, зазначеними на сайті Інтернет-магазину в розділі «Оплата і Доставка».</p>
+                <p>4.8. При отриманні товару Покупець зобов'язаний перевірити його кількість, комплектність, якість і термін придатності у присутності представника служби доставки.</p>
+                <p>4.9. Підтвердження відсутності претензій оформлюється підписом Покупця у товарному чеку, замовленні або транспортній накладній.</p>
+                <p>4.10. Право власності та ризик випадкової втрати/пошкодження переходять до Покупця з моменту отримання товару або передачі його перевізнику.</p>
+
+                <p class="h-sec"><strong>5. Права та обов’язки Сторін</strong></p>
+                <p>5.1. Продавець зобов’язаний:</p>
+                <ul class="bullets">
+                    <li>Передати Покупцеві товар відповідно до умов цього Договору та замовлення Покупця;</li>
+                    <li>Не розголошувати приватну інформацію, крім випадків, передбачених законом і необхідністю виконання замовлення.</li>
+                </ul>
+                <p>5.2. Продавець має право:</p>
+                <ul class="bullets">
+                    <li>Змінювати умови договору та ціни на Товари і послуги в односторонньому порядку з публікацією на сайті. Усі зміни набирають чинності з моменту публікації.</li>
+                </ul>
+                <p>5.3. Покупець зобов’язаний:</p>
+                <ul class="bullets">
+                    <li>Ознайомитись з договором і цінами до оформлення замовлення;</li>
+                    <li>Надати всі необхідні дані для ідентифікації його як Покупця і достатні для доставки замовленого Товару.</li>
+                </ul>
+
+                <p class="h-sec"><strong>6. Повернення Товару</strong></p>
+                <p>6.1. Покупець має право повернути товар належної якості протягом 14 днів, якщо він не використовувався, збережено товарний вигляд, пломби, ярлики і чек. Перелік товарів, що не підлягають поверненню, затверджується Кабінетом Міністрів України.</p>
+                <p>6.2. Повернення коштів здійснюється протягом 30 днів після отримання товару Продавцем за умови дотримання умов повернення.</p>
+                <p>6.3. Повернення коштів здійснюється банківським переказом на рахунок Покупця.</p>
+                <p>6.4. Повернення товару здійснюється за рахунок Покупця.</p>
+                <p>6.5. У разі виявлення недоліків у Товарі в гарантійний строк Покупець має право висунути вимоги, передбачені Законом України «Про захист прав споживачів». При вимозі про безоплатне усунення недоліків строк обчислюється з дати отримання Товару Продавцем у своє розпорядження та фізичного доступу до нього.</p>
+                <p>6.6. Розгляд вимог, передбачених Законом України «Про захист прав споживачів», здійснюється Продавцем за умови надання Покупцем документів, передбачених чинним законодавством України. Продавець не відповідає за недоліки Товару, що виникли після його передачі Покупцю внаслідок порушення правил користування або зберігання, дій третіх осіб або непереборної сили.</p>
+                <p>6.7. Покупець не може відмовитися від товару належної якості, що має індивідуальні характеристики, якщо товар виготовлявся на замовлення.</p>
+                <p>6.8. Повернення здійснюється за адресою, зазначеною в розділі «Контакти» сайту.</p>
+
+                <p class="h-sec"><strong>7. Відповідальність</strong></p>
+                <p>7.1. Продавець не несе відповідальності за шкоду, заподіяну Покупцю або третім особам внаслідок неналежного монтажу, використання чи зберігання Товару, придбаного у Продавця.</p>
+                <p>7.2. Продавець не відповідає за несвоєчасне виконання замовлення у разі надання Покупцем недостовірних даних.</p>
+                <p>7.3. Продавець і Покупець несуть відповідальність за виконання своїх зобов’язань відповідно до чинного законодавства України та положень цього Договору.</p>
+                <p>7.4. Сторони звільняються від відповідальності у випадку форс-мажору: війна, стихійні лиха тощо. Сторона зобов’язана негайно повідомити іншу про настання таких обставин.</p>
+
+                <p class="h-sec"><strong>8. Конфіденційність і захист персональних даних</strong></p>
+                <p>8.1. Надаючи персональні дані, Покупець надає добровільну згоду на їх обробку без обмеження строку.</p>
+                <p>8.2. Продавець зобов’язується не розкривати отримані дані, за винятком передачі третім особам для виконання зобов’язань або за вимогою закону.</p>
+                <p>8.3. Покупець несе відповідальність за актуальність своїх даних. Продавець не відповідає за наслідки у разі їх невідповідності.</p>
+
+                <p class="h-sec"><strong>9. Інші умови</strong></p>
+                <p>9.1. Договір укладено на території України і діє відповідно до її законодавства.</p>
+                <p>9.2. Усі спори вирішуються шляхом переговорів. У разі недосягнення згоди — у судовому порядку за законодавством України.</p>
+                <p>9.3. Продавець має право вносити зміни до договору в односторонньому порядку. Зміни також можливі за взаємною згодою сторін у порядку, передбаченому чинним законодавством України.</p>
+
+                <p class="h-sec">АДРЕСА ТА РЕКВІЗИТИ ПРОДАВЦЯ</p>
+                <p>
+                    ФОП Бугаєнко Сергій Анатолійович<br>
+                    Україна, 61112, Харківська обл., м. Харків, пр. Ювілейний, буд. 76
+                </p>
+                <p>
+                    ІПН 2950600630<br>
+                    тел. +380930728887
+                </p>
+
+                <!-- Кнопка «Поділитися у Facebook» -->
+                <div class="about__share">
+                    <a class="social-btn" href="https://www.facebook.com/share.php?u=https://radiobox.in.ua/ua/cp107454-dogovor-publichnoj-oferty.html" target="_blank" rel="noopener" aria-label="Поділитися в Facebook" title="Поделиться в Facebook">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078V12.07h3.047V9.412c0-3.007 1.792-4.668 4.533-4.668 1.312 0 2.686.235 2.686.235v2.953h-1.514c-1.492 0-1.955.927-1.955 1.875v2.262h3.328l-.532 3.493h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
+                        </svg>
+                    </a>
+                </div>
+
+            </section>
+        </div>
+    </section>
+
+    <!-- Футер -->
+    <footer class="site-footer" role="contentinfo">
+        <div class="container footer-inner">
+            <section class="footer-about">
+                <h4>RadioBox</h4>
+                <p>Інтернет-магазин радіодеталей, інструментів та вимірювальної техніки.</p>
+                <p>Швидке відправлення, великий вибір способів оплати й доставки, якісні товари.</p>
+            </section>
+
+            <nav class="footer-nav" aria-label="Інформація">
+                <h4 style="margin:0 0 6px; font-size:14px; color:#0f172a;">Інформація</h4>
+                <ul style="margin:0; padding:0; list-style:none; font-size:13px; color:#374151;">
+                    <li><a href="index.html" style="text-decoration:underline; text-underline-offset:2px;">Головна</a></li>
+                    <li><a href="products.html" style="text-decoration:underline; text-underline-offset:2px;">Товари</a></li>
+                    <li><a href="about.html" style="text-decoration:underline; text-underline-offset:2px;">Про нас</a></li>
+                    <li><a href="contacts.html" style="text-decoration:underline; text-underline-offset:2px;">Контакти</a></li>
+                    <li><a href="return_policy.html" style="text-decoration:underline; text-underline-offset:2px;">Повернення та обмін</a></li>
+                    <li><a href="offer.html" style="text-decoration:underline; text-underline-offset:2px;">Договір публічної оферти</a></li>
+                </ul>
+            </nav>
+
+            <section class="footer-contacts">
+                <p><strong>Адреса:</strong> м. Шостка, Україна</p>
+                <p><strong>Телефон:</strong> <a href="tel:+380930728887">+380 (93) 072-88-87</a></p>
+                <p><strong>Телефон:</strong> <a href="tel:+380501755718">+380 (50) 175-57-18</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a></p>
+                <p><strong>Viber:</strong> <a href="viber://chat?number=%2B380930728887">+380930728887</a></p>
+            </section>
+        </div>
+
+        <div class="copy">© 2025 RadioBox • Сайт створено інтернет-магазином «RadioBox».</div>
+    </footer>
+
+    <!-- Плаваюча кнопка Viber -->
+    <a class="float-viber"
+       href="viber://chat?number=%2B380930728887"
+       aria-label="Відкрити чат у Viber"
+       title="Відкрити чат у Viber">
+        <img class="vb vb--idle" src="../assets/icons/viber_without_cursor.png" alt="Viber" width="44" height="44">
+        <img class="vb vb--hover" src="../assets/icons/viber_under_cursor.png" alt="" aria-hidden="true" width="44" height="44">
+    </a>
+
+    <script src="../script.js" defer></script>
+
+    <!-- ===== MODAL: Графік роботи ===== -->
+    <div class="hours-modal" aria-hidden="true">
+        <div class="hours-modal__backdrop" data-hours-close></div>
+        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
+            <header class="hours-modal__header">
+                <h2 id="hoursTitle" class="hours-modal__title">Графік роботи</h2>
+                <button type="button" class="hours-modal__close" aria-label="Закрити" data-hours-close>×</button>
+            </header>
+            <div class="hours-modal__body">
+                <table class="hours-table">
+                    <thead>
+                        <tr><th scope="col">День</th><th scope="col">Час роботи</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><th scope="row">Понеділок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Вівторок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Середа</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Четвер</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Пʼятниця</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Субота</th><td>10:00 – 18:00</td></tr>
+                        <tr><th scope="row">Неділя</th><td>10:00 – 15:00</td></tr>
+                    </tbody>
+                </table>
+                <p class="hours-note">* Час вказано для регіону: Україна, м. Шостка</p>
+            </div>
+        </section>
+    </div>
+    <!-- ================================= -->
+
+    <!-- Бокові картинки -->
+    <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
+    <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
+
+</body>
+</html>

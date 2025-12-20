@@ -1,0 +1,582 @@
+﻿<!doctype html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RadioBox — Головна</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+    <!-- Міні-стилі для блоку "RadioBox" і іконок соцмереж -->
+    <style>
+        .about {
+            margin-top: 26px;
+        }
+
+        .about__text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #0f172a;
+        }
+
+            .about__text p {
+                margin: 0 0 12px;
+            }
+
+        .about__share {
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .social-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid #e6e8ed;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: inherit;
+            transition: background-color .15s ease, border-color .15s ease, transform .06s ease;
+        }
+
+            .social-btn:hover {
+                background: #f5f7fb;
+                border-color: #d9dee5;
+            }
+
+            .social-btn:active {
+                transform: scale(.98);
+            }
+
+            .social-btn svg {
+                width: 18px;
+                height: 18px;
+                display: block;
+            }
+    </style>
+</head>
+<body>
+
+    <!-- ================= CART DRAWER (виїжджаючий кошик) ================ -->
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Кошик">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Кошик</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрити">×</button>
+            </header>
+
+            <div class="cart-drawer__body">
+                <div class="cart-empty">
+                    <div class="cart-empty__title">Кошик порожній</div>
+                    <div class="cart-empty__text">
+                        Перегляньте наш каталог — точно знайдете щось особливе для себе!
+                    </div>
+                    <a href="#" class="cart-empty__cta" data-cart-close>До покупок</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- =================================================================== -->
+    <!-- ===== Верхня темна смуга ===== -->
+    <div class="b-head-control-panel__container" data-qaid="header-block">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="#" lang="uk" hreflang="uk" aria-current="page">UA</a>
+                <span class="sep">|</span>
+                <a href="../ru/index.html" lang="ru" hreflang="ru">RU</a>
+            </div>
+
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 відгуки</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Кошик</span>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Верхня темна смуга ===== -->
+    <!-- ===== Сіра смуга: телефони + графік ===== -->
+    <div class="b-contacts-bar">
+        <div class="container contacts-inner">
+            <div class="phones">
+                <a href="tel:+380930728887">+380 (93) 072-88-87</a>
+                <a href="tel:+380501755718">+380 (50) 175-57-18</a>
+            </div>
+            <div class="worktime">
+                <a href="#">Графік роботи</a>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Сіра смуга ===== -->
+    <!-- ===== Біла смуга: логотип, пошук, кошик ===== -->
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="Логотип RadioBox" />
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <form class="search-wide" action="#" method="get" role="search">
+                <input type="text" name="q" placeholder="Пошук..." aria-label="Пошук по каталогу">
+                <button type="submit" class="search-btn" aria-label="Знайти">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                        <path d="M20 20 L16.65 16.65" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Кошик</span>
+            </a>
+        </div>
+    </div>
+    <!-- ===== /Біла смуга ===== -->
+    <!-- ===== Синя шапка (навігація) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Головна</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html">
+                            Товари
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльне обладнання</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Все для ремонту, тестери, інструменти</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Витратні матеріали</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осцилографи</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Програматори</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Вимірювальні прилади (мультиметри, тестери, щупи)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радіомодулі</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радіодеталі</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабелі, розʼєми, штекери</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Джерела живлення</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">Про нас</a></li>
+                    <li><a href="contacts.html">Контакти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===== Двоколонкова область ===== -->
+    <section class="home-layout container">
+        <!-- Ліва колонка -->
+        <aside class="home-left">
+            <!-- МЕНЮ (акордеони) -->
+            <div class="side-card menu-card">
+                <div class="side-card__title">МЕНЮ</div>
+                <ul class="menu-list">
+
+                    <!-- ТОВАРИ -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-products" aria-label="Розгорнути розділ «Товари»"></button>
+                            <a href="products.html" class="menu-link"><span class="menu-link__text">Товари</span></a>
+                        </div>
+
+                        <div id="sub-products" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="type_of_product.html?cat=solder" class="submenu-link">Паяльне обладнання</a></li>
+                                <li><a href="type_of_product.html?cat=repair" class="submenu-link">Все для ремонту, тестери, інструменти</a></li>
+                                <li><a href="type_of_product.html?cat=consum" class="submenu-link">Витратні матеріали</a></li>
+                                <li><a href="type_of_product.html?cat=osc" class="submenu-link">Осцилографи</a></li>
+                                <li><a href="type_of_product.html?cat=prog" class="submenu-link">Програматори</a></li>
+                                <li><a href="type_of_product.html?cat=meas" class="submenu-link">Вимірювальні прилади (мультиметри, тести, щупи)</a></li>
+
+                                <!-- Радіомодулі (є підрівень) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiomodules" aria-label="Розгорнути «Радіомодулі»"></button>
+                                        <a href="type_of_product.html?cat=rmods" class="submenu-link">Радіомодулі</a>
+                                    </div>
+                                    <div id="sub-radiomodules" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rmods&sub=dcconv" class="submenu-link">Перетворювачі напруги</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <!-- Радіодеталі (підкатегорії) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiodetails" aria-label="Розгорнути «Радіодеталі»"></button>
+                                        <a href="type_of_product.html?cat=rparts" class="submenu-link">Радіодеталі</a>
+                                    </div>
+                                    <div id="sub-radiodetails" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rparts&sub=resistors" class="submenu-link">Резистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=pots" class="submenu-link">Потенціометри</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=capacitors" class="submenu-link">Конденсатори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=transistors" class="submenu-link">Транзистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=leds" class="submenu-link">Світлодіоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=diodes" class="submenu-link">Діоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=zener" class="submenu-link">Стабілітрони</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=ics" class="submenu-link">Інтегральні мікросхеми</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=switches" class="submenu-link">Перемикачі</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=crystals" class="submenu-link">Кварцові резонатори</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li><a href="type_of_product.html?cat=cables" class="submenu-link">Кабелі, розʼєми, штекери</a></li>
+                                <li><a href="type_of_product.html?cat=psu" class="submenu-link">Джерела живлення</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Про нас -->
+                    <li class="menu-li">
+                        <a href="about.html" class="menu-link"><span class="menu-link__text">Про нас</span></a>
+                    </li>
+
+                    <!-- Відгуки -->
+                    <li class="menu-li">
+                        <a href="reviews.html" class="menu-link"><span class="menu-link__text">Відгуки</span></a>
+                    </li>
+
+                    <!-- Повернення та обмін -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-returns" aria-label="Розгорнути розділ «Повернення та обмін»"></button>
+                            <a href="return_policy.html" class="menu-link"><span class="menu-link__text">Повернення та обмін</span></a>
+                        </div>
+                        <div id="sub-returns" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="offer.html" class="submenu-link">Договір публічної оферти</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- КОНТАКТИ -->
+            <div class="side-card contacts-card">
+                <div class="side-card__title">КОНТАКТИ</div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОМПАНІЯ</div>
+                    <div class="contact-value">
+                        <img src="../assets/icons/company.png"
+                             alt="Компанія"
+                             width="18" height="18"
+                             style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                        Інтернет-магазин «RadioBox»
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОНТАКТНА ОСОБА</div>
+                    <div class="contact-value"><span class="ci ci-user" aria-hidden="true"></span>Сергій Бугаєнко</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">АДРЕСА</div>
+                    <div class="contact-value"><span class="ci ci-pin" aria-hidden="true"></span>м. Шостка, Україна</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ТЕЛЕФОНИ</div>
+                    <div class="contact-value stack">
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380930728887">+380 (93) 072-88-87</a></div>
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380501755718">+380 (50) 175-57-18</a></div>
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ДОДАТКОВІ ВИДИ ЗВ’ЯЗКУ</div>
+                    <div class="contact-value stack">
+                        <div>
+                            <img src="../assets/icons/mail.png" alt="Email" class="contact-icon">
+                            <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a>
+                        </div>
+                        <div>
+                            <img src="../assets/icons/viber_under_cursor.png"
+                                 alt="Viber"
+                                 width="18" height="18"
+                                 style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                            <a href="viber://chat?number=%2B380930728887"
+                               title="Відкрити чат у Viber">+380930728887</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ПРАВА КОЛОНКА -->
+        <div class="home-right">
+            <div id="bannerSlider" class="rb-slider" data-path="../assets/banners/">
+                <img src="../assets/banners/banner1.jpg" alt="Банер 1" width="1600" height="260">
+                <img src="../assets/banners/banner2.webp" alt="Банер 2" width="1600" height="260">
+            </div>
+
+            <!-- ===== RadioBox інфоблок ===== -->
+            <section class="about">
+                <h2 class="groups__title">RadioBox</h2>
+
+                <div class="about__text">
+                    <p>
+                        RadioBox – спеціалізований інтернет-магазин, де радіоаматори, фахівці-електронщики, ремонтні та сервісні центри можуть отримати кваліфіковану консультацію і купити за найкращими цінами радіотехнічне обладнання, інструменти, вимірювальні прилади для вирішення своїх завдань. У каталозі нашого магазину зібрані товари для обслуговування, ремонту та збирання техніки й електроніки.
+                    </p>
+                    <p>
+                        Ключові принципи обслуговування: висока швидкість обробки замовлення, доброзичливе ставлення, доступність усіма каналами зв’язку, вибір способів оплати та доставки.
+                    </p>
+                    <p>
+                        На сайті представлені перевірені та оптимальні за співвідношенням ціна/якість товари. Ми регулярно оновлюємо й доповнюємо асортимент. Усі ключові новинки проходять наш особистий тест-драйв перед тим, як їх буде запропоновано нашим Покупцям.
+                    </p>
+                </div>
+
+                <div class="about__share">
+                    <a class="social-btn" href="https://www.facebook.com/share.php?u=https://radiobox.in.ua/ua/" target="_blank" rel="noopener" aria-label="Поділитися у Facebook" title="Поділитися у Facebook">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078V12.07h3.047V9.412c0-3.007 1.792-4.668 4.533-4.668 1.312 0 2.686.235 2.686.235v2.953h-1.514c-1.492 0-1.955.927-1.955 1.875v2.262h3.328l-.532 3.493h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
+                        </svg>
+                    </a>
+                </div>
+            </section>
+            <!-- ===== /RadioBox інфоблок ===== -->
+
+            <section class="groups">
+                <h2 class="groups__title">Групи товарів</h2>
+
+                <div class="groups__grid">
+                    <a class="group-card" href="type_of_product.html?cat=solder">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/payalnoe-oborudovanie.png" alt="Паяльне обладнання">
+                        </div>
+                        <div class="group-card__title">ПАЯЛЬНЕ ОБЛАДНАННЯ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=repair">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/vse-dlya-remonta.png" alt="Усе для ремонту">
+                        </div>
+                        <div class="group-card__title">УСЕ ДЛЯ РЕМОНТУ, ТЕСТЕРИ, ІНСТРУМЕНТИ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=consum">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/raskhodnye-materialy.png" alt="Витратні матеріали">
+                        </div>
+                        <div class="group-card__title">ВИТРАТНІ МАТЕРІАЛИ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=osc">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/oscillografy.png" alt="Осцилографи">
+                        </div>
+                        <div class="group-card__title">ОСЦИЛОГРАФИ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=prog">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/programmatory.png" alt="Програматори">
+                        </div>
+                        <div class="group-card__title">ПРОГРАМАТОРИ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=meas">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/izmeritelnye-pribory.png" alt="Вимірювальні прилади">
+                        </div>
+                        <div class="group-card__title">ВИМІРЮВАЛЬНІ ПРИЛАДИ (МУЛЬТИМЕТРИ, ТЕСТЕРИ, ЩУПИ)</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=rmods">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/radiomoduli.png" alt="Радіомодулі">
+                        </div>
+                        <div class="group-card__title">РАДІОМОДУЛІ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=rparts">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/radiodetali.png" alt="Радіодеталі">
+                        </div>
+                        <div class="group-card__title">РАДІОДЕТАЛІ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=cables">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/kabeli-razemy-shtekery.png" alt="Кабелі, роз’єми, штекери">
+                        </div>
+                        <div class="group-card__title">КАБЕЛІ, РОЗ’ЄМИ, ШТЕКЕРИ</div>
+                    </a>
+
+                    <a class="group-card" href="type_of_product.html?cat=psu">
+                        <div class="group-card__img">
+                            <img src="../assets/photos/groups_of_products/istochniki-pitaniya.png" alt="Джерела живлення">
+                        </div>
+                        <div class="group-card__title">ДЖЕРЕЛА ЖИВЛЕННЯ</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- ===== Вітрина ===== -->
+            <section class="showcase">
+                <h2 class="showcase__title">Вітрина</h2>
+
+                <div id="homeShowcase" class="showcase__grid"></div>
+
+                <div class="showcase__more">
+                    <a href="products.html">Всі товари &gt;</a>
+                </div>
+
+                <div id="viewed-widget" style="margin-top: 40px;"></div>
+
+            </section>
+            <!-- ===== /Вітрина ===== -->
+
+        </div>
+    </section>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="container footer-inner">
+            <section class="footer-about">
+                <h4>RadioBox</h4>
+                <p>Інтернет-магазин радіодеталей, інструментів та вимірювальної техніки.</p>
+                <p>Швидке відправлення, великий вибір способів оплати й доставки, якісні товари.</p>
+            </section>
+
+            <nav class="footer-nav" aria-label="Інформація">
+                <h4 style="margin:0 0 6px; font-size:14px; color:#0f172a;">Інформація</h4>
+                <ul style="margin:0; padding:0; list-style:none; font-size:13px; color:#374151;">
+                    <li><a href="index.html" style="text-decoration:underline; text-underline-offset:2px;">Головна</a></li>
+                    <li><a href="products.html" style="text-decoration:underline; text-underline-offset:2px;">Товари</a></li>
+                    <li><a href="about.html" style="text-decoration:underline; text-underline-offset:2px;">Про нас</a></li>
+                    <li><a href="contacts.html" style="text-decoration:underline; text-underline-offset:2px;">Контакти</a></li>
+                    <li><a href="return_policy.html" style="text-decoration:underline; text-underline-offset:2px;">Повернення та обмін</a></li>
+                    <li><a href="offer.html" style="text-decoration:underline; text-underline-offset:2px;">Договір публічної оферти</a></li>
+                </ul>
+            </nav>
+
+            <section class="footer-contacts">
+                <p><strong>Адреса:</strong> м. Шостка, Україна</p>
+                <p><strong>Телефон:</strong> <a href="tel:+380930728887">+380 (93) 072-88-87</a></p>
+                <p><strong>Телефон:</strong> <a href="tel:+380501755718">+380 (50) 175-57-18</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a></p>
+                <p><strong>Viber:</strong> <a href="viber://chat?number=%2B380930728887">+380930728887</a></p>
+            </section>
+        </div>
+
+        <div class="copy">© 2025 RadioBox • Сайт створено інтернет-магазином «RadioBox».</div>
+    </footer>
+
+    <script src="../script.js" defer></script>
+
+    <!-- ===== MODAL: Графік роботи ===== -->
+    <div class="hours-modal" aria-hidden="true">
+        <div class="hours-modal__backdrop" data-hours-close></div>
+
+        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
+            <header class="hours-modal__header">
+                <h2 id="hoursTitle" class="hours-modal__title">Графік роботи</h2>
+                <button type="button" class="hours-modal__close" aria-label="Закрити" data-hours-close>×</button>
+            </header>
+
+            <div class="hours-modal__body">
+                <table class="hours-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">День</th>
+                            <th scope="col">Час роботи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><th scope="row">Понеділок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Вівторок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Середа</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Четвер</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">П’ятниця</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Субота</th><td>10:00 – 18:00</td></tr>
+                        <tr><th scope="row">Неділя</th><td>10:00 – 15:00</td></tr>
+                    </tbody>
+                </table>
+
+                <p class="hours-note">* Час указано для регіону: Україна, м. Шостка</p>
+            </div>
+        </section>
+    </div>
+    <!-- ================================= -->
+
+    <!-- Бокові картинки -->
+    <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
+    <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const grid = document.getElementById('homeShowcase');
+    if (!grid) return;
+
+    // Определяем текущий язык по URL или тегу html, чтобы взять правильную базу
+    const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
+    const LS_KEY = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+
+    let items = [];
+    try {
+        const s = localStorage.getItem(LS_KEY);
+        if (s) items = JSON.parse(s).items || [];
+    } catch (e) { console.error(e); }
+
+    if (!items.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Каталог обновляется...</div>';
+        return;
+    }
+
+    // ЛОГИКА АДМИН-ПАНЕЛИ (Витрина):
+    // 1. Берем только те, у которых on_index === true
+    let displayItems = items.filter(p => p.on_index === true);
+
+    // 2. Если вдруг таких нет (база старая), берем просто последние добавленные
+    if (displayItems.length === 0) {
+        displayItems = items;
+    }
+
+    // 3. Сортируем: сначала новые (по ID), потом берем первые 15
+    displayItems = displayItems.sort((a, b) => b.id - a.id).slice(0, 15);
+
+    // 4. Рендерим
+    grid.innerHTML = displayItems.map(p => {
+        const stClass = p.in_stock ? 'is-instock' : 'is-out';
+        const stText = isUA
+            ? (p.in_stock ? 'Готовий до відправки' : 'Немає в наявності')
+            : (p.in_stock ? 'Готово к отправке' : 'Нет в наличии');
+
+        const btnText = isUA ? 'Купити' : 'Купить';
+        const img = p.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='14' font-family='sans-serif'%3EPhoto%3C/text%3E%3C/svg%3E";
+
+        return `
+        <article class="product-card is-clickable" onclick="location.href='product.html?id=${p.id}'">
+            <div class="product-card__img">
+                 <img src="${img}" alt="${p.title}" loading="lazy">
+            </div>
+            <h3 class="product-card__title">${p.title}</h3>
+            <div class="product-card__meta">Code: <span>${p.sku}</span></div>
+            <div class="product-card__price">${p.price} ₴</div>
+            <div class="product-card__status ${stClass}">${stText}</div>
+            <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+        </article>
+        `;
+    }).join('');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,935 @@
+﻿<!doctype html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RadioBox — Категорія</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+    <style>
+        /* Кнопки переключення виду */
+        .view-btn {
+            border: 1px solid #d7dbe3;
+            background: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            line-height: 1
+        }
+
+            .view-btn svg {
+                width: 18px;
+                height: 18px;
+                display: block
+            }
+
+            .view-btn.is-active {
+                background: #0d2b4e;
+                color: #fff;
+                border-color: #0d2b4e
+            }
+        /* Списковий вид */
+        #catalog.list-view .showcase__grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        .product-card--list {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 12px 16px;
+            background: #fff;
+            border: 1px solid #e6e8ed;
+            border-radius: 12px
+        }
+
+            .product-card--list .product-card__img {
+                width: 140px
+            }
+
+                .product-card--list .product-card__img img {
+                    width: 120px;
+                    height: auto;
+                    object-fit: contain
+                }
+
+            .product-card--list .product-info {
+                min-width: 0
+            }
+
+            .product-card--list .product-card__title {
+                margin: 0 0 8px;
+                font-size: 16px
+            }
+
+            .product-card--list .product-card__price {
+                font-size: 20px;
+                font-weight: 700;
+                margin: 0 0 4px
+            }
+
+            .product-card--list .product-card__status {
+                margin: 0 0 6px
+            }
+
+            .product-card--list .product-meta-wrap {
+                font-size: 13px;
+                color: #6b7280
+            }
+
+            .product-card--list .product-cta {
+                justify-self: end
+            }
+
+            .product-card--list .product-card__buy {
+                min-width: 120px
+            }
+        /* Піднавігація підкатегорій */
+        .subcats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 8px 0 14px
+        }
+
+            .subcats a {
+                display: inline-block;
+                padding: 6px 10px;
+                border: 1px solid #d7dbe3;
+                border-radius: 999px;
+                background: #fff;
+                text-decoration: none;
+                color: #0f172a;
+                font-size: 13px
+            }
+
+                .subcats a[aria-current="page"] {
+                    background: #0d2b4e;
+                    border-color: #0d2b4e;
+                    color: #fff
+                }
+        /* FB кнопка для “meas” */
+        .social-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid #e6e8ed;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: inherit;
+            transition: background-color .15s,border-color .15s,transform .06s
+        }
+
+            .social-btn:hover {
+                background: #f5f7fb;
+                border-color: #d9dee5
+            }
+
+            .social-btn:active {
+                transform: scale(.98)
+            }
+
+            .social-btn svg {
+                width: 18px;
+                height: 18px;
+                display: block
+            }
+
+        .lead {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #0f172a;
+            margin: 6px 0 10px
+        }
+
+        .lead-row {
+            display: flex;
+            align-items: center;
+            gap: 10px
+        }
+
+        .catalog-empty {
+            padding: 16px;
+            border: 1px dashed #d7dbe3;
+            border-radius: 12px;
+            background: #fff;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        /* Кликабельные карточки товара */
+        .product-card.is-clickable {
+            cursor: pointer;
+        }
+
+            .product-card.is-clickable:hover {
+                border-color: #0d2b4e; /* если есть рамка — подсветится */
+                box-shadow: 0 0 0 3px rgba(13,43,78,.12); /* «рамка» без сдвига верстки */
+            }
+
+            .product-card.is-clickable:focus-visible {
+                outline: 2px solid #0d2b4e;
+                outline-offset: 2px; /* видимый фокус с клавиатуры */
+            }
+    </style>
+</head>
+<body>
+
+    <!-- ===== CART DRAWER ===== -->
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Кошик">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Кошик</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрити">×</button>
+            </header>
+            <div class="cart-drawer__body">
+                <div class="cart-empty">
+                    <div class="cart-empty__title">Кошик порожній</div>
+                    <div class="cart-empty__text">Перегляньте наш каталог — точно знайдете щось особливе для себе!</div>
+                    <a href="#" class="cart-empty__cta" data-cart-close>До покупок</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- ======================== -->
+    <!-- ===== Верхня темна смуга ===== -->
+    <div class="b-head-control-panel__container" data-qaid="header-block">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="#" lang="uk" hreflang="uk" aria-current="page">UA</a>
+                <span class="sep">|</span>
+                <!-- RU посилання оновимо скриптом, щоб зберегти ?cat/&sub -->
+                <a id="langRU" href="../ru/type_of_product.html" lang="ru" hreflang="ru">RU</a>
+            </div>
+
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 відгуків</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Кошик</span>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Верхня темна смуга ===== -->
+    <!-- ===== Сіра смуга ===== -->
+    <div class="b-contacts-bar">
+        <div class="container contacts-inner">
+            <div class="phones">
+                <a href="tel:+380930728887">+380 (93) 072-88-87</a>
+                <a href="tel:+380501755718">+380 (50) 175-57-18</a>
+            </div>
+            <div class="worktime">
+                <a href="#">Графік роботи</a>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Сіра смуга ===== -->
+    <!-- ===== Біла смуга ===== -->
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="Логотип RadioBox" />
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <form class="search-wide" action="#" method="get" role="search">
+                <input type="text" name="q" placeholder="Пошук..." aria-label="Пошук у каталозі">
+                <button type="submit" class="search-btn" aria-label="Знайти">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                        <path d="M20 20 L16.65 16.65" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Кошик</span>
+            </a>
+        </div>
+    </div>
+    <!-- ===== /Біла смуга ===== -->
+    <!-- ===== Синя шапка (навігація) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Головна</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html">
+                            Товари
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльне обладнання</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Все для ремонту, тестери, інструменти</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Витратні матеріали</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осцилографи</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Програматори</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Вимірювальні прилади (мультиметри, тестери, щупи)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радіомодулі</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радіодеталі</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабелі, розʼєми, штекери</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Джерела живлення</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">Про нас</a></li>
+                    <li><a href="contacts.html">Контакти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===== Двохколонна область ===== -->
+    <section class="home-layout container">
+        <!-- Ліва колонка -->
+        <aside class="home-left">
+            <div class="side-card menu-card">
+                <div class="side-card__title">МЕНЮ</div>
+                <ul class="menu-list">
+
+                    <!-- ТОВАРИ -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-products" aria-label="Розгорнути розділ «Товари»"></button>
+                            <a href="products.html" class="menu-link"><span class="menu-link__text">Товари</span></a>
+                        </div>
+
+                        <div id="sub-products" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="type_of_product.html?cat=solder" class="submenu-link">Паяльне обладнання</a></li>
+                                <li><a href="type_of_product.html?cat=repair" class="submenu-link">Все для ремонту, тестери, інструменти</a></li>
+                                <li><a href="type_of_product.html?cat=consum" class="submenu-link">Витратні матеріали</a></li>
+                                <li><a href="type_of_product.html?cat=osc" class="submenu-link">Осцилографи</a></li>
+                                <li><a href="type_of_product.html?cat=prog" class="submenu-link">Програматори</a></li>
+                                <li><a href="type_of_product.html?cat=meas" class="submenu-link">Вимірювальні прилади (мультиметри, тести, щупи)</a></li>
+
+                                <!-- Радіомодулі (є підрівень) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiomodules" aria-label="Розгорнути «Радіомодулі»"></button>
+                                        <a href="type_of_product.html?cat=rmods" class="submenu-link">Радіомодулі</a>
+                                    </div>
+                                    <div id="sub-radiomodules" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rmods&sub=dcconv" class="submenu-link">Перетворювачі напруги</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <!-- Радіодеталі (підкатегорії) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiodetails" aria-label="Розгорнути «Радіодеталі»"></button>
+                                        <a href="type_of_product.html?cat=rparts" class="submenu-link">Радіодеталі</a>
+                                    </div>
+                                    <div id="sub-radiodetails" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rparts&sub=resistors" class="submenu-link">Резистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=pots" class="submenu-link">Потенціометри</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=capacitors" class="submenu-link">Конденсатори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=transistors" class="submenu-link">Транзистори</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=leds" class="submenu-link">Світлодіоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=diodes" class="submenu-link">Діоди</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=zener" class="submenu-link">Стабілітрони</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=ics" class="submenu-link">Інтегральні мікросхеми</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=switches" class="submenu-link">Перемикачі</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=crystals" class="submenu-link">Кварцові резонатори</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li><a href="type_of_product.html?cat=cables" class="submenu-link">Кабелі, розʼєми, штекери</a></li>
+                                <li><a href="type_of_product.html?cat=psu" class="submenu-link">Джерела живлення</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Про нас -->
+                    <li class="menu-li">
+                        <a href="about.html" class="menu-link"><span class="menu-link__text">Про нас</span></a>
+                    </li>
+
+                    <!-- Відгуки -->
+                    <li class="menu-li">
+                        <a href="reviews.html" class="menu-link"><span class="menu-link__text">Відгуки</span></a>
+                    </li>
+
+                    <!-- Повернення та обмін -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-returns" aria-label="Розгорнути розділ «Повернення та обмін»"></button>
+                            <a href="return_policy.html" class="menu-link"><span class="menu-link__text">Повернення та обмін</span></a>
+                        </div>
+                        <div id="sub-returns" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="offer.html" class="submenu-link">Договір публічної оферти</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- КОНТАКТИ -->
+            <div class="side-card contacts-card">
+                <div class="side-card__title">КОНТАКТИ</div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОМПАНІЯ</div>
+                    <div class="contact-value">
+                        <img src="../assets/icons/company.png" alt="Компанія" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                        Інтернет-магазин «RadioBox»
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОНТАКТНА ОСОБА</div>
+                    <div class="contact-value"><span class="ci ci-user" aria-hidden="true"></span>Сергій Бугаєнко</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">АДРЕСА</div>
+                    <div class="contact-value"><span class="ci ci-pin" aria-hidden="true"></span>м. Шостка, Україна</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ТЕЛЕФОНИ</div>
+                    <div class="contact-value stack">
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380930728887">+380 (93) 072-88-87</a></div>
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380501755718">+380 (50) 175-57-18</a></div>
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ДОДАТКОВІ ВИДИ ЗВ’ЯЗКУ</div>
+                    <div class="contact-value stack">
+                        <div>
+                            <img src="../assets/icons/mail.png" alt="Email" class="contact-icon">
+                            <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a>
+                        </div>
+                        <div>
+                            <img src="../assets/icons/viber_under_cursor.png" alt="Viber" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                            <a href="viber://chat?number=%2B380930728887" title="Відкрити чат у Viber">+380930728887</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Права колонка -->
+        <div class="home-right" data-side-watch>
+            <!-- Хлібні крихти -->
+            <nav class="breadcrumbs" aria-label="Хлібні крихти">
+                <a class="crumb-home" href="index.html" aria-label="Головна">🏠</a>
+                <span class="crumb-sep" aria-hidden="true">›</span>
+                <a href="products.html">Товари</a>
+                <span class="crumb-sep" aria-hidden="true">›</span>
+                <span id="crumbCat" class="crumb-current"></span>
+                <span id="crumbSepSub" class="crumb-sep" aria-hidden="true" hidden>›</span>
+                <span id="crumbSub" class="crumb-current" hidden></span>
+            </nav>
+
+            <!-- Заголовок -->
+            <h2 id="catTitle" class="groups__title">Категорія</h2>
+
+            <!-- Підкатегорії -->
+            <nav id="subcats" class="subcats" aria-label="Підкатегорії" hidden></nav>
+
+            <!-- Вітрина -->
+            <section class="showcase" id="catalog" data-side-watch>
+                <!-- Панель керування -->
+                <div class="rf-row" style="justify-content:flex-start; gap:16px; margin:0 0 12px;">
+                    <label style="font-size:13px; color:#374151;">
+                        Сортування:
+                        <select id="sortSelect" style="border:1px solid #d7dbe3; border-radius:8px; padding:6px 8px; margin-left:6px;">
+                            <option value="default" selected>за замовчуванням</option>
+                            <option value="price_asc">ціна ↑</option>
+                            <option value="price_desc">ціна ↓</option>
+                        </select>
+                    </label>
+
+                    <div role="group" aria-label="Вид" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                        <button id="btnGrid" type="button" class="view-btn is-active" aria-pressed="true" title="Сітка">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z" /></svg>
+                            Сітка
+                        </button>
+                        <button id="btnList" type="button" class="view-btn" aria-pressed="false" title="Список">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z" /></svg>
+                            Список
+                        </button>
+                    </div>
+                </div>
+
+                <div id="catalogGrid" class="showcase__grid" aria-live="polite"></div>
+
+                <!-- Низ -->
+                <div class="rf-row" style="align-items:center; justify-content:space-between; margin-top:12px;">
+                    <label style="font-size:13px; color:#374151;">
+                        Товарів на сторінці:
+                        <select id="pageSizeSelect" style="border:1px solid #d7dbe3; border-radius:8px; padding:6px 8px; margin-left:6px;">
+                            <option value="6" selected>6</option>
+                            <option value="12">12</option>
+                            <option value="24">24</option>
+                        </select>
+                    </label>
+
+                    <nav id="catalogPager" class="rev-pager" aria-label="Сторінки каталогу"></nav>
+                </div>
+            </section>
+
+            <div id="viewed-widget" style="margin-top: 40px;"></div>
+
+        </div>
+    </section>
+
+    <!-- Плаваюча кнопка Viber -->
+    <a class="float-viber"
+       href="viber://chat?number=%2B380930728887"
+       aria-label="Відкрити чат у Viber"
+       title="Відкрити чат у Viber">
+        <img class="vb vb--idle" src="../assets/icons/viber_without_cursor.png" alt="Viber" width="44" height="44">
+        <img class="vb vb--hover" src="../assets/icons/viber_under_cursor.png" alt="" aria-hidden="true" width="44" height="44">
+    </a>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="container footer-inner">
+            <section class="footer-about">
+                <h4>RadioBox</h4>
+                <p>Інтернет-магазин радіодеталей, інструментів та вимірювальної техніки.</p>
+                <p>Швидке відправлення, великий вибір способів оплати й доставки, якісні товари.</p>
+            </section>
+
+            <nav class="footer-nav" aria-label="Інформація">
+                <h4 style="margin:0 0 6px; font-size:14px; color:#0f172a;">Інформація</h4>
+                <ul style="margin:0; padding:0; list-style:none; font-size:13px; color:#374151;">
+                    <li><a href="index.html" style="text-decoration:underline; text-underline-offset:2px;">Головна</a></li>
+                    <li><a href="products.html" style="text-decoration:underline; text-underline-offset:2px;">Товари</a></li>
+                    <li><a href="about.html" style="text-decoration:underline; text-underline-offset:2px;">Про нас</a></li>
+                    <li><a href="contacts.html" style="text-decoration:underline; text-underline-offset:2px;">Контакти</a></li>
+                    <li><a href="return_policy.html" style="text-decoration:underline; text-underline-offset:2px;">Повернення та обмін</a></li>
+                    <li><a href="offer.html" style="text-decoration:underline; text-underline-offset:2px;">Договір публічної оферти</a></li>
+                </ul>
+            </nav>
+
+            <section class="footer-contacts">
+                <p><strong>Адреса:</strong> м. Шостка, Україна</p>
+                <p><strong>Телефон:</strong> <a href="tel:+380930728887">+380 (93) 072-88-87</a></p>
+                <p><strong>Телефон:</strong> <a href="tel:+380501755718">+380 (50) 175-57-18</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a></p>
+                <p><strong>Viber:</strong> <a href="viber://chat?number=%2B380930728887">+380930728887</a></p>
+            </section>
+        </div>
+
+        <div class="copy">© 2025 RadioBox • Сайт створено інтернет-магазином «RadioBox».</div>
+    </footer>
+
+    <script src="../script.js" defer></script>
+
+    <!-- ===== MODAL: Графік роботи ===== -->
+    <div class="hours-modal" aria-hidden="true">
+        <div class="hours-modal__backdrop" data-hours-close></div>
+        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
+            <header class="hours-modal__header">
+                <h2 id="hoursTitle" class="hours-modal__title">Графік роботи</h2>
+                <button type="button" class="hours-modal__close" aria-label="Закрити" data-hours-close>×</button>
+            </header>
+            <div class="hours-modal__body">
+                <table class="hours-table">
+                    <thead>
+                        <tr><th scope="col">День</th><th scope="col">Час роботи</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><th scope="row">Понеділок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Вівторок</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Середа</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Четвер</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Пʼятниця</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Субота</th><td>10:00 – 18:00</td></tr>
+                        <tr><th scope="row">Неділя</th><td>10:00 – 15:00</td></tr>
+                    </tbody>
+                </table>
+                <p class="hours-note">* Час указано для регіону: Україна, м. Шостка</p>
+            </div>
+        </section>
+    </div>
+    <!-- ================================= -->
+    <!-- ===== Логіка категорії (єдиний шаблон) ===== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Карта категорій/підкатегорій
+            const CATEGORY_TITLES = {
+                solder: 'Паяльне обладнання',
+                repair: 'Все для ремонту, тестери, інструменти',
+                consum: 'Витратні матеріали',
+                osc: 'Осцилографи',
+                prog: 'Програматори',
+                meas: 'Вимірювальні прилади (мультиметри, тестери, щупи)',
+                rmods: 'Радіомодулі',
+                rparts: 'Радіодеталі',
+                cables: 'Кабелі, розʼєми, штекери',
+                psu: 'Джерела живлення'
+            };
+            const SUBCATS = {
+                rmods: [['dcconv', 'Перетворювачі напруги']],
+                rparts: [
+                    ['resistors', 'Резистори'], ['pots', 'Потенціометри'], ['capacitors', 'Конденсатори'],
+                    ['transistors', 'Транзистори'], ['leds', 'Світлодіоди'], ['diodes', 'Діоди'],
+                    ['zener', 'Стабілітрони'], ['ics', 'Інтегральні мікросхеми'],
+                    ['switches', 'Перемикачі'], ['crystals', 'Кварцові резонатори']
+                ]
+            };
+
+            // Параметри URL
+            function getParams() {
+                const q = new URLSearchParams(location.search);
+                let cat = q.get('cat'); let sub = q.get('sub') || '';
+                if (!cat) {
+                    const h = (location.hash || '').replace(/^#/, '');
+                    const hp = new URLSearchParams(h);
+                    cat = hp.get('cat'); sub = hp.get('sub') || '';
+                }
+                if (!CATEGORY_TITLES[cat]) cat = 'solder';
+                return { cat, sub };
+            }
+            function setParams({ cat, sub }) {
+                const u = new URL(location.href);
+                u.searchParams.set('cat', cat);
+                if (sub) u.searchParams.set('sub', sub); else u.searchParams.delete('sub');
+                history.replaceState(null, '', u);
+            }
+
+            let { cat, sub } = getParams();
+            setParams({ cat, sub });
+
+            // RU-перемикач зберігає параметри
+            const ruLink = document.getElementById('langRU');
+            if (ruLink) {
+                const u = new URL(ruLink.getAttribute('href'), document.baseURI);
+                u.searchParams.set('cat', cat);
+                if (sub) u.searchParams.set('sub', sub);
+                ruLink.href = u.pathname + u.search;
+            }
+
+            // Елементи UI
+            const catTitle = document.getElementById('catTitle');
+            const crumbCat = document.getElementById('crumbCat');
+            const crumbSepSub = document.getElementById('crumbSepSub');
+            const crumbSub = document.getElementById('crumbSub');
+            const subnav = document.getElementById('subcats');
+
+            const sortSelect = document.getElementById('sortSelect');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const pager = document.getElementById('catalogPager');
+            const grid = document.getElementById('catalogGrid');
+            const btnGrid = document.getElementById('btnGrid');
+            const btnList = document.getElementById('btnList');
+            const catalogSec = document.getElementById('catalog');
+
+            // страница карточки товара (путь поправь при необходимости)
+            const PRODUCT_PAGE = 'product.html';
+
+            function openProduct(pid) {
+                if (!pid) return;
+                const u = new URL(PRODUCT_PAGE, document.baseURI);
+                u.searchParams.set('id', pid);
+                if (cat) u.searchParams.set('cat', cat);
+                if (sub) u.searchParams.set('sub', sub);
+                location.href = u.pathname + u.search;
+            }
+
+            // Клик по карточке (кроме кнопки «Купить») — переход на страницу товара
+            if (grid) {
+                grid.addEventListener('click', (e) => {
+                    if (e.target.closest('.product-card__buy')) return; // кнопку не трогаем
+                    const card = e.target.closest('.product-card.is-clickable');
+                    if (!card) return;
+                    openProduct(card.dataset.id);
+                });
+
+                // Поддержка Enter/Space для доступности
+                grid.addEventListener('keydown', (e) => {
+                    const card = e.target.closest('.product-card.is-clickable');
+                    if (!card) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openProduct(card.dataset.id);
+                    }
+                });
+            }
+
+
+            // Заголовки/крихти/піднавігація
+            function refreshHead() {
+                const catName = CATEGORY_TITLES[cat];
+                document.title = 'RadioBox — ' + catName;
+                catTitle.textContent = catName;
+
+                // крошка категории: если у категории есть подкатегории — делаем ссылку на "чистую" категорию
+                crumbCat.replaceChildren();
+                if ((SUBCATS[cat] || []).length) {
+                    const a = document.createElement('a');
+                    a.id = 'crumbCatLink';
+                    a.href = `?cat=${encodeURIComponent(cat)}`;
+                    a.textContent = catName;
+                    crumbCat.appendChild(a);
+
+                    // это важно, если в глобальных стилях на .crumb-current стоит pointer-events:none
+                    crumbCat.style.pointerEvents = 'auto';
+                } else {
+                    crumbCat.textContent = catName;
+                    crumbCat.style.pointerEvents = ''; // возвращаем как было
+                }
+
+                const list = SUBCATS[cat] || [];
+                if (list.length) {
+                    subnav.hidden = false;
+                    subnav.innerHTML = '';
+                    list.forEach(([slug, title]) => {
+                        const a = document.createElement('a');
+                        a.href = `?cat=${encodeURIComponent(cat)}&sub=${encodeURIComponent(slug)}`;
+                        a.textContent = title;
+                        if (sub === slug) a.setAttribute('aria-current', 'page');
+                        subnav.appendChild(a);
+                    });
+                } else {
+                    subnav.hidden = true;
+                    if (sub) { sub = ''; setParams({ cat, sub }); }
+                }
+
+                if (sub) {
+                    const t = (SUBCATS[cat] || []).find(([s]) => s === sub)?.[1] || '';
+                    crumbSepSub.hidden = false;
+                    crumbSub.hidden = false;
+                    crumbSub.textContent = t;
+                } else {
+                    crumbSepSub.hidden = true;
+                    crumbSub.hidden = true;
+                    crumbSub.textContent = '';
+                }
+
+                crumbCat.classList.toggle('is-last', !sub);
+                crumbSub.classList.toggle('is-last', !!sub);
+
+            }
+
+            // ДЖЕРЕЛО ДАНИХ
+            // ----- источник каталога из LocalStorage -----
+            const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+            const IS_UA = langAttr.startsWith('uk') || langAttr === 'ua' || /\/ua\//i.test(location.pathname);
+            const IS_RU = langAttr.startsWith('ru') || /\/ru\//i.test(location.pathname);
+
+            // UA → rb_catalog_v1_ua, RU → rb_catalog_v1_ru, всё остальное → rb_catalog_v1
+            const LS_KEY = IS_UA ? 'rb_catalog_v1_ua' : IS_RU ? 'rb_catalog_v1_ru' : 'rb_catalog_v1';
+
+            const loadItems = () => {
+                try {
+                    const s = localStorage.getItem(LS_KEY);
+                    if (!s) return [];
+                    const o = JSON.parse(s);
+                    return Array.isArray(o?.items) ? o.items : [];
+                } catch { return []; }
+            };
+
+
+            const fromLSint = (k, d) => { const v = localStorage.getItem(k); const n = v == null ? NaN : parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : d; };
+            const fromLS = (k, d) => localStorage.getItem(k) || d;
+
+            // Ключи для настроек каталога (вид/сортировка/размер страницы)
+            const LS_PAGESIZE = 'rb_catalog_pagesize';
+            const LS_SORT = 'rb_catalog_sort';
+            const LS_VIEW = 'rb_catalog_view';
+
+            let pageSize = fromLSint(LS_PAGESIZE, 6), current = 1, sortMode = fromLS(LS_SORT, 'default'), view = fromLS(LS_VIEW, 'grid');
+            pageSizeSelect.value = String(pageSize); sortSelect.value = sortMode;
+
+            // Фільтрація/сортування/пагінація
+            const by = k => (a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0);
+            function filterByCatSub(all) {
+                let arr = all.filter(p => p.category === cat);
+
+                // фильтруем только если подкатегория реально объявлена в карте SUBCATS для этой категории
+                const hasSub = sub && (SUBCATS[cat] || []).some(([s]) => s === sub);
+                if (hasSub) {
+                    arr = arr.filter(p => (p.subcategory || '') === sub);
+                }
+                return arr;
+            }
+
+            function sortItems(arr) {
+                const c = arr.slice();
+                if (sortMode === 'price_asc') return c.sort(by('price'));
+                if (sortMode === 'price_desc') return c.sort((a, b) => b.price - a.price);
+                return c;
+            }
+            const totalPages = arr => Math.max(1, Math.ceil(arr.length / pageSize));
+            const slicePage = (arr, p) => arr.slice((p - 1) * pageSize, (p - 1) * pageSize + pageSize);
+
+            function buildPager(total, current, neighbors = 1) {
+                const pages = new Set([1, total]);
+                for (let i = current - neighbors; i <= current + neighbors; i++) if (i > 1 && i < total) pages.add(i);
+                const nums = [...pages].sort((a, b) => a - b);
+                let html = link(current - 1, '←', current === 1);
+                nums.forEach((p, i) => { if (i > 0 && (p - nums[i - 1]) > 1) html += '<span>…</span>'; html += p === current ? `<a href="#" data-page="${p}" aria-current="page"><strong>${p}</strong></a>` : `<a href="#" data-page="${p}">${p}</a>`; });
+                html += link(current + 1, '→', current === total);
+                return html;
+                function link(p, label, dis) { return `<a href="#" data-page="${p}" aria-label="${label}" ${dis ? 'aria-disabled="true" style="pointer-events:none;opacity:.4;"' : ''}>${label}</a>`; }
+            }
+
+            function gridCardHTML(p) {
+                const stClass = p.in_stock ? 'is-instock' : 'is-out';
+                const stText = p.in_stock ? 'Готово до відправлення' : 'Немає в наявності';
+                const alt = p.title || 'Товар';
+                return `
+    <article class="product-card is-clickable" data-id="${p.id}" role="link" tabindex="0" aria-label="Відкрити товар">
+      <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${alt}">` : `<img src="" alt="${alt}">`}</div>
+      <h3 class="product-card__title">${p.title}</h3>
+      <div class="product-card__meta">Код: <span>${p.sku}</span></div>
+      <div class="product-card__price">${p.price} ₴</div>
+      <div class="product-card__status ${stClass}">${stText}</div>
+      <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купити</button>
+    </article>`;
+            }
+
+            function listCardHTML(p) {
+                const stClass = p.in_stock ? 'is-instock' : 'is-out';
+                const stText = p.in_stock ? 'Готово до відправлення' : 'Немає в наявності';
+                const alt = p.title || 'Товар';
+                return `
+    <article class="product-card product-card--list is-clickable" data-id="${p.id}" role="link" tabindex="0" aria-label="Відкрити товар">
+      <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${alt}">` : `<img src="" alt="${alt}">`}</div>
+      <div class="product-info">
+        <h3 class="product-card__title">${p.title}</h3>
+        <div class="product-card__price">${p.price} ₴</div>
+        <div class="product-card__status ${stClass}">${stText}</div>
+        <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
+      </div>
+      <div class="product-cta">
+        <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купити</button>
+      </div>
+    </article>`;
+            }
+
+            function applyViewButtons() {
+                btnGrid.classList.toggle('is-active', view === 'grid');
+                btnGrid.setAttribute('aria-pressed', view === 'grid');
+                btnList.classList.toggle('is-active', view === 'list');
+                btnList.setAttribute('aria-pressed', view === 'list');
+                catalogSec.classList.toggle('list-view', view === 'list');
+            }
+
+            function render() {
+                refreshHead();
+                // клик по крошке категории: сбрасываем sub и остаёмся в той же категории
+                crumbCat.querySelector('#crumbCatLink')?.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (sub) {
+                        sub = '';
+                        setParams({ cat, sub });
+                        current = 1;
+                        render();
+                    }
+                }, { once: true });
+
+                applyViewButtons();
+
+                const all = loadItems();
+                const filtered = filterByCatSub(all);
+                const sorted = sortItems(filtered);
+                const total = totalPages(sorted);
+                if (current > total) current = total;
+
+                // красивое пустое состояние
+                if (sorted.length === 0) {
+                    const catName = CATEGORY_TITLES[cat] || 'Категорія';
+                    grid.innerHTML = `
+    <div class="catalog-empty">
+      У цій підкатегорії поки немає товарів.
+      <a href="?cat=${encodeURIComponent(cat)}">Показати всі з категорії «${catName}»</a>.
+    </div>`;
+                    pager.innerHTML = '';
+                    return;
+                }
+
+
+                grid.innerHTML = slicePage(sorted, current).map(view === 'list' ? listCardHTML : gridCardHTML).join('');
+                pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
+
+                window.rbRefreshSideArt && window.rbRefreshSideArt();
+            }
+
+            // Події
+            pager.addEventListener('click', e => {
+                const a = e.target.closest('a[data-page]'); if (!a) return;
+                e.preventDefault();
+                const p = parseInt(a.dataset.page, 10); if (!Number.isFinite(p)) return;
+                current = Math.max(1, p); render();
+                catalogSec?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            pageSizeSelect.addEventListener('change', () => {
+                pageSize = parseInt(pageSizeSelect.value, 10) || 6;
+                localStorage.setItem(LS_PAGESIZE, String(pageSize));
+                current = 1; render();
+            });
+
+            sortSelect.addEventListener('change', () => {
+                sortMode = sortSelect.value || 'default';
+                localStorage.setItem(LS_SORT, sortMode);
+                current = 1; render();
+            });
+
+            btnGrid.addEventListener('click', () => {
+                if (view === 'grid') return;
+                view = 'grid'; localStorage.setItem(LS_VIEW, view); render();
+            });
+            btnList.addEventListener('click', () => {
+                if (view === 'list') return;
+                view = 'list'; localStorage.setItem(LS_VIEW, view); render();
+            });
+
+            document.getElementById('subcats').addEventListener('click', e => {
+                const a = e.target.closest('a'); if (!a) return;
+                e.preventDefault();
+                const u = new URL(a.href, document.baseURI);
+                const newCat = u.searchParams.get('cat') || cat;
+                const newSub = u.searchParams.get('sub') || '';
+                if (newCat !== cat || newSub !== sub) {
+                    cat = newCat; sub = newSub; current = 1;
+                    setParams({ cat, sub });
+                    render();
+                    catalogSec?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+
+            window.addEventListener('popstate', () => {
+                const p = getParams(); cat = p.cat; sub = p.sub; current = 1; render();
+            });
+
+            render();
+        });
+    </script>
+
+    <!-- Бокові картинки -->
+    <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
+    <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
+
+</body>
+</html>

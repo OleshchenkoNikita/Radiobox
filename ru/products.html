@@ -1,0 +1,718 @@
+﻿<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RadioBox — Товары</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+        /* Кнопки переключения вида */
+        .view-btn {
+            border: 1px solid #d7dbe3;
+            background: #fff;
+            border-radius: 8px;
+            padding: 6px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+            .view-btn svg {
+                width: 18px;
+                height: 18px;
+                display: block
+            }
+
+            .view-btn.is-active {
+                background: #0d2b4e;
+                color: #fff;
+                border-color: #0d2b4e
+            }
+
+        /* Списочный вид */
+        #catalog.list-view .showcase__grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        .product-card--list {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 12px 16px;
+            background: #fff;
+            border: 1px solid #e6e8ed;
+            border-radius: 12px;
+        }
+
+            .product-card--list .product-card__img {
+                width: 140px
+            }
+
+                .product-card--list .product-card__img img {
+                    width: 120px;
+                    height: auto;
+                    object-fit: contain
+                }
+
+            .product-card--list .product-info {
+                min-width: 0
+            }
+
+            .product-card--list .product-card__title {
+                margin: 0 0 8px;
+                font-size: 16px
+            }
+
+            .product-card--list .product-card__price {
+                font-size: 20px;
+                font-weight: 700;
+                margin: 0 0 4px
+            }
+
+            .product-card--list .product-card__status {
+                margin: 0 0 6px
+            }
+
+            .product-card--list .product-meta-wrap {
+                font-size: 13px;
+                color: #6b7280
+            }
+
+            .product-card--list .product-cta {
+                justify-self: end
+            }
+
+            .product-card--list .product-card__buy {
+                min-width: 120px
+            }
+    </style>
+
+    <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+</head>
+<body>
+
+    <!-- ===== CART DRAWER ===== -->
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Корзина">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Корзина</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрыть">×</button>
+            </header>
+            <div class="cart-drawer__body">
+                <div class="cart-empty">
+                    <div class="cart-empty__title">Корзина пуста</div>
+                    <div class="cart-empty__text">Просмотрите наш каталог — точно найдёте что-то особенное для себя!</div>
+                    <a href="#" class="cart-empty__cta" data-cart-close>За покупками</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- ===== /CART DRAWER ===== -->
+    <!-- ===== Верхняя тёмная полоса ===== -->
+    <div class="b-head-control-panel__container" data-qaid="header-block">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="../ua/products.html" lang="uk" hreflang="uk">UA</a>
+                <span class="sep">|</span>
+                <a href="#" lang="ru" hreflang="ru" aria-current="page">RU</a>
+            </div>
+
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 отзыва</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Корзина</span>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Верхняя тёмная полоса ===== -->
+    <!-- ===== Серая полоса ===== -->
+    <div class="b-contacts-bar">
+        <div class="container contacts-inner">
+            <div class="phones">
+                <a href="tel:+380930728887">+380 (93) 072-88-87</a>
+                <a href="tel:+380501755718">+380 (50) 175-57-18</a>
+            </div>
+            <div class="worktime">
+                <a href="#">График работы</a>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /Серая полоса ===== -->
+    <!-- ===== Белая полоса ===== -->
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="RadioBox logo" />
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <form class="search-wide" action="#" method="get" role="search">
+                <input type="text" name="q" placeholder="Поиск..." aria-label="Поиск по каталогу">
+                <button type="submit" class="search-btn" aria-label="Найти">
+                    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                        <path d="M20 20 L16.65 16.65" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Корзина</span>
+            </a>
+        </div>
+    </div>
+    <!-- ===== /Белая полоса ===== -->
+    <!-- ===== Синяя шапка (навигация) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html" class="active">
+                            Товары
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльное оборудование</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Всё для ремонта, тестеры, инструменты</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Расходные материалы</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осциллографы</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Программаторы</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Измерительные приборы (мультиметры, тестеры, щупы)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радиомодули</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радиодетали</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабели, разъёмы, штекеры</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Источники питания</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">О нас</a></li>
+                    <li><a href="contacts.html">Контакты</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===== Двухколоночная область ===== -->
+    <section class="home-layout container">
+        <!-- Левая колонка -->
+        <aside class="home-left">
+            <!-- МЕНЮ (аккордеоны) -->
+            <div class="side-card menu-card">
+                <div class="side-card__title">МЕНЮ</div>
+                <ul class="menu-list">
+
+                    <!-- ТОВАРЫ -->
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-products" aria-label="Развернуть раздел «Товары»"></button>
+                            <a href="products.html" class="menu-link"><span class="menu-link__text">Товары</span></a>
+                        </div>
+
+                        <div id="sub-products" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="type_of_product.html?cat=solder" class="submenu-link">Паяльное оборудование</a></li>
+                                <li><a href="type_of_product.html?cat=repair" class="submenu-link">Всё для ремонта, тестеры, инструменты</a></li>
+                                <li><a href="type_of_product.html?cat=consum" class="submenu-link">Расходные материалы</a></li>
+                                <li><a href="type_of_product.html?cat=osc" class="submenu-link">Осциллографы</a></li>
+                                <li><a href="type_of_product.html?cat=prog" class="submenu-link">Программаторы</a></li>
+                                <li><a href="type_of_product.html?cat=meas" class="submenu-link">Измерительные приборы (мультиметры, тестеры, щупы)</a></li>
+
+                                <!-- Радиомодули (есть подуровень) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiomodules" aria-label="Развернуть «Радиомодули»"></button>
+                                        <a href="type_of_product.html?cat=rmods" class="submenu-link">Радиомодули</a>
+                                    </div>
+                                    <div id="sub-radiomodules" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rmods&sub=dcconv" class="submenu-link">Преобразователи напряжения</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <!-- Радиодетали (подкатегории) -->
+                                <li class="has-accordion">
+                                    <div class="menu-row">
+                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiodetails" aria-label="Развернуть «Радиодетали»"></button>
+                                        <a href="type_of_product.html?cat=rparts" class="submenu-link">Радиодетали</a>
+                                    </div>
+                                    <div id="sub-radiodetails" class="submenu" hidden>
+                                        <ul class="submenu-list">
+                                            <li><a href="type_of_product.html?cat=rparts&sub=resistors" class="submenu-link">Резисторы</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=pots" class="submenu-link">Потенциометры</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=capacitors" class="submenu-link">Конденсаторы</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=transistors" class="submenu-link">Транзисторы</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=leds" class="submenu-link">Светодиоды</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=diodes" class="submenu-link">Диоды</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=zener" class="submenu-link">Стабилитроны</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=ics" class="submenu-link">Интегральные микросхемы</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=switches" class="submenu-link">Переключатели</a></li>
+                                            <li><a href="type_of_product.html?cat=rparts&sub=crystals" class="submenu-link">Кварцевые резонаторы</a></li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <li><a href="type_of_product.html?cat=cables" class="submenu-link">Кабели, разъёмы, штекеры</a></li>
+                                <li><a href="type_of_product.html?cat=psu" class="submenu-link">Источники питания</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <li class="menu-li"><a href="about.html" class="menu-link"><span class="menu-link__text">О нас</span></a></li>
+                    <li class="menu-li"><a href="reviews.html" class="menu-link"><span class="menu-link__text">Отзывы</span></a></li>
+
+                    <li class="menu-li has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-returns" aria-label="Развернуть раздел «Возврат и обмен»"></button>
+                            <a href="return_policy.html" class="menu-link"><span class="menu-link__text">Возврат и обмен</span></a>
+                        </div>
+                        <div id="sub-returns" class="submenu" hidden>
+                            <ul class="submenu-list">
+                                <li><a href="offer.html" class="submenu-link">Договор публичной оферты</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+
+            <!-- КОНТАКТЫ (как в примере) -->
+            <div class="side-card contacts-card">
+                <div class="side-card__title">КОНТАКТЫ</div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОМПАНИЯ</div>
+                    <div class="contact-value">
+                        <img src="../assets/icons/company.png" alt="Компания" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                        Интернет-магазин «RadioBox»
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">КОНТАКТНОЕ ЛИЦО</div>
+                    <div class="contact-value"><span class="ci ci-user" aria-hidden="true"></span>Сергей Бугаенко</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">АДРЕС</div>
+                    <div class="contact-value"><span class="ci ci-pin" aria-hidden="true"></span>г. Шостка, Украина</div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ТЕЛЕФОНЫ</div>
+                    <div class="contact-value stack">
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380930728887">+380 (93) 072-88-87</a></div>
+                        <div><span class="ci ci-phone"></span> <a href="tel:+380501755718">+380 (50) 175-57-18</a></div>
+                    </div>
+                </div>
+
+                <div class="contact-row">
+                    <div class="contact-label">ДОПОЛНИТЕЛЬНЫЕ ВИДЫ СВЯЗИ</div>
+                    <div class="contact-value stack">
+                        <div>
+                            <img src="../assets/icons/mail.png" alt="Email" class="contact-icon">
+                            <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a>
+                        </div>
+                        <div>
+                            <img src="../assets/icons/viber_under_cursor.png" alt="Viber" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
+                            <a href="viber://chat?number=%2B380930728887" title="Открыть чат в Viber">+380930728887</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Правая колонка -->
+        <div class="home-right" data-side-watch>
+            <!-- Хлебные крошки -->
+            <nav class="breadcrumbs" aria-label="Хлебные крошки">
+                <a class="crumb-home" href="index.html" aria-label="Главная">🏠</a>
+                <span class="crumb-sep" aria-hidden="true">›</span>
+                <a class="crumb-current" href="products.html" aria-current="page">Товары</a>
+            </nav>
+
+            <!-- Группы товаров (10 категорий + реальные фото) -->
+            <section class="groups" id="groups">
+                <h2 class="groups__title">Группы товаров</h2>
+                <div class="groups__grid">
+                    <a href="type_of_product.html?cat=solder" class="group-card" id="cat-solder">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/payalnoe-oborudovanie.png" alt="Паяльное оборудование"></div>
+                        <div class="group-card__title">ПАЯЛЬНОЕ ОБОРУДОВАНИЕ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=repair" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/vse-dlya-remonta.png" alt="Всё для ремонта, тестеры, инструменты"></div>
+                        <div class="group-card__title">ВСЁ ДЛЯ РЕМОНТА, ТЕСТЕРЫ, ИНСТРУМЕНТЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=consum" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/raskhodnye-materialy.png" alt="Расходные материалы"></div>
+                        <div class="group-card__title">РАСХОДНЫЕ МАТЕРИАЛЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=osc" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/oscillografy.png" alt="Осциллографы"></div>
+                        <div class="group-card__title">ОСЦИЛЛОГРАФЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=prog" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/programmatory.png" alt="Программаторы"></div>
+                        <div class="group-card__title">ПРОГРАММАТОРЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=meas" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/izmeritelnye-pribory.png" alt="Измерительные приборы"></div>
+                        <div class="group-card__title">ИЗМЕРИТЕЛЬНЫЕ ПРИБОРЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=rmods" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/radiomoduli.png" alt="Радиомодули"></div>
+                        <div class="group-card__title">РАДИОМОДУЛИ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=rparts" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/radiodetali.png" alt="Радиодетали"></div>
+                        <div class="group-card__title">РАДИОДЕТАЛИ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=cables" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/kabeli-razemy-shtekery.png" alt="Кабели, разъёмы, штекеры"></div>
+                        <div class="group-card__title">КАБЕЛИ, РАЗЪЁМЫ, ШТЕКЕРЫ</div>
+                    </a>
+                    <a href="type_of_product.html?cat=psu" class="group-card">
+                        <div class="group-card__img"><img src="../assets/photos/groups_of_products/istochniki-pitaniya.png" alt="Источники питания"></div>
+                        <div class="group-card__title">ИСТОЧНИКИ ПИТАНИЯ</div>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Витрина -->
+            <section class="showcase" id="catalog" data-side-watch>
+                <!-- (без заголовка «Популярные товары») -->
+                <!-- Панель управления -->
+                <div class="rf-row" style="justify-content:flex-start; gap:16px; margin:0 0 12px;">
+                    <label style="font-size:13px; color:#374151;">
+                        Сортировка:
+                        <select id="sortSelect" style="border:1px solid #d7dbe3; border-radius:8px; padding:6px 8px; margin-left:6px;">
+                            <option value="default" selected>по порядку</option>
+                            <option value="price_asc">цена ↑</option>
+                            <option value="price_desc">цена ↓</option>
+                        </select>
+                    </label>
+
+                    <div role="group" aria-label="Вид" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                        <button id="btnGrid" type="button" class="view-btn is-active" aria-pressed="true" title="Сетка">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z" /></svg>
+                            Сетка
+                        </button>
+                        <button id="btnList" type="button" class="view-btn" aria-pressed="false" title="Список">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4zM4 11h16v2H4zM4 16h16v2H4z" /></svg>
+                            Список
+                        </button>
+                    </div>
+                </div>
+
+                <div id="catalogGrid" class="showcase__grid" aria-live="polite"></div>
+
+                <!-- Низ витрины -->
+                <div class="rf-row" style="align-items:center; justify-content:space-between; margin-top:12px;">
+                    <label style="font-size:13px; color:#374151;">
+                        Товаров на странице:
+                        <select id="pageSizeSelect" style="border:1px solid #d7dbe3; border-radius:8px; padding:6px 8px; margin-left:6px;">
+                            <option value="6" selected>6</option>
+                            <option value="12">12</option>
+                            <option value="24">24</option>
+                        </select>
+                    </label>
+
+                    <nav id="catalogPager" class="rev-pager" aria-label="Страницы каталога"></nav>
+                </div>
+            </section>
+
+            <!-- !!! ВИДЖЕТ ИСТОРИИ !!! -->
+            <div id="viewed-widget" style="margin-top: 40px;"></div>
+
+        </div>
+    </section>
+
+    <!-- Плавающая кнопка Viber -->
+    <a class="float-viber" href="viber://chat?number=%2B380930728887" aria-label="Открыть чат в Viber" title="Открыть чат в Viber">
+        <img class="vb vb--idle" src="../assets/icons/viber_without_cursor.png" alt="Viber" width="44" height="44">
+        <img class="vb vb--hover" src="../assets/icons/viber_under_cursor.png" alt="" aria-hidden="true" width="44" height="44">
+    </a>
+
+    <!-- Футер -->
+    <footer class="site-footer" role="contentinfo">
+        <div class="container footer-inner">
+            <section class="footer-about">
+                <h4>RadioBox</h4>
+                <p>Интернет-магазин радиодеталей, инструментов и измерительной техники.</p>
+                <p>Быстрая отправка, большой выбор способов оплаты и доставки, качественные товары.</p>
+            </section>
+
+            <nav class="footer-nav" aria-label="Информация">
+                <h4 style="margin:0 0 6px; font-size:14px; color:#0f172a;">Информация</h4>
+                <ul style="margin:0; padding:0; list-style:none; font-size:13px; color:#374151;">
+                    <li><a href="index.html" style="text-decoration:underline; text-underline-offset:2px;">Главная</a></li>
+                    <li><a href="products.html" style="text-decoration:underline; text-underline-offset:2px;">Товары</a></li>
+                    <li><a href="about.html" style="text-decoration:underline; text-underline-offset:2px;">О нас</a></li>
+                    <li><a href="contacts.html" style="text-decoration:underline; text-underline-offset:2px;">Контакты</a></li>
+                    <li><a href="return_policy.html" style="text-decoration:underline; text-underline-offset:2px;">Возврат и обмен</a></li>
+                    <li><a href="offer.html" style="text-decoration:underline; text-underline-offset:2px;">Договор публичной оферты</a></li>
+                </ul>
+            </nav>
+
+            <section class="footer-contacts">
+                <p><strong>Адрес:</strong> г. Шостка, Украина</p>
+                <p><strong>Телефон:</strong> <a href="tel:+380930728887">+380 (93) 072-88-87</a></p>
+                <p><strong>Телефон:</strong> <a href="tel:+380501755718">+380 (50) 175-57-18</a></p>
+                <p><strong>E-mail:</strong> <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a></p>
+                <p><strong>Viber:</strong> <a href="viber://chat?number=%2B380930728887">+380930728887</a></p>
+            </section>
+        </div>
+
+        <div class="copy">© 2025 RadioBox • Сайт создан интернет-магазином «RadioBox».</div>
+    </footer>
+
+    <!-- общий скрипт сайта -->
+    <script src="../script.js" defer></script>
+
+    <!-- ===== Сценарий витрины (localStorage + пагинация) ===== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // LS-ключи
+            const LS_KEY = 'rb_catalog_v1_ru';
+            const LS_PAGESIZE = 'rb_catalog_pagesize';
+            const LS_SORT = 'rb_catalog_sort';
+            const LS_VIEW = 'rb_catalog_view';
+
+            const CATS = [
+                ['solder', 'Паяльное оборудование'],
+                ['repair', 'Всё для ремонта, тестеры, инструменты'],
+                ['consum', 'Расходные материалы'],
+                ['osc', 'Осциллографы'],
+                ['prog', 'Программаторы'],
+                ['meas', 'Измерительные приборы'],
+                ['rmods', 'Радиомодули'],
+                ['rparts', 'Радиодетали'],
+                ['cables', 'Кабели, разъёмы, штекеры'],
+                ['psu', 'Источники питания']
+            ];
+
+            // ==== helpers (LS) ====
+            const loadItems = () => {
+                try {
+                    const s = localStorage.getItem(LS_KEY);
+                    if (!s) return []; const obj = JSON.parse(s); return Array.isArray(obj?.items) ? obj.items : [];
+                } catch { return []; }
+            };
+            const saveItems = (items) => { try { localStorage.setItem(LS_KEY, JSON.stringify({ items })); } catch { } };
+
+            // ==== элементы UI ====
+            const sortSelect = document.getElementById('sortSelect');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const pager = document.getElementById('catalogPager');
+            const grid = document.getElementById('catalogGrid');
+            const btnGrid = document.getElementById('btnGrid');
+            const btnList = document.getElementById('btnList');
+            const catalogSection = document.getElementById('catalog');
+
+            const fromLSint = (k, def) => {
+                const v = localStorage.getItem(k); const n = v == null ? NaN : parseInt(v, 10);
+                return Number.isFinite(n) && n > 0 ? n : def;
+            };
+            const fromLS = (k, def) => localStorage.getItem(k) || def;
+
+            // ==== состояние ====
+            const hashCat = (location.hash || '').replace(/^#cat-/, '');
+            const allItems = loadItems();
+            let items = (hashCat && allItems.some(p => p.category === hashCat)) ? allItems.filter(p => p.category === hashCat) : allItems;
+
+            let pageSize = fromLSint(LS_PAGESIZE, 6);
+            let current = 1;
+            let sortMode = fromLS(LS_SORT, 'default');
+            let view = fromLS(LS_VIEW, 'grid'); // 'grid' | 'list'
+
+            pageSizeSelect.value = String(pageSize);
+            sortSelect.value = sortMode;
+
+            // ==== сортировка ====
+            const by = (k) => (a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0);
+            function sortItems(arr) {
+                const copy = arr.slice();
+                if (sortMode === 'price_asc') return copy.sort(by('price'));
+                if (sortMode === 'price_desc') return copy.sort((a, b) => b.price - a.price);
+                return copy;
+            }
+
+            // ==== пагинация (с “соседями”) ====
+            const totalPages = (arr) => Math.max(1, Math.ceil(arr.length / pageSize));
+            const slicePage = (arr, p) => arr.slice((p - 1) * pageSize, (p - 1) * pageSize + pageSize);
+
+            function buildPager(total, current, neighbors = 1) {
+                const pages = new Set([1, total]);
+                for (let i = current - neighbors; i <= current + neighbors; i++) if (i > 1 && i < total) pages.add(i);
+                const nums = [...pages].sort((a, b) => a - b);
+                let html = link(current - 1, '←', current === 1);
+                nums.forEach((p, i) => {
+                    if (i > 0 && (p - nums[i - 1]) > 1) html += `<span>…</span>`;
+                    html += p === current ? `<a href="#" data-page="${p}" aria-current="page"><strong>${p}</strong></a>`
+                        : `<a href="#" data-page="${p}">${p}</a>`;
+                });
+                html += link(current + 1, '→', current === total);
+                return html;
+
+                function link(p, label, dis) {
+                    return `<a href="#" data-page="${p}" aria-label="${label}" ${dis ? 'aria-disabled="true" style="pointer-events:none;opacity:.4;"' : ''}>${label}</a>`;
+                }
+            }
+
+            // ==== карточки ====
+            function gridCardHTML(p) {
+                const stClass = p.in_stock ? 'is-instock' : 'is-out';
+                const stText = p.in_stock ? 'Готово к отправке' : 'Нет в наличии';
+                return `
+                          <article class="product-card is-clickable" data-id="${p.id}" tabindex="0">
+                            <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${p.title}">` : `<img src="" alt="">`}</div>
+                            <h3 class="product-card__title">${p.title}</h3>
+                            <div class="product-card__meta">Код: <span>${p.sku}</span></div>
+                            <div class="product-card__price">${p.price} ₴</div>
+                            <div class="product-card__status ${stClass}">${stText}</div>
+                            <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
+                          </article>`;
+            }
+
+            function listCardHTML(p) {
+                const stClass = p.in_stock ? 'is-instock' : 'is-out';
+                const stText = p.in_stock ? 'Готово к отправке' : 'Нет в наличии';
+                return `
+                          <article class="product-card product-card--list is-clickable" data-id="${p.id}" tabindex="0">
+                            <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${p.title}">` : `<img src="" alt="">`}</div>
+                            <div class="product-info">
+                              <h3 class="product-card__title">${p.title}</h3>
+                              <div class="product-card__price">${p.price} ₴</div>
+                              <div class="product-card__status ${stClass}">${stText}</div>
+                              <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
+                            </div>
+                            <div class="product-cta">
+                              <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
+                            </div>
+                          </article>`;
+            }
+
+            // ==== рендер ====
+            function applyViewButtons() {
+                btnGrid.classList.toggle('is-active', view === 'grid');
+                btnGrid.setAttribute('aria-pressed', view === 'grid');
+                btnList.classList.toggle('is-active', view === 'list');
+                btnList.setAttribute('aria-pressed', view === 'list');
+                catalogSection.classList.toggle('list-view', view === 'list');
+            }
+
+            function render() {
+                applyViewButtons();
+                const sorted = sortItems(items);
+                const total = totalPages(sorted);
+                if (current > total) current = total;
+
+                grid.innerHTML = slicePage(sorted, current).map(view === 'list' ? listCardHTML : gridCardHTML).join('');
+                pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
+            }
+
+            // ==== события ====
+            pager.addEventListener('click', (e) => {
+                const a = e.target.closest('a[data-page]'); if (!a) return;
+                e.preventDefault();
+                const p = parseInt(a.dataset.page, 10); if (!Number.isFinite(p)) return;
+                const total = totalPages(items);
+                current = Math.min(Math.max(1, p), total);
+                render();
+                catalogSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            pageSizeSelect.addEventListener('change', () => {
+                pageSize = parseInt(pageSizeSelect.value, 10) || 6;
+                localStorage.setItem(LS_PAGESIZE, String(pageSize));
+                current = 1; render();
+            });
+
+            sortSelect.addEventListener('change', () => {
+                sortMode = sortSelect.value || 'default';
+                localStorage.setItem(LS_SORT, sortMode);
+                current = 1; render();
+            });
+
+            btnGrid.addEventListener('click', () => {
+                if (view === 'grid') return;
+                view = 'grid'; localStorage.setItem(LS_VIEW, view); render();
+            });
+            btnList.addEventListener('click', () => {
+                if (view === 'list') return;
+                view = 'list'; localStorage.setItem(LS_VIEW, view); render();
+            });
+
+            // смена категории из hash
+            window.addEventListener('hashchange', () => {
+                const cat = (location.hash || '').replace(/^#cat-/, '');
+                const all = loadItems();
+                items = (cat && all.some(p => p.category === cat)) ? all.filter(p => p.category === cat) : all;
+                current = 1; render();
+            });
+
+            grid.addEventListener('click', (e) => {
+            // 1. Если кликнули на кнопку "Купить" — ничего не делаем (пусть работает корзина)
+            if (e.target.closest('.product-card__buy')) return;
+
+            // 2. Ищем карточку
+            const card = e.target.closest('.product-card');
+            if (card && card.dataset.id) {
+                // 3. Переходим на страницу товара
+                window.location.href = `product.html?id=${card.dataset.id}`;
+                }
+            });
+
+            // старт
+            render();
+        });
+    </script>
+
+    <!-- ===== MODAL: График работы ===== -->
+    <div class="hours-modal" aria-hidden="true">
+        <div class="hours-modal__backdrop" data-hours-close></div>
+        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
+            <header class="hours-modal__header">
+                <h2 id="hoursTitle" class="hours-modal__title">График работы</h2>
+                <button type="button" class="hours-modal__close" aria-label="Закрыть" data-hours-close>×</button>
+            </header>
+            <div class="hours-modal__body">
+                <table class="hours-table">
+                    <thead><tr><th scope="col">День</th><th scope="col">Время работы</th></tr></thead>
+                    <tbody>
+                        <tr><th scope="row">Понедельник</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Вторник</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Среда</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Четверг</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Пятница</th><td>08:00 – 20:00</td></tr>
+                        <tr><th scope="row">Суббота</th><td>10:00 – 18:00</td></tr>
+                        <tr><th scope="row">Воскресенье</th><td>10:00 – 15:00</td></tr>
+                    </tbody>
+                </table>
+                <p class="hours-note">* Время указано для региона: Украина, г. Шостка</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Боковые картинки -->
+    <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
+    <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
+
+</body>
+</html>

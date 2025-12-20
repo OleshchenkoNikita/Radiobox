@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Оформлення замовлення — RadioBox</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        body { background: #f4f6f8; }
+        .checkout-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+        /* 1. Стили для новой опции оплаты картой */
+        .pay-now-container {
+            margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; display: none;
+        }
+        .btn-pay-action {
+            background: #28a745; color: white; border: none; padding: 10px 20px;
+            border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;
+        }
+        .btn-pay-action:hover { background: #218838; }
+        .pay-success-text {
+            color: #28a745; font-weight: bold; display: none; align-items: center; gap: 8px;
+        }
+
+        /* 2. Подвал с кнопками (низ формы) */
+        .checkout-footer {
+            grid-column: 1 / -1;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 15px;
+        }
+        @media(min-width: 600px) {
+            .checkout-footer {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+        }
+
+        .co-submit-btn-footer {
+            background: #28a745; color: white; border: none; padding: 16px 40px;
+            border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer;
+            min-width: 250px; text-align: center;
+        }
+        .co-submit-btn-footer:hover { background: #218838; }
+        .btn-continue-shopping {
+            color: #189BFF; text-decoration: none; font-weight: 600; font-size: 16px;
+        }
+        .btn-continue-shopping:hover { text-decoration: underline; }
+
+        /* 3. Модальное окно (Бланк оплаты) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 2000; display: none;
+            justify-content: center; align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .pay-modal {
+            background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 380px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); position: relative;
+        }
+        .modal-close { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .modal-field { margin-bottom: 15px; }
+        .modal-field label { display: block; margin-bottom: 5px; font-size: 14px; color: #555; }
+        .modal-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .modal-row { display: flex; gap: 10px; }
+        .btn-modal-pay { width: 100%; padding: 12px; background: #189BFF; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+        /* Большая кнопка оформления */
+        .btn-submit-main {
+            background: #28a745; color: white; border: none;
+            padding: 15px 40px; border-radius: 8px;
+            font-size: 18px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+            transition: background 0.2s;
+            width: 100%;
+        }
+        @media(min-width: 600px) { .btn-submit-main { width: auto; min-width: 250px; } }
+        .btn-submit-main:hover { background: #218838; }
+        .btn-submit-main:disabled { background: #94d3a2; cursor: not-allowed; }
+
+        /* Ссылка продолжить покупки */
+        .link-back-shop {
+            color: #189BFF; font-weight: 600; text-decoration: none; font-size: 16px;
+        }
+        .link-back-shop:hover { text-decoration: underline; }
+
+        /* Блок оплаты картой */
+        .pay-now-container {
+            margin-top: 12px; padding: 12px; background: #f8fafc;
+            border: 1px dashed #cbd5e1; border-radius: 6px;
+            display: none; /* Скрыт по умолчанию */
+        }
+        .pay-success-msg {
+            color: #28a745; font-weight: 700; font-size: 15px;
+            display: flex; align-items: center; gap: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="co-header">
+        <div class="co-header__inner">
+            <a href="javascript:history.back()" class="co-back-btn" aria-label="Назад">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Назад
+            </a>
+            <h1 class="co-title">Оформлення замовлення</h1>
+            <div style="width: 24px;"></div>
+        </div>
+    </header>
+
+    <div class="checkout-container">
+        <form id="checkoutForm" class="co-grid">
+
+            <div class="co-left">
+
+                <section class="co-section">
+                    <div class="co-step">
+                        <div class="co-step__num">1</div>
+                        <h2 class="co-step__title">Контактні дані</h2>
+                    </div>
+                    <div class="co-form-row">
+                        <div class="co-field">
+                            <label for="coPhone">Телефон</label>
+                            <input type="tel" id="coPhone" name="phone" placeholder="+380 (__) ___-__-__" required>
+                        </div>
+                        <div class="co-field">
+                            <label for="coSurname">Прізвище</label>
+                            <input type="text" id="coSurname" name="surname" placeholder="Іванов" required>
+                        </div>
+                        <div class="co-field">
+                            <label for="coName">Ім'я</label>
+                            <input type="text" id="coName" name="name" placeholder="Іван" required>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="co-section">
+                    <div class="co-step">
+                        <div class="co-step__num">2</div>
+                        <h2 class="co-step__title">Доставка</h2>
+                    </div>
+
+                    <label class="co-radio-card" id="optNP">
+                        <div class="co-radio-head">
+                            <input type="radio" name="delivery" value="np">
+                            <span class="co-radio-circle"></span>
+                            <div class="co-radio-info">
+                                <div class="co-radio-title">Нова Пошта</div>
+                                <div class="co-radio-desc">У відділення, поштомат або кур'єром</div>
+                                <div class="np-detailed-text">
+                                    <div class="np-item is-bullet">У межах населеного пункту — від 60 ₴</div>
+                                    <div class="np-item is-bullet">По Україні — від 70 ₴</div>
+                                    <div class="np-item">Доплата за отримання у поштоматі — +10 ₴</div>
+                                    <div class="np-item">Доплата за габарити:</div>
+                                    <div class="np-item is-bullet">понад 120 см або відсутність коробки — +100 ₴</div>
+                                    <div class="np-item is-bullet">понад 30 кг — +1 ₴ /кг</div>
+                                </div>
+                            </div>
+                            <div class="co-radio-price">від 70 ₴</div>
+                        </div>
+
+                        <div class="co-radio-details">
+                            <div class="co-tabs">
+                                <label class="co-tab">
+                                    <input type="radio" name="np_type" value="branch" checked>
+                                    <span>У відділення</span>
+                                </label>
+                                <label class="co-tab">
+                                    <input type="radio" name="np_type" value="postomat">
+                                    <span>У поштомат</span>
+                                </label>
+                                <label class="co-tab">
+                                    <input type="radio" name="np_type" value="courier">
+                                    <span>Кур'єром</span>
+                                </label>
+                            </div>
+
+                            <div class="co-field mt-15 relative">
+                                <label>Населений пункт</label>
+                                <input type="text" id="npCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="hidden" id="npCityRef">
+                                <input type="hidden" id="npSettlementRef">
+                                <div id="npCityDropdown" class="co-dropdown-list" hidden></div>
+                            </div>
+
+                            <div id="blockBranch">
+                                <div class="co-field mt-15 relative">
+                                    <label>Відділення</label>
+                                    <input type="text" id="npBranchSearch" class="co-input-search" placeholder="Номер або адреса відділення" autocomplete="off">
+                                    <input type="hidden" id="npBranchRef">
+                                    <div id="npBranchDropdown" class="co-dropdown-list" hidden></div>
+                                </div>
+                            </div>
+
+                            <div id="blockPostomat" hidden>
+                                <div class="co-field mt-15 relative">
+                                    <label>Поштомат</label>
+                                    <input type="text" id="npPostomatSearch" class="co-input-search" placeholder="Номер поштомату" autocomplete="off">
+                                    <input type="hidden" id="npPostomatRef">
+                                    <div id="npPostomatDropdown" class="co-dropdown-list" hidden></div>
+                                </div>
+                            </div>
+
+                            <div id="blockCourier" hidden>
+                                <div class="co-field mt-15 relative">
+                                    <label>Вулиця</label>
+                                    <input type="text" id="npStreetSearch" class="co-input-search" placeholder="Почніть вводити назву вулиці..." autocomplete="off">
+                                    <input type="hidden" id="npStreetRef">
+                                    <div id="npStreetDropdown" class="co-dropdown-list" hidden></div>
+                                </div>
+                                <div class="co-form-row mt-15">
+                                    <div class="co-field">
+                                        <label>Буд.</label>
+                                        <input type="text" name="np_house" placeholder="№">
+                                    </div>
+                                    <div class="co-field">
+                                        <label>Кв.</label>
+                                        <input type="text" name="np_flat" placeholder="№">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="co-radio-card" id="optUP">
+                        <div class="co-radio-head">
+                            <input type="radio" name="delivery" value="up">
+                            <span class="co-radio-circle"></span>
+                            <div class="co-radio-info">
+                                <div class="co-radio-title">Укрпошта Стандарт</div>
+                                <div class="np-detailed-text">
+                                    <div class="np-item is-bullet">у відділення:</div>
+                                    <div class="np-item" style="padding-left: 14px;">35 ₴ — до 30 кг і об'ємом до 20 000 см³</div>
+                                    <div class="np-item" style="padding-left: 14px;">100 ₴ — до 30 кг і об'ємом від 20 000 до 120 000 см³</div>
+                                    <div class="np-item is-bullet">кур'єром — від 60 ₴</div>
+                                    <div class="np-item" style="margin-top: 6px; font-size: 11px; color: #9ca3af; line-height: 1.3;">
+                                        Якщо загальна оголошена вартість відправлення понад 500 ₴ — сплачується додаткова комісія 0,5% від ПДВ.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="co-radio-price">від 35 ₴</div>
+                        </div>
+
+                        <div class="co-radio-details">
+                            <div class="co-tabs">
+                                <label class="co-tab">
+                                    <input type="radio" name="up_type" value="branch" checked>
+                                    <span>У відділення</span>
+                                </label>
+                                <label class="co-tab">
+                                    <input type="radio" name="up_type" value="courier">
+                                    <span>Кур'єром</span>
+                                </label>
+                            </div>
+
+                            <div class="co-field mt-15 relative">
+                                <label>Населений пункт</label>
+                                <input type="text" id="upCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="hidden" id="upCityRef">
+                                <input type="hidden" id="upSettlementRef">
+                                <div id="upCityDropdown" class="co-dropdown-list" hidden></div>
+                            </div>
+
+                            <div id="blockUpBranch">
+                                <div class="co-field mt-15">
+                                    <label>Індекс та адреса відділення</label>
+                                    <input type="text" name="up_branch_text" placeholder="Наприклад: 11111, вул. Київська, 24" autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div id="blockUpCourier" hidden>
+                                <div class="co-field mt-15 relative">
+                                    <label>Вулиця</label>
+                                    <input type="text" id="upStreetSearch" class="co-input-search" placeholder="Почніть вводити назву вулиці..." autocomplete="off">
+                                    <input type="hidden" id="upStreetRef">
+                                    <div id="upStreetDropdown" class="co-dropdown-list" hidden></div>
+                                </div>
+                                <div class="co-form-row mt-15">
+                                    <div class="co-field">
+                                        <label>Буд.</label>
+                                        <input type="text" name="up_house" placeholder="№">
+                                    </div>
+                                    <div class="co-field">
+                                        <label>Кв.</label>
+                                        <input type="text" name="up_flat" placeholder="№">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="co-radio-card" id="optUPE">
+                        <div class="co-radio-head">
+                            <input type="radio" name="delivery" value="upe">
+                            <span class="co-radio-circle"></span>
+                            <div class="co-radio-info">
+                                <div class="co-radio-title">Укрпошта Експрес</div>
+                                <div class="np-detailed-text">
+                                    <div class="np-item is-bullet">у відділення — від 45 ₴</div>
+                                    <div class="np-item is-bullet">кур'єром — від 70 ₴</div>
+                                </div>
+                            </div>
+                            <div class="co-radio-price">від 45 ₴</div>
+                        </div>
+
+                        <div class="co-radio-details">
+                            <div class="co-tabs">
+                                <label class="co-tab">
+                                    <input type="radio" name="upe_type" value="branch" checked>
+                                    <span>У відділення</span>
+                                </label>
+                                <label class="co-tab">
+                                    <input type="radio" name="upe_type" value="courier">
+                                    <span>Кур'єром</span>
+                                </label>
+                            </div>
+
+                            <div class="co-field mt-15 relative">
+                                <label>Населений пункт</label>
+                                <input type="text" id="upeCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="hidden" id="upeCityRef">
+                                <input type="hidden" id="upeSettlementRef">
+                                <div id="upeCityDropdown" class="co-dropdown-list" hidden></div>
+                            </div>
+
+                            <div id="blockUpeBranch">
+                                <div class="co-field mt-15">
+                                    <label>Індекс та адреса відділення</label>
+                                    <input type="text" name="upe_branch_text" placeholder="Наприклад: 11111, вул. Свободи, 24" autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div id="blockUpeCourier" hidden>
+                                <div class="co-field mt-15 relative">
+                                    <label>Вулиця</label>
+                                    <input type="text" id="upeStreetSearch" class="co-input-search" placeholder="Почніть вводити назву вулиці..." autocomplete="off">
+                                    <input type="hidden" id="upeStreetRef">
+                                    <div id="upeStreetDropdown" class="co-dropdown-list" hidden></div>
+                                </div>
+                                <div class="co-form-row mt-15">
+                                    <div class="co-field">
+                                        <label>Буд.</label>
+                                        <input type="text" name="upe_house" placeholder="№">
+                                    </div>
+                                    <div class="co-field">
+                                        <label>Кв.</label>
+                                        <input type="text" name="upe_flat" placeholder="№">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="co-radio-card" id="optMeest">
+                    <div class="co-radio-head">
+                        <input type="radio" name="delivery" value="meest">
+                        <span class="co-radio-circle"></span>
+                        <div class="co-radio-info">
+                            <div class="co-radio-title">Meest ПОШТА</div>
+                            <div class="np-detailed-text">
+                                <div class="np-item">Доставка у відділення — від 30 ₴</div>
+                                <div class="np-item">Кур'єрська доставка — від 65 ₴</div>
+                                <div class="np-item is-bullet">максимальна сторона 70 см, до 30 кг</div>
+                            </div>
+                        </div>
+                        <div class="co-radio-price">від 30 ₴</div>
+                    </div>
+
+                    <div class="co-radio-details">
+                        <div class="co-tabs">
+                            <label class="co-tab">
+                                <input type="radio" name="meest_type" value="branch" checked>
+                                <span>У відділення</span>
+                            </label>
+                            <label class="co-tab">
+                                <input type="radio" name="meest_type" value="postomat">
+                                <span>У поштомат</span>
+                            </label>
+                            <label class="co-tab">
+                                <input type="radio" name="meest_type" value="courier">
+                                <span>Кур'єром</span>
+                            </label>
+                        </div>
+
+                        <div class="co-field mt-15 relative">
+                            <label>Населений пункт</label>
+                            <input type="text" id="meestCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                            <input type="hidden" id="meestCityRef">
+                            <input type="hidden" id="meestSettlementRef">
+                            <div id="meestCityDropdown" class="co-dropdown-list" hidden></div>
+                        </div>
+
+                        <div id="blockMeestBranch">
+                            <div class="co-field mt-15">
+                                <label>Номер або адреса відділення</label>
+                                <input type="text" name="meest_branch_text" placeholder="Наприклад: Відділення №150" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div id="blockMeestPost" hidden>
+                            <div class="co-field mt-15">
+                                <label>Номер поштомату</label>
+                                <input type="text" name="meest_post_text" placeholder="Наприклад: Поштомат 1024" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div id="blockMeestCourier" hidden>
+                            <div class="co-field mt-15 relative">
+                                <label>Вулиця</label>
+                                <input type="text" id="meestStreetSearch" class="co-input-search" placeholder="Почніть вводити назву вулиці..." autocomplete="off">
+                                <input type="hidden" id="meestStreetRef">
+                                <div id="meestStreetDropdown" class="co-dropdown-list" hidden></div>
+                            </div>
+                            <div class="co-form-row mt-15">
+                                <div class="co-field">
+                                    <label>Буд.</label>
+                                    <input type="text" name="meest_house" placeholder="№">
+                                </div>
+                                <div class="co-field">
+                                    <label>Кв.</label>
+                                    <input type="text" name="meest_flat" placeholder="№">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </label>
+
+                    <label class="co-radio-card" id="optSelf">
+                    <div class="co-radio-head">
+                        <input type="radio" name="delivery" value="self">
+                        <span class="co-radio-circle"></span>
+                        <div class="co-radio-info">
+                            <div class="co-radio-title">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -3px; margin-right: 4px;">
+                                    <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                                </svg>
+                                Самовивіз
+                            </div>
+                            <div class="np-detailed-text" style="margin-top: 6px;">
+                                Сумська обл., м. Шостка, вул. Свободи, 24
+                            </div>
+                        </div>
+                        <div class="co-radio-price">0 ₴</div>
+                    </div>
+                    </label>
+
+                </section>
+
+                    <section class="co-section">
+                        <div class="co-step">
+                            <div class="co-step__num">3</div>
+                            <h2 class="co-step__title">Оплата</h2>
+                        </div>
+
+                        <label class="co-radio-card" id="payCod">
+                            <div class="co-radio-head">
+                                <input type="radio" name="payment" value="cod">
+                                <span class="co-radio-circle"></span>
+                                <div class="co-radio-info">
+                                    <div class="co-radio-title">Післяплата</div>
+                                    <div class="co-radio-desc" style="color:#666;">(при замовленні Новою поштою)</div>
+                                </div>
+                            </div>
+                        </label>
+
+                        <label class="co-radio-card" id="payCashless">
+                            <div class="co-radio-head">
+                                <input type="radio" name="payment" value="seller_cashless">
+                                <span class="co-radio-circle"></span>
+                                <div class="co-radio-info">
+                                    <div class="co-radio-title">Безготівковий розрахунок</div>
+                                    <div class="co-radio-desc">(Для організацій)</div>
+                                </div>
+                            </div>
+                        </label>
+
+                        <label class="co-radio-card" id="payPrivat">
+                            <div class="co-radio-head">
+                                <input type="radio" name="payment" value="seller_privat">
+                                <span class="co-radio-circle"></span>
+                                <div class="co-radio-info">
+                                    <div class="co-radio-title">Оплата на рахунок ФОП</div>
+                                </div>
+                            </div>
+                        </label>
+
+                        <label class="co-radio-card" id="payCardOnline">
+                            <div class="co-radio-head">
+                                <input type="radio" name="payment" value="card_online">
+                                <span class="co-radio-circle"></span>
+                                <div class="co-radio-info">
+                                    <div class="co-radio-title">Оплата карткою Visa / Mastercard</div>
+
+                                    <div class="pay-now-container" id="cardPayBlock">
+                                        <button type="button" class="btn-pay-action" id="btnOpenModal" style="background:#189BFF;">
+                                            Сплатити зараз
+                                        </button>
+
+                                        <div class="pay-success-msg" id="msgPaid" style="display:none;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                            Замовлення оплачено
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </label>
+                    </section>
+
+                <section class="co-section">
+                    <div class="co-comment-wrapper">
+                        <button type="button" id="commentToggle" class="co-comment-toggle">
+                            Коментар до замовлення
+                            <svg width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        </button>
+                        <div id="commentBox" class="co-comment-box" hidden>
+                            <textarea id="orderComment" maxlength="254" placeholder="Напишіть додаткову інформацію..."></textarea>
+                            <div class="co-comment-footer">
+                                <span class="co-chars">Залишилось символів: <span id="charCount">254</span></span>
+                            </div>
+                            <button type="button" class="co-small-btn">Зберегти</button>
+                        </div>
+                    </div>
+                </section>
+
+                <button type="button" id="resetOptionsBtn" class="co-reset-link" hidden>
+                    Скинути обрані способи
+                </button>
+
+            </div> <div class="co-right">
+                <div class="co-summary-card">
+                    <div class="co-summary-head">
+                        <h3 id="coTotalTitle">Замовлення</h3>
+                        <a href="products.html" class="co-edit-link">Продовжити покупки</a>
+                    </div>
+
+                    <div id="coItemsList" class="co-items-list"></div>
+
+                    <div class="co-totals">
+                        <div class="co-total-row">
+                            <span>Вартість замовлення:</span>
+                            <span id="coSumGoods">0 ₴</span>
+                        </div>
+                        <div class="co-total-row">
+                            <span id="coDeliveryName">Доставка:</span>
+                            <span id="coDeliveryPrice" style="font-size:13px; color:#666;">за тарифами перевізника</span>
+                        </div>
+                        <div class="co-total-row big">
+                            <span>До сплати без доставки:</span>
+                            <span id="coFinalSum">0 ₴</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div style="margin-top:16px; font-size:11px; color:#888; line-height:1.4;">
+                    Натискаючи кнопку «Оформити замовлення», я погоджуюся з
+                    <a href="offer.html" target="_blank" style="text-decoration:underline;">умовами договору публічної оферти</a>
+
+                    <div style="margin-top: 12px;">
+                        <span id="recipToggle" style="cursor:pointer; border-bottom:1px dashed #999;">*Отримувач коштів</span>
+                        <div id="recipInfo" style="display:none; margin-top:4px; color:#666; font-size:10px;">
+                            за замовлення: ФОП, Бугаєнко Сергій Анатолійович, 2950600630, UA833375460000026006025201576
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checkout-footer">
+                <button type="submit" class="btn-submit-main">Оформити замовлення</button>
+            </div>
+
+        </form> </div> <div class="order-drawer" id="orderDrawer" aria-hidden="true">
+        <div class="order-drawer__backdrop" id="orderDrawerBackdrop"></div>
+        <aside class="order-drawer__panel">
+            <header class="order-drawer__header">
+                <button type="button" class="order-drawer__back" id="orderDrawerClose">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1f2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                </button>
+                <h2 class="order-drawer__title">Замовлення</h2>
+                <div style="width:24px;"></div>
+            </header>
+
+            <div class="order-drawer__subheader">
+                <span id="odTotalCount">У замовленні 0 товарів</span>
+                <a href="index.html" class="co-edit-link">Редагувати замовлення</a>
+            </div>
+
+            <div class="order-drawer__body" id="odItemsList"></div>
+
+            <div class="order-drawer__footer">
+                <div class="co-totals">
+                    <div class="co-total-row">
+                        <span>Вартість замовлення:</span>
+                        <span id="odSumGoods">0 ₴</span>
+                    </div>
+                    <div class="co-total-row">
+                        <span>Доставка:</span>
+                        <span style="font-size:13px; color:#666;">за тарифами</span>
+                    </div>
+                    <div class="co-total-row big">
+                        <span>До сплати без доставки:</span>
+                        <span id="odFinalSum">0 ₴</span>
+                    </div>
+                </div>
+                <button type="button" class="co-submit-btn" id="odSubmitBtn">Оформити замовлення</button>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // ==========================================
+        // 1. КОНФИГУРАЦИЯ
+        // ==========================================
+        const NP_API_URL = 'https://api.novaposhta.ua/v2.0/json/';
+        const NP_API_KEY = ''; // Вставьте ключ, если нужно
+
+        // Популярные города (UA)
+        const POPULAR_CITIES = [
+            { MainDescription: 'Київ', AreaDescription: 'Київська обл.', DeliveryCity: '8d5a980d-391c-11dd-90d9-001a92567626', Ref: '8d5a980d-391c-11dd-90d9-001a92567626' },
+            { MainDescription: 'Харків', AreaDescription: 'Харківська обл.', DeliveryCity: 'db5c88e0-391c-11dd-90d9-001a92567626', Ref: 'db5c88e0-391c-11dd-90d9-001a92567626' },
+            { MainDescription: 'Одеса', AreaDescription: 'Одеська обл.', DeliveryCity: 'db5c88d0-391c-11dd-90d9-001a92567626', Ref: 'db5c88d0-391c-11dd-90d9-001a92567626' },
+            { MainDescription: 'Дніпро', AreaDescription: 'Дніпропетровська обл.', DeliveryCity: 'db5c88f0-391c-11dd-90d9-001a92567626', Ref: 'db5c88f0-391c-11dd-90d9-001a92567626' },
+            { MainDescription: 'Львів', AreaDescription: 'Львівська обл.', DeliveryCity: 'db5c88f5-391c-11dd-90d9-001a92567626', Ref: 'db5c88f5-391c-11dd-90d9-001a92567626' }
+        ];
+
+        const els = {
+            // --- НОВАЯ ПОЧТА (NP) ---
+            cityInp: document.getElementById('npCitySearch'),
+            cityRef: document.getElementById('npCityRef'),
+            settlementRef: document.getElementById('npSettlementRef'),
+            cityList: document.getElementById('npCityDropdown'),
+            branchInp: document.getElementById('npBranchSearch'),
+            branchRef: document.getElementById('npBranchRef'),
+            branchList: document.getElementById('npBranchDropdown'),
+            postInp: document.getElementById('npPostomatSearch'),
+            postRef: document.getElementById('npPostomatRef'),
+            postList: document.getElementById('npPostomatDropdown'),
+            streetInp: document.getElementById('npStreetSearch'),
+            streetRef: document.getElementById('npStreetRef'),
+            streetList: document.getElementById('npStreetDropdown'),
+            blockBranch: document.getElementById('blockBranch'),
+            blockPost: document.getElementById('blockPostomat'),
+            blockCourier: document.getElementById('blockCourier'),
+            radiosType: document.querySelectorAll('input[name="np_type"]'),
+
+            // --- УКРПОЧТА СТАНДАРТ (UP) ---
+            upCityInp: document.getElementById('upCitySearch'),
+            upCityRef: document.getElementById('upCityRef'),
+            upSettlementRef: document.getElementById('upSettlementRef'),
+            upCityList: document.getElementById('upCityDropdown'),
+            upStreetInp: document.getElementById('upStreetSearch'),
+            upStreetRef: document.getElementById('upStreetRef'),
+            upStreetList: document.getElementById('upStreetDropdown'),
+            blockUpBranch: document.getElementById('blockUpBranch'),
+            blockUpCourier: document.getElementById('blockUpCourier'),
+            radiosUpType: document.querySelectorAll('input[name="up_type"]'),
+
+            // --- УКРПОЧТА ЭКСПРЕСС (UPE) ---
+            upeCityInp: document.getElementById('upeCitySearch'),
+            upeCityRef: document.getElementById('upeCityRef'),
+            upeSettlementRef: document.getElementById('upeSettlementRef'),
+            upeCityList: document.getElementById('upeCityDropdown'),
+            upeStreetInp: document.getElementById('upeStreetSearch'),
+            upeStreetRef: document.getElementById('upeStreetRef'),
+            upeStreetList: document.getElementById('upeStreetDropdown'),
+            blockUpeBranch: document.getElementById('blockUpeBranch'),
+            blockUpeCourier: document.getElementById('blockUpeCourier'),
+            radiosUpeType: document.querySelectorAll('input[name="upe_type"]'),
+
+            // --- MEEST (NEW) ---
+            meestCityInp: document.getElementById('meestCitySearch'),
+            meestCityRef: document.getElementById('meestCityRef'),
+            meestSettlementRef: document.getElementById('meestSettlementRef'),
+            meestCityList: document.getElementById('meestCityDropdown'),
+
+            meestStreetInp: document.getElementById('meestStreetSearch'),
+            meestStreetRef: document.getElementById('meestStreetRef'),
+            meestStreetList: document.getElementById('meestStreetDropdown'),
+
+            blockMeestBranch: document.getElementById('blockMeestBranch'),
+            blockMeestPost: document.getElementById('blockMeestPost'),
+            blockMeestCourier: document.getElementById('blockMeestCourier'),
+            radiosMeestType: document.querySelectorAll('input[name="meest_type"]'),
+        };
+
+        // Базовая функция запроса API (ИСПРАВЛЕНО: Язык UA)
+        async function fetchNP(model, method, props) {
+            // Принудительно просим украинский язык
+            props.Language = "ua";
+
+            try {
+                const body = JSON.stringify({
+                    apiKey: NP_API_KEY,
+                    modelName: model,
+                    calledMethod: method,
+                    methodProperties: props
+                });
+                const r = await fetch(NP_API_URL, { method: 'POST', body });
+                const data = await r.json();
+                if (data.success) return data.data;
+                else return [];
+            } catch (e) {
+                console.error(e);
+                return [];
+            }
+        }
+
+        // ==========================================
+        // 2. ФУНКЦИИ ПОИСКА
+        // ==========================================
+
+        // --- ГОРОДА ---
+        // Поиск Городов (Обновленная версия со сбросом)
+        function setupCitySearch(inp, list, onSelectCallback) {
+            inp.addEventListener('focus', () => {
+                if (!inp.value.trim()) { renderList(list, POPULAR_CITIES); list.hidden = false; }
+            });
+
+            let debounce;
+            inp.addEventListener('input', () => {
+                const val = inp.value.trim();
+
+                // 1. При изменении города - закрываем другие списки и чистим поля
+                document.querySelectorAll('.co-dropdown-list').forEach(l => {
+                    if(l !== list) l.hidden = true;
+                });
+                // Очистка зависимых полей (отделения, улицы) в текущем блоке доставки
+                const container = inp.closest('.co-radio-details');
+                if(container) {
+                    container.querySelectorAll('input.co-input-search').forEach(i => {
+                        if(i !== inp) i.value = '';
+                    });
+                    // Очищаем Ref отделений (но не города)
+                    container.querySelectorAll('input[type="hidden"]').forEach(h => {
+                       if(!h.id.includes('CityRef') && !h.id.includes('SettlementRef')) h.value = '';
+                    });
+                }
+
+                clearTimeout(debounce);
+                if (!val) { renderList(list, POPULAR_CITIES); list.hidden = false; return; }
+
+                debounce = setTimeout(async () => {
+                    list.innerHTML = '<div style="padding:10px;color:#888;">Пошук...</div>';
+                    list.hidden = false;
+                    const items = await fetchNP('Address', 'searchSettlements', { CityName: val, Limit: 10, Page: 1 });
+                    const normalized = (items.length > 0 && items[0].Addresses) ? items[0].Addresses : items;
+                    renderList(list, normalized);
+                }, 400);
+            });
+
+            list.addEventListener('click', (e) => {
+                const item = e.target.closest('.co-dropdown-item');
+                if(!item) return;
+                inp.value = item.dataset.name;
+                if(onSelectCallback) onSelectCallback(item);
+                list.hidden = true;
+            });
+        }
+
+        function renderList(container, items) {
+            if (items.length > 0) {
+                container.innerHTML = items.map(cit => {
+                    // UA названия
+                    const label = cit.MainDescription || cit.Present;
+                    const region = cit.AreaDescription || cit.Region || '';
+                    return `<div class="co-dropdown-item"
+                                data-delivery-ref="${cit.DeliveryCity || ''}"
+                                data-settlement-ref="${cit.Ref || ''}"
+                                data-name="${label}">
+                                ${label} ${region ? `<span>${region}</span>` : ''}
+                            </div>`;
+                }).join('');
+            } else {
+                container.innerHTML = '<div style="padding:10px;">Нічого не знайдено</div>';
+            }
+        }
+
+        // Поиск Отделений НП
+        function setupWarehouseSearch(inp, list, refInput, isPostomat) {
+            let timer;
+
+            inp.addEventListener('focus', () => { if(!inp.value) loadWarehouses(''); });
+            inp.addEventListener('input', () => loadWarehouses(inp.value));
+
+            async function loadWarehouses(searchTxt) {
+                clearTimeout(timer);
+                const cityRef = els.cityRef.value;
+                if (!cityRef) {
+                    list.innerHTML = '<div style="padding:10px;color:#d9534f;">Спочатку оберіть місто</div>';
+                    list.hidden = false;
+                    return;
+                }
+
+                // Задержка только при вводе текста
+                const delay = searchTxt ? 400 : 0;
+
+                timer = setTimeout(async () => {
+                    list.hidden = false;
+                    if(!list.innerHTML) list.innerHTML = '<div style="padding:10px;color:#888;">Завантаження...</div>';
+
+                    // ВАЖНО: Ставим большой лимит (2000), чтобы захватить почтоматы в больших городах
+                    const props = {
+                        CityRef: cityRef,
+                        Limit: 2000,
+                        Language: "ua"
+                    };
+                    if(searchTxt) props.FindByString = searchTxt;
+
+                    const all = await fetchNP('Address', 'getWarehouses', props);
+
+                    const filtered = all.filter(w => {
+                        const cat = (w.CategoryOfWarehouse || "").toLowerCase();
+                        const desc = (w.Description || "").toLowerCase();
+                        const descRu = (w.DescriptionRu || "").toLowerCase();
+
+                        // Проверка на почтомат
+                        const isPost = cat === "postomat" ||
+                                       desc.includes("поштомат") || desc.includes("почтомат") ||
+                                       descRu.includes("поштомат") || descRu.includes("почтомат");
+
+                        return isPostomat ? isPost : !isPost;
+                    });
+
+                    if (filtered.length > 0) {
+                        // Ограничиваем показ в списке (например, первые 100)
+                        const viewList = filtered.slice(0, 100);
+
+                        list.innerHTML = viewList.map(w => {
+                            const name = w.Description; // Берем украинское
+                            return `<div class="co-dropdown-item" data-ref="${w.Ref}">${name}</div>`;
+                        }).join('');
+                    } else {
+                        list.innerHTML = '<div style="padding:10px;">Нічого не знайдено</div>';
+                    }
+                }, delay);
+            }
+
+            list.addEventListener('click', (e) => {
+                const item = e.target.closest('.co-dropdown-item');
+                if(!item) return;
+                inp.value = item.innerText.trim();
+                refInput.value = item.dataset.ref;
+                list.hidden = true;
+            });
+        }
+
+        // --- УЛИЦЫ ---
+        function setupStreetSearch(inp, list, refElement) {
+            let timer;
+            inp.addEventListener('input', () => {
+                const sRef = refElement.value;
+                const val = inp.value.trim();
+                if(!sRef) { list.innerHTML = '<div style="padding:10px;color:#d9534f;">Спочатку оберіть місто</div>'; list.hidden = false; return; }
+                if(val.length < 2) { list.hidden = true; return; }
+                clearTimeout(timer);
+                timer = setTimeout(async () => {
+                    list.hidden = false;
+                    list.innerHTML = '<div style="padding:10px;color:#888;">Пошук...</div>';
+                    const items = await fetchNP('Address', 'searchSettlementStreets', { SettlementRef: sRef, StreetName: val, Limit: 20 });
+                    if (items.length > 0 && items[0].Addresses) {
+                        list.innerHTML = items[0].Addresses.map(str => `<div class="co-dropdown-item" data-ref="${str.Ref}">${str.Present}</div>`).join('');
+                    } else {
+                        list.innerHTML = '<div style="padding:10px;">Вулиця не знайдена</div>';
+                    }
+                }, 400);
+            });
+            list.addEventListener('click', (e) => {
+                const item = e.target.closest('.co-dropdown-item');
+                if(!item) return;
+                inp.value = item.innerText;
+                list.hidden = true;
+            });
+        }
+
+
+        // ==========================================
+        // 3. ИНИЦИАЛИЗАЦИЯ
+        // ==========================================
+
+        // --- НОВАЯ ПОЧТА ---
+        setupCitySearch(els.cityInp, els.cityList, (item) => {
+            els.cityRef.value = item.dataset.deliveryRef;
+            els.settlementRef.value = item.dataset.settlementRef;
+            els.branchInp.value = ''; els.postInp.value = ''; els.streetInp.value = '';
+        });
+        setupWarehouseSearch(els.branchInp, els.branchList, els.branchRef, false);
+        setupWarehouseSearch(els.postInp, els.postList, els.postRef, true);
+        setupStreetSearch(els.streetInp, els.streetList, els.settlementRef);
+
+        function updateNPTabs() {
+            const val = document.querySelector('input[name="np_type"]:checked')?.value || 'branch';
+            els.blockBranch.hidden = (val !== 'branch');
+            els.blockPost.hidden = (val !== 'postomat');
+            els.blockCourier.hidden = (val !== 'courier');
+        }
+        els.radiosType.forEach(r => r.addEventListener('change', updateNPTabs));
+        updateNPTabs();
+
+        // --- УКРПОЧТА СТАНДАРТ ---
+        setupCitySearch(els.upCityInp, els.upCityList, (item) => {
+            els.upCityRef.value = item.dataset.deliveryRef;
+            els.upSettlementRef.value = item.dataset.settlementRef;
+            els.upStreetInp.value = '';
+        });
+        setupStreetSearch(els.upStreetInp, els.upStreetList, els.upSettlementRef);
+
+        function updateUPTabs() {
+            const val = document.querySelector('input[name="up_type"]:checked')?.value || 'branch';
+            els.blockUpBranch.hidden = (val !== 'branch');
+            els.blockUpCourier.hidden = (val !== 'courier');
+        }
+        els.radiosUpType.forEach(r => r.addEventListener('change', updateUPTabs));
+        updateUPTabs();
+
+        // --- УКРПОЧТА ЭКСПРЕСС ---
+        setupCitySearch(els.upeCityInp, els.upeCityList, (item) => {
+            els.upeCityRef.value = item.dataset.deliveryRef;
+            els.upeSettlementRef.value = item.dataset.settlementRef;
+            els.upeStreetInp.value = '';
+        });
+        setupStreetSearch(els.upeStreetInp, els.upeStreetList, els.upeSettlementRef);
+
+        function updateUPETabs() {
+            const val = document.querySelector('input[name="upe_type"]:checked')?.value || 'branch';
+            els.blockUpeBranch.hidden = (val !== 'branch');
+            els.blockUpeCourier.hidden = (val !== 'courier');
+        }
+        els.radiosUpeType.forEach(r => r.addEventListener('change', updateUPETabs));
+        updateUPETabs();
+
+        // --- MEEST ---
+        // 1. Город (база НП)
+        setupCitySearch(els.meestCityInp, els.meestCityList, (item) => {
+            els.meestCityRef.value = item.dataset.deliveryRef;
+            els.meestSettlementRef.value = item.dataset.settlementRef;
+            els.meestStreetInp.value = '';
+        });
+        // 2. Улица (база НП)
+        setupStreetSearch(els.meestStreetInp, els.meestStreetList, els.meestSettlementRef);
+
+        // 3. Вкладки Meest
+        function updateMeestTabs() {
+            const val = document.querySelector('input[name="meest_type"]:checked')?.value || 'branch';
+            els.blockMeestBranch.hidden = (val !== 'branch');
+            els.blockMeestPost.hidden = (val !== 'postomat');
+            els.blockMeestCourier.hidden = (val !== 'courier');
+        }
+        els.radiosMeestType.forEach(r => r.addEventListener('change', updateMeestTabs));
+        updateMeestTabs();
+
+
+        // ==========================================
+        // 4. ОБЩАЯ ЛОГИКА UI
+        // ==========================================
+        const allCards = document.querySelectorAll('.co-radio-card');
+        const resetBtn = document.getElementById('resetOptionsBtn');
+
+        function updateDeliveryState() {
+            let anySelected = false;
+            allCards.forEach(card => {
+                const radio = card.querySelector('input[name="delivery"], input[name="payment"]');
+                if (radio && radio.checked) {
+                    card.classList.add('is-selected');
+                    anySelected = true;
+                    if(card.querySelector('input[name="delivery"]')) {
+                        const det = card.querySelector('.co-radio-details');
+                        if (det) det.style.display = 'block';
+                    }
+                } else {
+                    card.classList.remove('is-selected');
+                    const det = card.querySelector('.co-radio-details');
+                    if (det) det.style.display = 'none';
+                }
+            });
+            if(resetBtn) resetBtn.hidden = !anySelected;
+        }
+
+        document.querySelectorAll('input[type="radio"]').forEach(r => {
+            r.addEventListener('change', () => {
+                updateDeliveryState();
+                updatePaymentOptions();
+            });
+        });
+
+        updateDeliveryState();
+
+        // Кнопка Сброс (Обновленная для всех служб)
+        if(resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                // Сброс чекбоксов
+                document.querySelectorAll('input[name="delivery"], input[name="payment"]').forEach(r => r.checked = false);
+                updateDeliveryState();
+
+                // Очистка всех текстовых и скрытых полей
+                document.querySelectorAll('input[type="text"]:not(#promoInput), input[type="hidden"]').forEach(i => i.value = '');
+
+                updatePaymentOptions();
+
+                resetBtn.hidden = true;
+            });
+        }
+
+        document.addEventListener('click', (e) => {
+            // Если клик НЕ по полю ввода И НЕ по самому списку
+            if (!e.target.closest('.co-input-search') && !e.target.closest('.co-dropdown-list')) {
+                document.querySelectorAll('.co-dropdown-list').forEach(el => el.hidden = true);
+            }
+        });
+
+        // ==========================================
+        // ЛОГИКА ВЫПАДАЮЩИХ СПИСКОВ (Способы от продавца)
+        // ==========================================
+        const dropdownToggles = document.querySelectorAll('.co-dropdown-toggle');
+
+        dropdownToggles.forEach(btn => {
+            // Пропускаем кнопку промокода, у неё своя логика ниже
+            if (btn.id === 'promoToggleBtn') return;
+
+            btn.onclick = (e) => {
+                e.preventDefault(); // Чтобы не скроллило страницу
+                const content = btn.nextElementSibling; // Блок с контентом
+                const svg = btn.querySelector('svg');   // Стрелочка
+
+                if (content) {
+                    content.hidden = !content.hidden;
+                    if (svg) {
+                        svg.style.transform = content.hidden ? 'rotate(0deg)' : 'rotate(180deg)';
+                    }
+                }
+            };
+        });
+
+        // Прочие функции (Шторка, Корзина, Промо, Коммент)
+        const drawer = document.getElementById('orderDrawer');
+        const openBtn = document.getElementById('openOrderDrawerBtn');
+        const closeBtn = document.getElementById('orderDrawerClose');
+        const backdrop = document.getElementById('orderDrawerBackdrop');
+        const drawerSubmit = document.getElementById('odSubmitBtn');
+        function openDrawer() { if(drawer) { drawer.classList.add('is-open'); drawer.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; } }
+        function closeDrawer() { if(drawer) { drawer.classList.remove('is-open'); drawer.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; } }
+        if(openBtn) openBtn.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); });
+        if(closeBtn) closeBtn.addEventListener('click', closeDrawer);
+        if(backdrop) backdrop.addEventListener('click', closeDrawer);
+        if(drawerSubmit) drawerSubmit.addEventListener('click', closeDrawer);
+
+        const promoToggle = document.getElementById('promoToggleBtn');
+        const promoContent = document.getElementById('promoContent');
+        if(promoToggle) promoToggle.addEventListener('click', () => {
+            promoContent.hidden = !promoContent.hidden;
+            promoToggle.querySelector('svg').style.transform = promoContent.hidden ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+        const commentToggle = document.getElementById('commentToggle');
+        const commentBox = document.getElementById('commentBox');
+        const textArea = document.getElementById('orderComment');
+        const charCount = document.getElementById('charCount');
+        if(commentToggle) commentToggle.addEventListener('click', () => {
+            commentBox.hidden = !commentBox.hidden;
+            commentToggle.querySelector('svg').style.transform = commentBox.hidden ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+        if(textArea) textArea.addEventListener('input', () => { charCount.textContent = 254 - textArea.value.length; });
+
+        function loadCartData() {
+            let cart = []; try { cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || []; } catch(e){}
+            let catalog = []; try { catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru')).items || []; } catch(e){}
+            const sidebarList = document.getElementById('coItemsList');
+            const drawerList = document.getElementById('odItemsList');
+            const sidebarTitle = document.getElementById('coTotalTitle');
+            const drawerCountTitle = document.getElementById('odTotalCount');
+            const elsPrice = ['coSumGoods', 'coFinalSum', 'odSumGoods', 'odFinalSum'];
+
+            if (cart.length === 0) {
+                if(sidebarList) sidebarList.innerHTML = '<div style="padding:10px; color:#888;">Кошик порожній</div>';
+                return;
+            }
+
+            let total = 0, totalQty = 0, html = '', dHtml = '';
+            cart.forEach(item => {
+                const prod = catalog.find(p => p.id == item.id);
+                if(prod) {
+                    const sum = prod.price * item.qty; total += sum; totalQty += item.qty;
+                    const img = prod.image || '';
+                    html += `<div class="co-item"><div class="co-item__img"><img src="${img}"></div><div class="co-item__info"><div class="co-item__title">${prod.title}</div><div class="co-item__meta">${item.qty} шт.</div><div class="co-item__price">${prod.price} ₴/шт.</div></div></div>`;
+                    dHtml += `
+                    <div class="od-item">
+                        <div class="od-item__img"><img src="${img}"></div>
+                        <div class="od-item__info">
+                            <div class="od-item__title">${prod.title}</div>
+                            <div class="od-item__status">В наявності</div>
+                            <div style="font-size:13px; color:#666; margin-top:4px;">${item.qty} шт. × ${prod.price} ₴</div>
+                            <div class="od-item__price">${sum} ₴</div>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            if(sidebarList) sidebarList.innerHTML = html;
+            if(drawerList) drawerList.innerHTML = dHtml;
+            elsPrice.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = total + ' ₴'; });
+            if(sidebarTitle) sidebarTitle.textContent = `Замовлення`;
+            if(drawerCountTitle) drawerCountTitle.textContent = `У замовленні ${totalQty} од. товару`;
+        }
+
+        // Логика "Получатель средств"
+        const recipToggle = document.getElementById('recipToggle');
+        const recipInfo = document.getElementById('recipInfo');
+        if(recipToggle) {
+            recipToggle.addEventListener('click', () => {
+                recipInfo.style.display = (recipInfo.style.display === 'none') ? 'block' : 'none';
+            });
+        }
+
+        // ==========================================
+        // 5. ЛОГИКА ОПЛАТЫ (ЗАВИСИМОСТЬ ОТ ДОСТАВКИ)
+        // ==========================================
+        function updatePaymentOptions() {
+            // Какая доставка выбрана?
+            const delivery = document.querySelector('input[name="delivery"]:checked')?.value;
+
+            // Блок наложенного платежа
+            const payCod = document.getElementById('payCod');
+
+            if(!payCod) return;
+
+            // 1. По умолчанию показываем
+            payCod.style.display = 'block';
+
+            if (!delivery) return; // Если доставка не выбрана - всё видно
+
+            // 2. Логика: Наложенный платеж только для Новой Почты
+            if (delivery === 'np') {
+                payCod.style.display = 'block';
+            } else {
+                // Для всех остальных (Укрпочта, Meest, Самовывоз) скрываем
+                payCod.style.display = 'none';
+
+                // Если он был выбран - сбрасываем выбор
+                const codRadio = payCod.querySelector('input');
+                if (codRadio.checked) {
+                    codRadio.checked = false;
+                    updateDeliveryState(); // Убираем синюю рамку
+                }
+            }
+        }
+
+        loadCartData();
+
+        // ==========================================
+        // ГЕНЕРАТОР УНИКАЛЬНОГО ID ЗАКАЗА
+        // ==========================================
+        function generateUniqueOrderId() {
+            const STORAGE_KEY = 'rb_used_order_ids';
+            let usedIds = [];
+
+            // 1. Получаем историю
+            try {
+                usedIds = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            } catch (e) { usedIds = []; }
+
+            let newId;
+            let isDuplicate = true;
+            let attempts = 0;
+
+            // 2. Генерируем, пока не найдем уникальный
+            while (isDuplicate && attempts < 50) {
+                newId = Math.floor(100000000 + Math.random() * 900000000); // 9 цифр
+                // Проверяем, есть ли он в последних 50
+                if (!usedIds.includes(newId)) {
+                    isDuplicate = false;
+                }
+                attempts++;
+            }
+
+            // 3. Сохраняем новый ID
+            usedIds.push(newId);
+
+            // 4. Оставляем только последние 50 записей
+            if (usedIds.length > 50) {
+                // Отрезаем лишнее с начала (старые заказы)
+                usedIds = usedIds.slice(usedIds.length - 50);
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(usedIds));
+            return newId;
+        }
+
+        // ==========================================
+        // 6. ОБРАБОТКА ОФОРМЛЕНИЯ ЗАКАЗА (ОБНОВЛЕННАЯ: ОПЛАТА КАРТОЙ + ВАЛИДАЦИЯ)
+        // ==========================================
+        const form = document.getElementById('checkoutForm');
+
+        // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ВАЛИДАЦИЯ) ---
+        function showError(message, selectorOrId) {
+            alert(message);
+            let el = document.getElementById(selectorOrId);
+            if (!el && selectorOrId) el = document.querySelector(`input[name="${selectorOrId}"]`);
+
+            if(el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus();
+                el.style.borderColor = 'red';
+                setTimeout(() => el.style.borderColor = '', 3000);
+            }
+            return false;
+        }
+
+        function validateUpAddr(val, fieldName) {
+            const v = val.trim();
+            if (!/^\d{5}/.test(v)) return showError('Адреса повинна починатися з поштового індексу (5 цифр)!', fieldName);
+            if (v.length < 12) return showError('Будь ласка, допишіть вулицю та номер будинку.', fieldName);
+            return true;
+        }
+
+        function formatFullAddress(city, rawAddress) {
+            let addr = rawAddress.trim();
+            if (/^\d{5}/.test(addr)) {
+                return addr.replace(/^(\d{5})(.+)/, `$1, м. ${city}$2`);
+            }
+            return `м. ${city}, ${addr}`;
+        }
+
+        // --- ЛОГИКА ОПЛАТЫ КАРТОЙ (МОДАЛЬНОЕ ОКНО) ---
+        const modal = document.getElementById('paymentModal');
+        const openModalBtn = document.getElementById('btnOpenModal');
+        const closeModalBtn = document.getElementById('closeModal');
+        const doPayBtn = document.getElementById('doPayBtn');
+        const cardPayBlock = document.getElementById('cardPayBlock');
+
+        // Статус оплаты заказа (по умолчанию false)
+        let isOrderPaid = false;
+
+        // --- АВТОМАТИЧЕСКОЕ ФОРМАТИРОВАНИЕ (МАСКИ) ---
+        const inpCard = document.getElementById('cNum');
+        const inpDate = document.getElementById('cDate');
+
+        // 1. Номер карты: пробел каждые 4 цифры
+        if (inpCard) {
+            inpCard.addEventListener('input', (e) => {
+                let v = e.target.value.replace(/\D/g, '').substring(0, 16); // Оставляем только цифры (макс 16)
+                e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 '); // Добавляем пробелы
+            });
+        }
+
+        // 2. Срок действия: слеш после 2-й цифры
+        if (inpDate) {
+            inpDate.addEventListener('input', (e) => {
+                // Удаляем всё кроме цифр
+                let v = e.target.value.replace(/\D/g, '').substring(0, 4);
+
+                // Если ввели больше 2 цифр, ставим слеш
+                if (v.length >= 2) {
+                    e.target.value = v.substring(0, 2) + '/' + v.substring(2);
+                } else {
+                    e.target.value = v;
+                }
+            });
+
+            // Чтобы корректно работал Backspace (удаление слеша)
+            inpDate.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && e.target.value.endsWith('/')) {
+                    e.target.value = e.target.value.slice(0, -1);
+                }
+            });
+        }
+
+        // 1. Открытие модалки
+        if(openModalBtn) {
+            openModalBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if(modal) modal.classList.add('active');
+            });
+        }
+
+        // 2. Закрытие модалки
+        if(closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                if(modal) modal.classList.remove('active');
+            });
+        }
+
+        // 3. Обработка нажатия "Оплатить" в бланке
+        if(doPayBtn) {
+            doPayBtn.addEventListener('click', () => {
+                const cNum = document.getElementById('cNum').value;
+                const cCvv = document.getElementById('cCvv').value;
+                const cDate = document.getElementById('cDate').value;
+
+                // Простейшая проверка (можно усилить)
+                if(cNum.length < 16 || cCvv.length < 3 || !cDate) {
+                    alert("Будь ласка, заповніть коректні дані картки.");
+                    return;
+                }
+
+                // Имитация процесса
+                doPayBtn.textContent = 'Обробка...';
+
+                setTimeout(() => {
+                    // Успешная оплата
+                    if(modal) modal.classList.remove('active');
+                    doPayBtn.textContent = 'Сплатити'; // вернем текст
+
+                    // Меняем состояние UI
+                    if(openModalBtn) openModalBtn.style.display = 'none'; // Скрыть кнопку
+                    const msgPaid = document.getElementById('msgPaid');
+                    if(msgPaid) msgPaid.style.display = 'flex'; // Показать "Заказ оплачен"
+
+                    isOrderPaid = true; // Ставим флаг оплаты
+                }, 1500);
+            });
+        }
+
+        // 4. Показ/скрытие блока "Оплатить сейчас" при выборе радиокнопки
+        function updatePaymentUI() {
+            const paymentType = document.querySelector('input[name="payment"]:checked')?.value;
+            const block = document.getElementById('cardPayBlock');
+
+            if (block) {
+                if (paymentType === 'card_online') {
+                    block.style.display = 'block';
+                } else {
+                    block.style.display = 'none';
+                }
+            }
+        }
+        // Вешаем слушатель на все радиокнопки оплаты
+        document.querySelectorAll('input[name="payment"]').forEach(r => {
+            r.addEventListener('change', updatePaymentUI);
+        });
+
+        // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+                const deliveryType = formData.get('delivery');
+                const paymentType = formData.get('payment');
+
+                // --- ПРОВЕРКИ (ВАЛИДАЦИЯ) ---
+                if(!document.getElementById('coPhone').value) return showError('Введіть номер телефону', 'coPhone');
+                if(!document.getElementById('coSurname').value) return showError('Введіть прізвище', 'coSurname');
+                if(!document.getElementById('coName').value) return showError('Введіть ім\'я', 'coName');
+
+                if (!deliveryType) {
+                    alert('Будь ласка, оберіть спосіб доставки!');
+                    const sect = document.getElementById('optNP')?.closest('.co-section');
+                    if(sect) sect.scrollIntoView({ behavior: 'smooth' });
+                    return;
+                }
+
+                // Валидация адресов доставки
+                if (deliveryType === 'np') {
+                    if (!document.getElementById('npCitySearch').value.trim()) return showError('Вкажіть місто', 'npCitySearch');
+                    const subType = document.querySelector('input[name="np_type"]:checked').value;
+                    if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Оберіть відділення', 'npBranchSearch');
+                    if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Оберіть поштомат', 'npPostomatSearch');
+                    if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Вкажіть вулицю та будинок', 'npStreetSearch');
+                }
+                else if (deliveryType === 'up') {
+                    if (!document.getElementById('upCitySearch').value.trim()) return showError('Вкажіть місто', 'upCitySearch');
+                    const subType = document.querySelector('input[name="up_type"]:checked').value;
+                    if (subType === 'branch') {
+                        const val = formData.get('up_branch_text');
+                        if (!val) return showError('Заповніть індекс та адресу', 'up_branch_text');
+                        if (!validateUpAddr(val, 'up_branch_text')) return;
+                    }
+                    else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Вкажіть вулицю та будинок', 'upStreetSearch');
+                }
+                else if (deliveryType === 'upe') {
+                    if (!document.getElementById('upeCitySearch').value.trim()) return showError('Вкажіть місто', 'upeCitySearch');
+                    const subType = document.querySelector('input[name="upe_type"]:checked').value;
+                    if (subType === 'branch') {
+                        const val = formData.get('upe_branch_text');
+                        if (!val) return showError('Заповніть індекс та адресу', 'upe_branch_text');
+                        if (!validateUpAddr(val, 'upe_branch_text')) return;
+                    }
+                    else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').value.trim())) return showError('Вкажіть вулицю та будинок', 'upeStreetSearch');
+                }
+                else if (deliveryType === 'meest') {
+                    if (!document.getElementById('meestCitySearch').value.trim()) return showError('Вкажіть місто', 'meestCitySearch');
+                    const subType = document.querySelector('input[name="meest_type"]:checked').value;
+                    if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Вкажіть відділення', 'meest_branch_text');
+                    if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Вкажіть поштомат', 'meest_post_text');
+                    if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Вкажіть вулицю та будинок', 'meestStreetSearch');
+                }
+
+                // Проверка оплаты
+                const paySection = document.getElementById('payCod')?.closest('.co-section');
+                if (deliveryType !== 'self' && (!paymentType || paymentType === '')) {
+                    alert('Будь ласка, оберіть спосіб оплати!');
+                    if(paySection) paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    return;
+                }
+
+                // --- СБОР ДАННЫХ ---
+                let deliveryLabel = '';
+                let addressText = '';
+
+                if (deliveryType === 'np') {
+                    deliveryLabel = 'Нова Пошта';
+                    const city = document.getElementById('npCitySearch').value;
+                    const type = document.querySelector('input[name="np_type"]:checked').value;
+                    if (type === 'branch') addressText = `м. ${city}, ` + document.getElementById('npBranchSearch').value;
+                    else if (type === 'postomat') addressText = `м. ${city}, ` + document.getElementById('npPostomatSearch').value;
+                    else addressText = `м. ${city}, ` + document.getElementById('npStreetSearch').value + ', буд. ' + formData.get('np_house');
+                }
+                else if (deliveryType === 'up') {
+                    deliveryLabel = 'Укрпошта Стандарт';
+                    const city = document.getElementById('upCitySearch').value;
+                    const type = document.querySelector('input[name="up_type"]:checked').value;
+                    if (type === 'branch') addressText = formatFullAddress(city, formData.get('up_branch_text'));
+                    else addressText = `м. ${city}, ` + document.getElementById('upStreetSearch').value + ', буд. ' + formData.get('up_house');
+                }
+                else if (deliveryType === 'upe') {
+                    deliveryLabel = 'Укрпошта Експрес';
+                    const city = document.getElementById('upeCitySearch').value;
+                    const type = document.querySelector('input[name="upe_type"]:checked').value;
+                    if (type === 'branch') addressText = formatFullAddress(city, formData.get('upe_branch_text'));
+                    else addressText = `м. ${city}, ` + document.getElementById('upeStreetSearch').value + ', буд. ' + formData.get('upe_house');
+                }
+                else if (deliveryType === 'meest') {
+                    deliveryLabel = 'Meest ПОШТА';
+                    const city = document.getElementById('meestCitySearch').value;
+                    const type = document.querySelector('input[name="meest_type"]:checked').value;
+                    if(type === 'branch') addressText = `м. ${city}, ` + formData.get('meest_branch_text');
+                    else if(type === 'postomat') addressText = `м. ${city}, ` + formData.get('meest_post_text');
+                    else addressText = `м. ${city}, ` + document.getElementById('meestStreetSearch').value;
+                }
+                else if (deliveryType === 'self') {
+                    deliveryLabel = 'Самовивіз';
+                    addressText = 'м. Шостка, вул. Свободи, 24';
+                }
+
+                // Метки оплаты
+                let paymentLabel = '';
+                if (paymentType === 'cod') paymentLabel = 'Післяплата';
+                else if (paymentType === 'seller_cashless') paymentLabel = 'Безготівковий розрахунок';
+                else if (paymentType === 'seller_privat') paymentLabel = 'Оплата на рахунок ФОП';
+                else if (paymentType === 'card_online') paymentLabel = 'Оплата карткою Visa/Mastercard';
+
+                // !!! ЗДЕСЬ ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID !!!
+                const orderId = generateUniqueOrderId();
+
+                // Логика статуса оплаты
+                let finalPayStatus = 'unpaid';
+                // Если выбрана карта И флаг оплаты true — значит оплачено
+                if (paymentType === 'card_online' && isOrderPaid) {
+                    finalPayStatus = 'paid';
+                }
+
+                const orderData = {
+                    id: orderId,
+                    contact: {
+                        name: document.getElementById('coName').value,
+                        surname: document.getElementById('coSurname').value,
+                        phone: document.getElementById('coPhone').value
+                    },
+                    delivery: {
+                        method: deliveryLabel,
+                        address: addressText || 'Адреса уточнюється'
+                    },
+                    payment: {
+                        type: paymentType,
+                        label: paymentLabel,
+                        status: finalPayStatus // <--- Статус оплаты
+                    },
+                    comment: document.getElementById('orderComment').value.trim(),
+                    total: document.getElementById('coFinalSum').textContent
+                };
+
+                localStorage.setItem('rb_last_order_details', JSON.stringify(orderData));
+
+                const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
+                if(btn) {
+                    btn.textContent = 'Оформлюємо...';
+                    btn.disabled = true;
+                    btn.style.opacity = '0.8';
+                }
+
+                setTimeout(() => {
+                    window.location.href = 'order-success.html';
+                }, 800);
+            });
+        }
+    });
+    </script>
+<div class="modal-overlay" id="paymentModal">
+    <div class="pay-modal">
+        <button type="button" class="modal-close" id="closeModal">&times;</button>
+        <h3 style="margin-top:0; margin-bottom:20px; text-align:center;">Оплата карткою</h3>
+
+        <div class="modal-field">
+            <label>Номер картки</label>
+            <input type="text" class="modal-input" id="cNum" placeholder="0000 0000 0000 0000" maxlength="19">
+        </div>
+        <div class="modal-row">
+            <div class="modal-field">
+                <label>Термін (MM/YY)</label>
+                <input type="text" class="modal-input" id="cDate" placeholder="MM/YY" maxlength="5">
+            </div>
+            <div class="modal-field">
+                <label>CVV</label>
+                <input type="password" class="modal-input" id="cCvv" placeholder="123" maxlength="3">
+            </div>
+        </div>
+
+        <button type="button" class="btn-modal-pay" id="doPayBtn">Сплатити</button>
+        <div id="payStatus" style="text-align:center; margin-top:10px; font-size:14px;"></div>
+    </div>
+</div>
+
+</body>
+</html>

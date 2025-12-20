@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Замовлення оформлено — RadioBox</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        /* --- ТВОИ ОРИГИНАЛЬНЫЕ СТИЛИ (НЕ ТРОГАЛ) --- */
+        body { background: #f4f6f8; margin: 0; font-family: sans-serif; }
+        .os-container { max-width: 900px; margin: 0 auto; padding: 30px 20px; }
+
+        /* БАННЕР */
+        .os-banner {
+            border-radius: 12px; padding: 30px; display: flex; align-items: flex-start; /* Чуть поправил выравнивание для кнопки */
+            justify-content: space-between; margin-bottom: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: relative; overflow: hidden; color: #fff;
+        }
+        .os-banner.type-info { background: #189BFF; box-shadow: 0 4px 15px rgba(24, 155, 255, 0.3); }
+        .os-banner__content { position: relative; z-index: 2; max-width: 550px; }
+
+        .os-status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.25); color: #fff;
+            padding: 6px 12px; border-radius: 20px;
+            font-weight: 700; font-size: 13px; margin-bottom: 16px;
+            backdrop-filter: blur(4px);
+        }
+
+        .os-banner__img {
+            position: absolute; right: 40px; bottom: -20px; width: 180px; height: auto;
+            pointer-events: none; z-index: 1; filter: grayscale(100%) opacity(0.2) invert(1);
+        }
+        @media(max-width: 768px) {
+            .os-banner { flex-direction: column; align-items: flex-start; }
+            .os-banner__img { position: relative; right: auto; bottom: auto; align-self: flex-end; width: 120px; margin-top: -40px; margin-bottom: -20px; opacity: 0.8; }
+        }
+
+        /* КАРТОЧКИ */
+        .os-card { background: #fff; border: 1px solid #e6e8ed; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+        .os-card h4 { margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 700; color: #0f172a; }
+
+        .os-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px; }
+        .os-title-row { display: flex; align-items: center; gap: 12px; }
+        .os-title { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0; }
+
+        .order-num-copy { cursor: pointer; border-bottom: 1px dashed #ccc; position: relative; transition: color 0.2s, border-color 0.2s; }
+        .order-num-copy:hover { color: #189BFF; border-bottom-color: #189BFF; }
+        .copy-icon { opacity: 0; transition: opacity 0.2s; margin-left: 4px; color: #999; }
+        .order-num-copy:hover + .copy-icon, .order-num-copy:hover .copy-icon { opacity: 1; }
+
+        .btn-cancel { font-size: 13px; color: #9ca3af; text-decoration: underline; background: none; border: none; cursor: pointer; padding: 0; }
+        .btn-cancel:hover { color: #DC2626; }
+
+        .os-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media(max-width: 600px) { .os-info-grid { grid-template-columns: 1fr; gap: 20px; } }
+        .os-block h4 { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0 0 8px; }
+        .os-val { font-size: 15px; color: #333; line-height: 1.5; }
+        .os-val-sub { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+        .os-comment-box { background: #fff9c4; border: 1px solid #fde047; color: #444; padding: 16px; border-radius: 8px; font-size: 14px; }
+
+        .os-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+        .os-item:last-child { border-bottom: none; }
+        .os-item-name { font-size: 14px; font-weight: 600; color: #333; }
+        .os-item-meta { font-size: 13px; color: #666; }
+        .os-item-price { font-weight: 700; font-size: 15px; }
+
+        .seller-block { display: flex; flex-direction: column; gap: 6px; }
+        .seller-name { font-weight: 700; font-size: 16px; color: #0f172a; margin-bottom: 2px; }
+        .seller-phone { color: #189BFF; text-decoration: none; font-weight: 500; font-size: 15px; display: inline-block; width: fit-content; }
+        .seller-phone:hover { text-decoration: underline; }
+
+        .btn-continue { display: block; width: 100%; max-width: 250px; margin: 30px auto 0; text-align: center; padding: 12px 20px; border: 2px solid #189BFF; color: #189BFF; border-radius: 8px; font-weight: 700; text-decoration: none; transition: all .2s; }
+        .btn-continue:hover { background: #f0f9ff; }
+
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 5000; }
+        .toast.show { opacity: 1; }
+
+        /* --- НОВЫЕ СТИЛИ (ДЛЯ КНОПКИ И ШТОРКИ) --- */
+
+        /* Кнопка в баннере */
+        .pay-now-btn {
+            background-color: #28a745;
+            color: #fff; border: none; padding: 12px 24px;
+            border-radius: 6px; font-weight: 700; font-size: 15px;
+            cursor: pointer; margin-top: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.2s;
+            display: none; /* Скрыта по умолчанию */
+        }
+        .pay-now-btn:hover { background-color: #218838; }
+
+        /* Затемнение */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); z-index: 998;
+            display: none; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .overlay.active { display: block; opacity: 1; }
+
+        /* Шторка */
+        .payment-sidebar {
+            position: fixed; top: 0; right: -450px;
+            width: 400px; max-width: 100%; height: 100%;
+            background-color: white; box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+            z-index: 999; transition: right 0.3s ease-in-out;
+            padding: 25px; box-sizing: border-box;
+            display: flex; flex-direction: column;
+            font-family: 'Segoe UI', sans-serif; /* Локальный шрифт для шторки */
+        }
+        .payment-sidebar.active { right: 0; }
+
+        .sidebar-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+        }
+        .sidebar-header h3 { margin: 0; font-size: 22px; color: #333; }
+        .close-btn { background: none; border: none; font-size: 28px; cursor: pointer; color: #555; }
+
+        /* Табы выбора метода */
+        .pay-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .pay-tab {
+            flex: 1; padding: 12px; text-align: center;
+            border: 1px solid #eee; border-radius: 6px; cursor: pointer;
+            font-weight: 600; color: #555; background: #f9f9f9;
+        }
+        .pay-tab.active {
+            border-color: #189BFF; color: #189BFF; background: #f0f9ff;
+        }
+
+        /* Выбор типа карты */
+        .card-types { display: flex; gap: 10px; margin-bottom: 20px; }
+        .card-type-opt {
+            flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 10px;
+            text-align: center; cursor: pointer; font-size: 14px; font-weight: 500;
+        }
+        .card-type-opt:hover { background: #f5f5f5; }
+        .card-type-opt.selected { border-color: #189BFF; background: #f0f9ff; color: #189BFF; font-weight: bold; }
+
+        /* Поля ввода */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 13px; margin-bottom: 5px; color: #666; font-weight: 600; }
+        .input-group input {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;
+            font-size: 16px; box-sizing: border-box;
+        }
+        .input-row { display: flex; gap: 15px; }
+
+        .final-btn {
+            width: 100%; background: #28a745; color: white; padding: 14px;
+            border: none; border-radius: 6px; font-size: 16px; font-weight: bold;
+            cursor: pointer; margin-top: 10px;
+        }
+        .final-btn:hover { background: #218838; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <header class="b-white-bar" style="border-bottom: 1px solid #e6e8ed; background: #fff;">
+        <div class="container white-inner" style="justify-content: center; grid-template-columns: auto; display: flex; padding: 15px;">
+            <a href="index.html" class="brand" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="RadioBox" style="height: 70px; width: auto; object-fit: contain;">
+                <span class="brand-name" style="font-size: 24px; font-weight: bold; color: #333;">RadioBox</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="os-container">
+
+        <div id="osBanner" class="os-banner type-info">
+            <div class="os-banner__content">
+                <div class="os-status-badge" id="osBadge">Замовлення оформлено</div>
+                <h2 style="margin: 0 0 10px; font-size: 24px;" id="osBannerTitle">...</h2>
+                <div style="font-size: 15px; opacity: 0.95; line-height: 1.5;" id="osBannerText">...</div>
+
+                <button id="payNowBtn" class="pay-now-btn">Сплатити зараз</button>
+            </div>
+            <img src="../assets/icons/company.png" class="os-banner__img">
+        </div>
+
+        <div class="os-card">
+            <div class="os-head">
+                <div class="os-title-row">
+                    <h3 class="os-title">
+                        Замовлення №
+                        <span id="orderNum" class="order-num-copy" title="Натисніть, щоб скопіювати" onclick="copyOrderNum()">...</span>
+                        <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </h3>
+                    <button type="button" class="btn-cancel" onclick="cancelOrder()">Скасувати замовлення</button>
+                </div>
+            </div>
+
+            <div id="osItemsList"></div>
+
+            <div style="text-align: right; margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                <div style="font-size: 14px; color: #666;">Разом до сплати:</div>
+                <div style="font-size: 22px; font-weight: 800; color: #0f172a;" id="osTotalPrice">0 ₴</div>
+            </div>
+        </div>
+
+        <div class="os-card" id="osCommentBlock" hidden>
+            <h4>Коментар до замовлення</h4>
+            <div class="os-comment-box" id="osCommentText"></div>
+        </div>
+
+        <div class="os-card">
+            <div class="os-info-grid">
+                <div class="os-block">
+                    <h4>Контакти покупця</h4>
+                    <div class="os-val" id="osCustomerName">...</div>
+                    <div class="os-val" id="osCustomerPhone">...</div>
+                </div>
+
+                <div class="os-block">
+                    <h4>Доставка</h4>
+                    <div class="os-val" id="osDeliveryMethod">...</div>
+                    <div class="os-val-sub" id="osDeliveryAddress">...</div>
+                </div>
+
+                <div class="os-block" style="grid-column: 1 / -1;">
+                    <h4>Оплата</h4>
+                    <div class="os-val" id="osPaymentMethod">...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="os-card">
+            <h4>Контакти продавця</h4>
+            <div class="seller-block">
+                <div class="seller-name">Сергій Бугаєнко</div>
+                <a href="tel:+380930728887" class="seller-phone">+380 (93) 072-88-87</a>
+                <a href="tel:+380501755718" class="seller-phone">+380 (50) 175-57-18</a>
+            </div>
+        </div>
+
+        <a href="products.html" class="btn-continue">Продовжити покупки</a>
+
+    </div>
+
+    <div id="toast" class="toast">Скопійовано!</div>
+
+    <div id="overlay" class="overlay"></div>
+    <div id="paymentSidebar" class="payment-sidebar">
+        <div class="sidebar-header">
+            <h3>Оплата</h3>
+            <button id="closeSidebar" class="close-btn">&times;</button>
+        </div>
+
+        <div class="pay-tabs">
+            <div class="pay-tab active" onclick="switchTab('card')">Сплатити карткою</div>
+            <div class="pay-tab" onclick="switchTab('account')">Оплата на рахунок</div>
+        </div>
+
+        <div id="tab-card">
+            <div style="margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #333;">Оберіть систему:</div>
+            <div class="card-types">
+                <div class="card-type-opt" onclick="selectCardType('Visa')">Visa</div>
+                <div class="card-type-opt" onclick="selectCardType('Mastercard')">Mastercard</div>
+                <div class="card-type-opt" onclick="selectCardType('PayPal')">PayPal</div>
+            </div>
+
+            <form id="cardFormInputs" class="hidden">
+                <div class="input-group">
+                    <label>Номер картки</label>
+                    <input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19">
+                </div>
+                <div class="input-row">
+                    <div class="input-group" style="flex:1">
+                        <label>Термін (MM/YY)</label>
+                        <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5">
+                    </div>
+                    <div class="input-group" style="flex:1">
+                        <label>CVV</label>
+                        <input type="password" id="cardCvv" placeholder="123" maxlength="3">
+                    </div>
+                </div>
+                <button type="button" class="final-btn" onclick="submitPayment()">Сплатити</button>
+            </form>
+        </div>
+
+        <div id="tab-account" class="hidden">
+            <div style="background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 8px;">
+                <p style="margin:0 0 10px; font-weight:bold;">ФОП Бугаєнко С.А.</p>
+                <p style="margin:5px 0; font-size:14px;">IBAN: UA28305299000002600123456789</p>
+                <p style="margin:5px 0; font-size:14px;">ЄДРПОУ: 12345678</p>
+                <p style="margin:10px 0; font-size:14px; color:#189BFF;">Призначення: Оплата замовлення <span id="fopOrderNum"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const orderRaw = localStorage.getItem('rb_last_order_details');
+
+            let order = orderRaw ? JSON.parse(orderRaw) : {
+                id: Math.floor(100000000 + Math.random() * 900000000),
+                contact: { name: 'Гість', surname: '', phone: '' },
+                delivery: { method: 'Не вказано', address: '' },
+                payment: { type: 'seller_privat', label: 'seller_privat' },
+                total: '0 ₴',
+                comment: ''
+            };
+
+            // Заполнение полей
+            document.getElementById('orderNum').textContent = order.id;
+            document.getElementById('fopOrderNum').textContent = '#' + order.id; // Для ФОП
+
+            document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
+            document.getElementById('osCustomerPhone').textContent = order.contact.phone;
+            document.getElementById('osDeliveryMethod').textContent = order.delivery.method;
+            document.getElementById('osDeliveryAddress').textContent = order.delivery.address;
+            document.getElementById('osTotalPrice').textContent = order.total;
+
+            // === ВАЖНО: ЗАМЕНА НАЗВАНИЯ МЕТОДА ОПЛАТЫ ===
+            const payMethodEl = document.getElementById('osPaymentMethod');
+            if (order.payment.type === 'seller_privat') {
+                payMethodEl.textContent = 'Оплата на рахунок ФОП';
+            } else {
+                payMethodEl.textContent = order.payment.label;
+            }
+
+            if (order.comment && order.comment.length > 0) {
+                document.getElementById('osCommentBlock').hidden = false;
+                document.getElementById('osCommentText').textContent = order.comment;
+            }
+
+            // === БАННЕР, ТЕКСТЫ И КНОПКА ===
+            const banner = document.getElementById('osBanner');
+            const badge = document.getElementById('osBadge');
+            const title = document.getElementById('osBannerTitle');
+            const text = document.getElementById('osBannerText');
+            const payBtn = document.getElementById('payNowBtn');
+
+            payBtn.style.display = 'none';
+            banner.className = 'os-banner type-info';
+            badge.textContent = 'Нове замовлення';
+            title.textContent = 'Замовлення прийнято!';
+            text.style.display = 'block';
+
+            const pType = order.payment.type;
+            const pStatus = order.payment.status; // 'paid' или 'unpaid'
+
+            // 1. Наложенный платеж
+            if (pType === 'cod') {
+                text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
+            }
+            // 2. Безналичный расчет
+            else if (pType === 'seller_cashless') {
+                text.innerHTML = "Замовлення прийнято!<br>Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
+            }
+            // 3. Оплата на ФОП
+            else if (pType === 'seller_privat') {
+                text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
+            }
+            // 4. Оплата картой
+            else if (pType === 'card_online') {
+                text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
+            }
+            // Прочие варианты (на всякий случай)
+            else {
+                text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами!";
+            }
+
+            // Товары
+            const cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || [];
+            const catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru'))?.items || [];
+            const listEl = document.getElementById('osItemsList');
+
+            if (cart.length > 0) {
+                listEl.innerHTML = cart.map(item => {
+                    const p = catalog.find(x => x.id == item.id) || { title: 'Товар', price: 0 };
+                    return `
+                    <div class="os-item">
+                        <div>
+                            <div class="os-item-name">${p.title}</div>
+                            <div class="os-item-meta">${item.qty} шт.</div>
+                        </div>
+                        <div class="os-item-price">${p.price * item.qty} ₴</div>
+                    </div>`;
+                }).join('');
+            }
+            localStorage.removeItem('rb_cart_v1');
+
+
+            // === ЛОГИКА ШТОРКИ ===
+            const sidebar = document.getElementById('paymentSidebar');
+            const overlay = document.getElementById('overlay');
+            const closeBtn = document.getElementById('closeSidebar');
+
+            payBtn.addEventListener('click', () => {
+                sidebar.classList.add('active');
+                overlay.classList.add('active');
+            });
+
+            function closeSidebarFn() {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+            closeBtn.addEventListener('click', closeSidebarFn);
+            overlay.addEventListener('click', closeSidebarFn);
+
+            // Маски ввода
+            const cnInput = document.getElementById('cardNumber');
+            const ceInput = document.getElementById('cardExpiry');
+
+            if(cnInput) {
+                cnInput.addEventListener('input', (e) => {
+                    let v = e.target.value.replace(/\D/g,'');
+                    e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+                });
+            }
+            if(ceInput) {
+                ceInput.addEventListener('input', (e) => {
+                    let v = e.target.value.replace(/\D/g,'');
+                    if(v.length >= 2) e.target.value = v.substring(0,2) + '/' + v.substring(2,4);
+                    else e.target.value = v;
+                });
+            }
+        });
+
+        // --- ФУНКЦИИ ИНТЕРФЕЙСА ---
+
+        // 1. Переключение табов (Карта / Счет)
+        function switchTab(tab) {
+            // Сброс стилей табов
+            document.querySelectorAll('.pay-tab').forEach(el => el.classList.remove('active'));
+            // Скрытие контента
+            document.getElementById('tab-card').classList.add('hidden');
+            document.getElementById('tab-account').classList.add('hidden');
+
+            // Активация
+            if(tab === 'card') {
+                document.querySelectorAll('.pay-tab')[0].classList.add('active');
+                document.getElementById('tab-card').classList.remove('hidden');
+            } else {
+                document.querySelectorAll('.pay-tab')[1].classList.add('active');
+                document.getElementById('tab-account').classList.remove('hidden');
+            }
+        }
+
+        // 2. Выбор типа карты -> Показ формы
+        function selectCardType(type) {
+            // Подсветка
+            document.querySelectorAll('.card-type-opt').forEach(el => el.classList.remove('selected'));
+            event.target.classList.add('selected');
+
+            // Показываем форму
+            const form = document.getElementById('cardFormInputs');
+            form.classList.remove('hidden');
+
+            // Симуляция автозаполнения (если авторизован)
+            checkAuthAndFill();
+        }
+
+        // 3. Заглушка авторизации
+        const fakeUser = { isAuth: false, card: "4111 1111 1111 1111", exp: "12/28" };
+
+        function checkAuthAndFill() {
+            if(fakeUser.isAuth) {
+                document.getElementById('cardNumber').value = fakeUser.card;
+                document.getElementById('cardExpiry').value = fakeUser.exp;
+            }
+        }
+
+        function submitPayment() {
+            const btn = document.querySelector('.final-btn');
+            btn.textContent = 'Обробка...';
+            setTimeout(() => {
+                alert('Оплата пройшла успішно! (Тест)');
+                btn.textContent = 'Сплатити';
+                document.getElementById('paymentSidebar').classList.remove('active');
+                document.getElementById('overlay').classList.remove('active');
+            }, 1500);
+        }
+
+        function cancelOrder() {
+            if(confirm("Ви дійсно бажаєте скасувати замовлення?")) {
+                alert("Замовлення скасовано.");
+                window.location.href = "products.html";
+            }
+        }
+
+        function copyOrderNum() {
+            const num = document.getElementById('orderNum').textContent;
+            navigator.clipboard.writeText(num).then(() => {
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            });
+        }
+    </script>
+</body>
+</html>
