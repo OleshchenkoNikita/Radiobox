@@ -617,6 +617,26 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
 
+        // === АВТОЗАПОЛНЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ===
+        try {
+            const sessionRaw = localStorage.getItem('rb_session_v1');
+            if (sessionRaw) {
+                const user = JSON.parse(sessionRaw);
+
+                // Подставляем данные, если поля пустые (чтобы не стереть, если юзер уже начал писать)
+                const fPhone = document.getElementById('coPhone');
+                const fSurname = document.getElementById('coSurname');
+                const fName = document.getElementById('coName');
+
+                if (user.phone && fPhone && !fPhone.value) fPhone.value = user.phone;
+                if (user.surname && fSurname && !fSurname.value) fSurname.value = user.surname;
+                if (user.name && fName && !fName.value) fName.value = user.name;
+            }
+        } catch (e) {
+            console.error("Ошибка автозаполнения:", e);
+        }
+        // ==========================================
+
         // ==========================================
         // 1. КОНФИГУРАЦИЯ
         // ==========================================

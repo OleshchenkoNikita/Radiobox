@@ -72,7 +72,6 @@ def serve_static(path):
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
-    # Хэшируем пароль перед записью
     hashed_pw = generate_password_hash(data['password'])
 
     try:
@@ -81,10 +80,20 @@ def register():
             cursor.execute('''
                 INSERT INTO users (name, surname, email, phone, password)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (data['name'], data['surname'], data['email'], data['phone'], hashed_pw))  # <-- Пишем хэш
+            ''', (data['name'], data['surname'], data['email'], data['phone'], hashed_pw))
             conn.commit()
             user_id = cursor.lastrowid
-            return jsonify({"success": True, "user": {"id": user_id, "name": data['name'], "surname": data['surname']}})
+            # ОБНОВЛЕНИЕ: Возвращаем также phone и email
+            return jsonify({
+                "success": True,
+                "user": {
+                    "id": user_id,
+                    "name": data['name'],
+                    "surname": data['surname'],
+                    "phone": data['phone'],
+                    "email": data['email']
+                }
+            })
     except sqlite3.IntegrityError:
         return jsonify({"success": False, "error": "Пользователь с таким Email уже существует!"})
     except Exception as e:
@@ -96,12 +105,22 @@ def login():
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT id, name, surname, password FROM users WHERE email = ?', (data['email'],))
+        # ОБНОВЛЕНИЕ: Запрашиваем также phone
+        cursor.execute('SELECT id, name, surname, password, phone, email FROM users WHERE email = ?', (data['email'],))
         user = cursor.fetchone()
 
-        # user[3] - это хэш из базы. data['password'] - это то, что ввел юзер.
+        # user[0]=id, user[1]=name, user[2]=surname, user[3]=password, user[4]=phone, user[5]=email
         if user and check_password_hash(user[3], data['password']):
-            return jsonify({"success": True, "user": {"id": user[0], "name": user[1], "surname": user[2]}})
+            return jsonify({
+                "success": True,
+                "user": {
+                    "id": user[0],
+                    "name": user[1],
+                    "surname": user[2],
+                    "phone": user[4], # Добавили телефон
+                    "email": user[5]  # Добавили email
+                }
+            })
         else:
             return jsonify({"success": False, "error": "Неверный Email или пароль"})
 
