@@ -1480,7 +1480,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initAuthLogic();
 
     if (currentUser) {
-        initUserDrawer(currentUser);
+        // initUserDrawer(currentUser); - Шторка для Кабинета Покупателя. Уже неактуальна и не нужна
     }
 
 
@@ -1674,5 +1674,307 @@ document.addEventListener('DOMContentLoaded', () => {
             Session.end();
             location.reload();
         }
+    };
+});
+
+// ============================================
+// ЛОГИКА КАБИНЕТА ПОЛЬЗОВАТЕЛЯ (PROFILE)
+// ============================================
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    // 1. ПЕРЕХОД В КАБИНЕТ ПРИ КЛИКЕ НА ИКОНКУ (Учитывает язык)
+    document.body.addEventListener('click', (e) => {
+        const userTrigger = e.target.closest('#userMenuTrigger');
+        if (userTrigger) {
+            e.preventDefault();
+            e.stopPropagation();
+            // Определяем текущий язык папки
+            const isUACurrent = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+            // Если мы уже в UA, идем на ua/profile.html, иначе на ru/profile.html
+            // Но путь должен быть абсолютным или относительным корня.
+            // Самый надежный вариант - проверить, где мы.
+            if (isUACurrent) {
+                // Если мы уже внутри папки /ua/, то просто profile.html, но лучше явно:
+                window.location.href = '/ua/profile.html';
+            } else {
+                window.location.href = '/ru/profile.html';
+            }
+        }
+    });
+
+    // 2. ЛОГИКА СТРАНИЦЫ profile.html
+    const ordersContainer = document.getElementById('ordersList');
+
+    // Если контейнера нет, значит мы не в кабинете -> выходим
+    if (!ordersContainer) return;
+
+    // --- НАСТРОЙКИ ЯЗЫКА ---
+    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
+    const TEXT = {
+        logoutConfirm: isUA ? 'Вийти з акаунту?' : 'Выйти из аккаунта?',
+        emptyHistory: isUA ? 'Історія замовлень порожня.' : 'История заказов пуста.',
+        error: isUA ? 'Помилка' : 'Ошибка',
+        connError: isUA ? 'Помилка зв\'язку із сервером.' : 'Ошибка связи с сервером.',
+        statusLabel: isUA ? 'Статус замовлення:' : 'Статус заказа:',
+        headers: {
+            num: '№',
+            photo: isUA ? 'Фото' : 'Фото',
+            name: isUA ? 'Найменування' : 'Наименование',
+            price: isUA ? 'Ціна' : 'Цена',
+            qty: isUA ? 'Кількість' : 'Количество',
+            sum: isUA ? 'Сума' : 'Сумма'
+        },
+        totalLabel: isUA ? 'До сплати:' : 'К оплате:',
+        statuses: {
+            'Новый': isUA ? 'Новий' : 'Новый',
+            'Рассматривается': isUA ? 'Розглядається' : 'Рассматривается',
+            'Выполнен': isUA ? 'Виконано' : 'Выполнен',
+            'Отменен': isUA ? 'Скасовано' : 'Отменён'
+        }
+    };
+
+    // Глобальные переменные модуля
+    let allOrdersCache = [];
+    let currentOrderPage = 1;
+    const ordersPerPage = 5;
+
+    loadUserProfile();
+
+    async function loadUserProfile() {
+        // Проверка сессии
+        const userRaw = localStorage.getItem('rb_session_v1');
+        if (!userRaw) {
+            window.location.href = 'index.html';
+            return;
+        }
+        const user = JSON.parse(userRaw);
+
+        // Заполняем сайдбар
+        const nameEl = document.getElementById('profileName');
+        const emailEl = document.getElementById('profileEmail');
+        if (nameEl) nameEl.textContent = `${user.name} ${user.surname}`;
+        if (emailEl) emailEl.textContent = user.email;
+
+        // Кнопка Выйти
+        const btnLogout = document.getElementById('btnLogout');
+        if (btnLogout) {
+            btnLogout.addEventListener('click', () => {
+                if(confirm(TEXT.logoutConfirm)) {
+                    localStorage.removeItem('rb_session_v1');
+                    if (window.rbLogout) window.rbLogout();
+                    window.location.href = 'index.html';
+                }
+            });
+        }
+
+        // Загрузка заказов
+        try {
+            const response = await fetch('/api/user/orders');
+            const data = await response.json();
+
+            if (data.success) {
+                allOrdersCache = data.orders;
+
+                // Сортировка по умолчанию (новые)
+                sortAndRender('newest');
+
+                // Слушатель селекта сортировки
+                const sortSelect = document.getElementById('sortOrders');
+                if (sortSelect) {
+                    sortSelect.addEventListener('change', (e) => {
+                        sortAndRender(e.target.value);
+                    });
+                }
+            } else {
+                ordersContainer.innerHTML = `<div style="padding:20px; text-align:center; color:red;">${TEXT.error}: ${data.error}</div>`;
+            }
+        } catch (e) {
+            console.error(e);
+            ordersContainer.innerHTML = `<div style="padding:20px; text-align:center;">${TEXT.connError}</div>`;
+        }
+    }
+
+    function sortAndRender(sortType) {
+        if (sortType === 'newest') {
+            allOrdersCache.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        } else {
+            allOrdersCache.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        }
+        currentOrderPage = 1;
+        renderOrdersPage();
+    }
+
+    function renderOrdersPage() {
+        if (!allOrdersCache || allOrdersCache.length === 0) {
+            ordersContainer.innerHTML = `<div style="padding:40px; text-align:center; color:#888;">${TEXT.emptyHistory}</div>`;
+            return;
+        }
+
+        // 1. Срез страниц
+        const start = (currentOrderPage - 1) * ordersPerPage;
+        const end = start + ordersPerPage;
+        const ordersSlice = allOrdersCache.slice(start, end);
+        const totalPages = Math.ceil(allOrdersCache.length / ordersPerPage);
+
+        // 2. Рендер
+        const ordersHtml = ordersSlice.map(order => {
+            let totalOrderSum = order.total_price || 0;
+            let itemsHtml = '';
+
+            let items = order.items;
+            if (typeof items === 'string') {
+                try { items = JSON.parse(items); } catch(e) {}
+            }
+
+            if (items && Array.isArray(items)) {
+                itemsHtml = items.map((i, index) => {
+                    let title = i.title || `Товар ID: ${i.id}`;
+                    let price = parseFloat(i.price || 0);
+                    let qty = parseInt(i.qty || 1);
+                    let sum = price * qty;
+
+                    if (!i.title || price === 0) {
+                        try {
+                            const catKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+                            const catalog = JSON.parse(localStorage.getItem(catKey) || '{"items":[]}').items;
+                            const prod = catalog.find(p => p.id == i.id);
+                            if (prod) {
+                                title = prod.title;
+                                if(price === 0) price = prod.price;
+                            }
+                        } catch(e) {}
+                        sum = price * qty;
+                    }
+                    if (totalOrderSum === 0) totalOrderSum += sum;
+
+                    const imgUrl = "../assets/icons/company.png";
+
+                    return `
+                        <tr>
+                            <td class="obt-num">${index + 1}</td>
+                            <td class="obt-img"><img src="${imgUrl}" alt=""></td>
+                            <td class="obt-name" data-label="${TEXT.headers.name}">${title}</td>
+                            <td class="obt-price" data-label="${TEXT.headers.price}">${price} ₴</td>
+                            <td class="obt-qty" data-label="${TEXT.headers.qty}">${qty} шт.</td>
+                            <td class="obt-sum" data-label="${TEXT.headers.sum}">${sum} ₴</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // --- ЛОГИКА СТАТУСОВ И КНОПКИ ОТМЕНЫ ---
+            const stRaw = (order.status || 'Новый');
+            const stLower = stRaw.toLowerCase();
+            let stClass = 'new';
+
+            // Определяем класс цвета
+            if (stLower.includes('выполн') || stLower.includes('виконано') || stLower.includes('заверш')) stClass = 'completed';
+            if (stLower.includes('отмен') || stLower.includes('скасовано')) stClass = 'cancelled';
+
+            // Перевод статуса
+            const displayStatus = TEXT.statuses[stRaw] || stRaw;
+
+            // Проверяем, можно ли отменить (НЕ Выполняется, НЕ Выполнен, НЕ Отменен)
+            // Ищем корни слов, чтобы покрыть и RU и UA варианты
+            const isNonCancellable =
+                   stLower.includes('выполн') || stLower.includes('викон') || // Выполнен, Выполняется
+                   stLower.includes('отмен')  || stLower.includes('скасов');  // Отменен
+
+            let cancelBtnHtml = '';
+            if (!isNonCancellable) {
+                const btnText = isUA ? 'Скасувати замовлення' : 'Отменить заказ';
+                // Добавляем кнопку
+                cancelBtnHtml = `<button class="btn-cancel-order" onclick="window.cancelOrderFromHistory(${order.id})">${btnText}</button>`;
+            }
+
+            return `
+            <div class="order-block">
+                <div class="ob-header">
+                    <div class="ob-info">
+                        <span class="ob-id">№ ${order.id}</span>
+                        <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
+                        <span style="color:#94a3b8; font-size:13px; margin-right:4px;">${TEXT.statusLabel}</span>
+                        <span class="ob-status ${stClass}">${displayStatus}</span>
+                        ${cancelBtnHtml}
+                    </div>
+                </div>
+
+                <table class="ob-table">
+                    <thead>
+                        <tr>
+                            <th>${TEXT.headers.num}</th>
+                            <th>${TEXT.headers.photo}</th>
+                            <th>${TEXT.headers.name}</th>
+                            <th>${TEXT.headers.price}</th>
+                            <th>${TEXT.headers.qty}</th>
+                            <th>${TEXT.headers.sum}</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                </table>
+
+                <div class="ob-footer">
+                    <span class="ob-total-label">${TEXT.totalLabel}</span>
+                    <span class="ob-total-val">${totalOrderSum.toFixed(2)} ₴</span>
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        // 3. Пагинация
+        let paginationHtml = '';
+        if (totalPages > 1) {
+            paginationHtml = `<div class="cab-pagination">`;
+            paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage - 1})" ${currentOrderPage === 1 ? 'disabled' : ''}>←</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                const activeClass = (i === currentOrderPage) ? 'active' : '';
+                paginationHtml += `<button class="cab-page-btn ${activeClass}" onclick="window.changeOrderPage(${i})">${i}</button>`;
+            }
+            paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage + 1})" ${currentOrderPage === totalPages ? 'disabled' : ''}>→</button>`;
+            paginationHtml += `</div>`;
+        }
+
+        ordersContainer.innerHTML = ordersHtml + paginationHtml;
+    }
+
+    // --- ФУНКЦИЯ ОТМЕНЫ ЗАКАЗА ИЗ ИСТОРИИ ---
+    window.cancelOrderFromHistory = async (orderId) => {
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+        const confirmMsg = isUA ? `Ви дійсно хочете скасувати замовлення №${orderId}?` : `Вы действительно хотите отменить заказ №${orderId}?`;
+
+        if(!confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch('/api/cancel_order', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ order_id: orderId })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert(isUA ? "Замовлення скасовано." : "Заказ отменен.");
+                // Перезагружаем страницу, чтобы обновить список
+                window.location.reload();
+            } else {
+                alert((isUA ? "Помилка: " : "Ошибка: ") + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert(isUA ? "Помилка з'єднання" : "Ошибка соединения");
+        }
+    };
+
+    // Глобальная функция смены страницы
+    window.changeOrderPage = (page) => {
+        const totalPages = Math.ceil(allOrdersCache.length / ordersPerPage);
+        if (page < 1 || page > totalPages) return;
+        currentOrderPage = page;
+        renderOrdersPage();
+        document.querySelector('.cab-content').scrollIntoView({ behavior: 'smooth' });
     };
 });

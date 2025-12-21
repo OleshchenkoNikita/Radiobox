@@ -1485,7 +1485,29 @@
                 let cartInput = document.createElement('input');
                 cartInput.type = 'hidden';
                 cartInput.name = 'cart_json'; // В Python получишь через request.form['cart_json']
-                cartInput.value = localStorage.getItem('rb_cart_v1') || '[]';
+                // --- НАЧАЛО ВСТАВКИ ---
+                const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
+
+                // Грузим каталог, чтобы узнать цены
+                let catalogItems = [];
+                try {
+                    catalogItems = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{"items":[]}').items;
+                } catch (e) { console.log('Ошибка каталога'); }
+
+                // Собираем полную корзину с ценами
+                const enrichedCart = rawCart.map(item => {
+                    const product = catalogItems.find(p => p.id == item.id);
+                    return {
+                        id: item.id,
+                        qty: item.qty,
+                        title: product ? product.title : 'Товар #' + item.id,
+                        price: product ? product.price : 0
+                    };
+                });
+
+                // Кладем готовый результат в форму
+                cartInput.value = JSON.stringify(enrichedCart);
+                // --- КОНЕЦ ВСТАВКИ ---
                 form.appendChild(cartInput);
 
                 // 3. Визуальный эффект нажатия

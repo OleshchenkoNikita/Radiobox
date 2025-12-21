@@ -16,7 +16,7 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_SENDER = "oleshchenko.nikita@gmail.com" 
-EMAIL_PASSWORD = "testing"
+EMAIL_PASSWORD = "test"
 # ==================================================
 
 DB_NAME = "radiobox.db"
@@ -39,21 +39,22 @@ def init_db():
 
         # --- НОВАЯ ТАБЛИЦА ЗАКАЗОВ ---
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_name TEXT,
-                user_surname TEXT,
-                user_phone TEXT,
-                user_email TEXT,
-                delivery_method TEXT,
-                delivery_address TEXT,
-                payment_method TEXT,
-                comment TEXT,
-                total_price TEXT,
-                items_json TEXT,
-                created_at TEXT
-            )
-        ''')
+                    CREATE TABLE IF NOT EXISTS orders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_name TEXT,
+                        user_surname TEXT,
+                        user_phone TEXT,
+                        user_email TEXT,
+                        delivery_method TEXT,
+                        delivery_address TEXT,
+                        payment_method TEXT,
+                        comment TEXT,
+                        total_price REAL,
+                        status TEXT DEFAULT 'Новый',
+                        items_json TEXT,
+                        created_at TEXT
+                    )
+                ''')
         conn.commit()
 
 
@@ -198,6 +199,40 @@ def change_password():
     return jsonify({"success": True})
 
 
+@app.route('/api/user/orders', methods=['GET'])
+def get_user_orders():
+    # Проверка авторизации
+    if 'email' not in session:
+        return jsonify({"success": False, "error": "Не авторизован"}), 401
+
+    email = session['email']
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row  # Позволяет обращаться к полям по имени
+        cursor = conn.cursor()
+        # Выбираем нужные поля, сортируем от новых к старым
+        cursor.execute('''
+            SELECT id, created_at, status, total_price, items_json, delivery_method 
+            FROM orders 
+            WHERE user_email = ? 
+            ORDER BY created_at DESC
+        ''', (email,))
+
+        rows = cursor.fetchall()
+        orders = []
+        for row in rows:
+            # Формируем красивый список для отправки на фронт
+            orders.append({
+                "id": row["id"],
+                "created_at": row["created_at"],
+                "status": row["status"],
+                "total_price": row["total_price"],
+                "items": json.loads(row["items_json"]),
+                "delivery": row["delivery_method"]
+            })
+
+    return jsonify({"success": True, "orders": orders})
+
 @app.route('/create_order', methods=['POST'])
 def create_order():
     # 1. Получаем данные
@@ -217,21 +252,36 @@ def create_order():
     user_email = session.get('email')
 
     # 4. Сохраняем в БД
+    # Считаем сумму заказа из JSON (если там есть цены)
+    total_sum = 0
+    try:
+        items = json.loads(cart_json)
+        for item in items:
+            # Если фронтенд передал цену, используем её
+            price = float(item.get('price', 0))
+            qty = int(item.get('qty', 0))
+            total_sum += price * qty
+    except:
+        total_sum = 0
+
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO orders (
-                    id, 
-                    user_name, user_surname, user_phone, user_email,
-                    delivery_address, payment_method, comment, items_json, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
+                    INSERT INTO orders (
+                        id, 
+                        user_name, user_surname, user_phone, user_email,
+                        delivery_address, payment_method, comment, items_json, 
+                        created_at, status, total_price
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
                 order_id,
                 name, surname, phone, user_email,
                 address, payment_method, comment, cart_json,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Новый",
+                total_sum  # Сохраняем сумму
             ))
             conn.commit()
 
@@ -281,6 +331,25 @@ def create_order():
         return redirect(f'/ua/order-success.html?order_id={order_id}')
     else:
         return redirect(f'/ru/order-success.html?order_id={order_id}')
+
+# === API: ОТМЕНА ЗАКАЗА ===
+@app.route('/api/cancel_order', methods=['POST'])
+def cancel_order_api():
+    data = request.json
+    order_id = data.get('order_id')
+
+    if not order_id:
+        return jsonify({"success": False, "error": "No ID"})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            # Обновляем статус на "Отменен"
+            cursor.execute('UPDATE orders SET status = ? WHERE id = ?', ("Отменен", order_id))
+            conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
     init_db()

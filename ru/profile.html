@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Личный кабинет — RadioBox</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../script.js" defer></script>
+</head>
+<body>
+
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Корзина">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Корзина</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрыть">×</button>
+            </header>
+            <div class="cart-drawer__body">
+                </div>
+        </aside>
+    </div>
+
+    <div class="b-head-control-panel__container">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="../ua/profile.html">UA</a><span class="sep">|</span><a href="#" aria-current="page">RU</a>
+            </div>
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 отзыва</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Корзина</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="RadioBox">
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <div class="topbar-spacer"></div>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Корзина</span>
+            </a>
+        </div>
+    </div>
+
+        <!-- ===== Синяя шапка (навигация) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Главная</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html">
+                            Товары
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльное оборудование</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Всё для ремонта, тестеры, инструменты</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Расходные материалы</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осциллографы</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Программаторы</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Измерительные приборы (мультиметры, тестеры, щупы)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радиомодули</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радиодетали</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабели, разъёмы, штекеры</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Источники питания</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">О нас</a></li>
+                    <li><a href="contacts.html">Контакты</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="cab-container">
+
+        <aside class="cab-sidebar">
+            <div class="cab-user-name" id="profileName">Загрузка...</div>
+            <div class="cab-user-email" id="profileEmail">...</div>
+
+            <nav style="margin-top: 20px;">
+                <button class="cab-menu-btn logout" id="btnLogout">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right:8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    Выйти
+                </button>
+            </nav>
+        </aside>
+
+        <main class="cab-content">
+            <div class="cab-controls">
+                <h2>История заказов</h2>
+                <select class="cab-sort-select" id="sortOrders">
+                    <option value="newest">Сначала новые</option>
+                    <option value="oldest">Сначала старые</option>
+                </select>
+            </div>
+
+            <div id="ordersList">
+                <div style="text-align:center; padding: 40px; color:#64748b;">Загрузка заказов...</div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="copy">© 2025 RadioBox</div>
+    </footer>
+
+</body>
+</html>

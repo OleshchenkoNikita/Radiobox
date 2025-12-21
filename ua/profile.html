@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Особистий кабінет — RadioBox</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../script.js" defer></script>
+</head>
+<body>
+
+    <div class="cart-drawer" aria-hidden="true">
+        <div class="cart-drawer__backdrop" data-cart-close></div>
+        <aside class="cart-drawer__panel" role="dialog" aria-modal="true" aria-label="Кошик">
+            <header class="cart-drawer__header">
+                <h2 class="cart-drawer__title">Кошик</h2>
+                <button type="button" class="cart-drawer__close" data-cart-close aria-label="Закрити">×</button>
+            </header>
+            <div class="cart-drawer__body">
+                </div>
+        </aside>
+    </div>
+
+    <div class="b-head-control-panel__container">
+        <div class="topbar-inner">
+            <div class="lang-switch">
+                <a href="#" aria-current="page">UA</a><span class="sep">|</span><a href="../ru/profile.html">RU</a>
+            </div>
+            <div class="topbar-spacer"></div>
+
+            <div class="reviews">
+                <span class="icon" aria-hidden="true"></span>
+                <a href="reviews.html" class="link">1743 відгуки</a>
+            </div>
+
+            <div class="cart" data-cart-open>
+                <span class="icon" aria-hidden="true"></span>
+                <span class="text">Кошик</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="b-white-bar">
+        <div class="container white-inner">
+            <a href="index.html" class="brand">
+                <img class="brand-logo" src="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png" alt="RadioBox">
+                <span class="brand-name">RadioBox</span>
+            </a>
+
+            <div class="topbar-spacer"></div>
+
+            <a href="#" class="white-cart" data-cart-open>
+                <span class="white-cart__icon" aria-hidden="true"></span>
+                <span class="white-cart__text">Кошик</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- ===== Синя шапка (навігація) ===== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="index.html">Головна</a></li>
+
+                    <li class="has-children">
+                        <a href="products.html">
+                            Товари
+                            <span class="caret" aria-hidden="true"></span>
+                        </a>
+                        <ul class="dropdown">
+                            <li><a href="type_of_product.html?cat=solder">Паяльне обладнання</a></li>
+                            <li><a href="type_of_product.html?cat=repair">Все для ремонту, тестери, інструменти</a></li>
+                            <li><a href="type_of_product.html?cat=consum">Витратні матеріали</a></li>
+                            <li><a href="type_of_product.html?cat=osc">Осцилографи</a></li>
+                            <li><a href="type_of_product.html?cat=prog">Програматори</a></li>
+                            <li><a href="type_of_product.html?cat=meas">Вимірювальні прилади (мультиметри, тестери, щупи)</a></li>
+                            <li><a href="type_of_product.html?cat=rmods">Радіомодулі</a></li>
+                            <li><a href="type_of_product.html?cat=rparts">Радіодеталі</a></li>
+                            <li><a href="type_of_product.html?cat=cables">Кабелі, розʼєми, штекери</a></li>
+                            <li><a href="type_of_product.html?cat=psu">Джерела живлення</a></li>
+                        </ul>
+                    </li>
+
+                    <li><a href="about.html">Про нас</a></li>
+                    <li><a href="contacts.html">Контакти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <div class="cab-container">
+
+        <aside class="cab-sidebar">
+            <div class="cab-user-name" id="profileName">Завантаження...</div>
+            <div class="cab-user-email" id="profileEmail">...</div>
+
+            <nav style="margin-top: 20px;">
+                <button class="cab-menu-btn logout" id="btnLogout">
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right:8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                    Вийти
+                </button>
+            </nav>
+        </aside>
+
+        <main class="cab-content">
+            <div class="cab-controls">
+                <h2>Історія замовлень</h2>
+                <select class="cab-sort-select" id="sortOrders">
+                    <option value="newest">Спочатку нові</option>
+                    <option value="oldest">Спочатку старі</option>
+                </select>
+            </div>
+
+            <div id="ordersList">
+                <div style="text-align:center; padding: 40px; color:#64748b;">Завантаження замовлень...</div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        <div class="copy">© 2025 RadioBox</div>
+    </footer>
+
+</body>
+</html>

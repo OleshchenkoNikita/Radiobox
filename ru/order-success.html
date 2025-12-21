@@ -487,10 +487,40 @@
             }, 1500);
         }
 
-        function cancelOrder() {
-            if(confirm("Вы действительно хотите отменить заказ?")) {
-                alert("Заказ отменен.");
-                window.location.href = "products.html";
+        async function cancelOrder() {
+            // Определяем язык страницы для правильного текста
+            const isUA = document.documentElement.lang === 'uk';
+            const confirmText = isUA ? "Ви дійсно хочете скасувати замовлення?" : "Вы действительно хотите отменить заказ?";
+            const alertText = isUA ? "Замовлення скасовано." : "Заказ отменен.";
+
+            if(confirm(confirmText)) {
+                // Берем ID заказа из текста на странице
+                const idEl = document.getElementById('orderNum');
+                const orderId = idEl ? idEl.textContent.trim() : null;
+
+                if (!orderId || orderId === '???') return;
+
+                try {
+                    // Отправляем запрос на сервер
+                    const res = await fetch('/api/cancel_order', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ order_id: orderId })
+                    });
+
+                    const data = await res.json();
+
+                    if(data.success) {
+                        alert(alertText);
+                        // Редирект в кабинет, чтобы увидеть статус, или на главную
+                        window.location.href = isUA ? "../ua/profile.html" : "../ru/profile.html";
+                    } else {
+                        alert("Ошибка/Помилка: " + data.error);
+                    }
+                } catch(e) {
+                    console.error(e);
+                    alert("Ошибка соединения / Помилка з'єднання");
+                }
             }
         }
 
