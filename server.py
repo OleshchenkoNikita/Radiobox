@@ -16,16 +16,16 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_SENDER = "oleshchenko.nikita@gmail.com" 
-EMAIL_PASSWORD = "test"
+EMAIL_PASSWORD = "bndj lvjw rmuj qiop"
 # ==================================================
 
 DB_NAME = "radiobox.db"
 app.secret_key = 'super_secret_key_radiobox_123'
 
+
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        # Таблица пользователей (уже была)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,7 +37,7 @@ def init_db():
             )
         ''')
 
-        # --- НОВАЯ ТАБЛИЦА ЗАКАЗОВ ---
+        # --- ДОБАВЛЕНО payment_status ---
         cursor.execute('''
                     CREATE TABLE IF NOT EXISTS orders (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +48,7 @@ def init_db():
                         delivery_method TEXT,
                         delivery_address TEXT,
                         payment_method TEXT,
+                        payment_status TEXT DEFAULT 'unpaid', 
                         comment TEXT,
                         total_price REAL,
                         status TEXT DEFAULT 'Новый',
@@ -55,6 +56,13 @@ def init_db():
                         created_at TEXT
                     )
                 ''')
+
+        # --- МИГРАЦИЯ ДЛЯ СТАРЫХ БАЗ (Если таблица уже есть) ---
+        try:
+            cursor.execute("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'unpaid'")
+        except:
+            pass  # Колонка уже есть
+
         conn.commit()
 
 
@@ -201,18 +209,19 @@ def change_password():
 
 @app.route('/api/user/orders', methods=['GET'])
 def get_user_orders():
-    # Проверка авторизации
     if 'email' not in session:
         return jsonify({"success": False, "error": "Не авторизован"}), 401
 
     email = session['email']
 
     with sqlite3.connect(DB_NAME) as conn:
-        conn.row_factory = sqlite3.Row  # Позволяет обращаться к полям по имени
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        # Выбираем нужные поля, сортируем от новых к старым
+
+        # ДОБАВЛЕНО: payment_method, payment_status
         cursor.execute('''
-            SELECT id, created_at, status, total_price, items_json, delivery_method 
+            SELECT id, created_at, status, total_price, items_json, 
+                   delivery_method, payment_method, payment_status 
             FROM orders 
             WHERE user_email = ? 
             ORDER BY created_at DESC
@@ -221,14 +230,15 @@ def get_user_orders():
         rows = cursor.fetchall()
         orders = []
         for row in rows:
-            # Формируем красивый список для отправки на фронт
             orders.append({
                 "id": row["id"],
                 "created_at": row["created_at"],
                 "status": row["status"],
                 "total_price": row["total_price"],
                 "items": json.loads(row["items_json"]),
-                "delivery": row["delivery_method"]
+                "delivery": row["delivery_method"],
+                "payment_method": row["payment_method"],  # <-- Новое поле
+                "payment_status": row["payment_status"]  # <-- Новое поле
             })
 
     return jsonify({"success": True, "orders": orders})
@@ -239,7 +249,7 @@ def create_order():
     phone = request.form.get('phone')
     name = request.form.get('name')
     surname = request.form.get('surname')
-
+    pay_status = request.form.get('payment_status', 'unpaid')
     address = request.form.get('full_address')
     cart_json = request.form.get('cart_json')
     payment_method = request.form.get('payment')
@@ -267,21 +277,24 @@ def create_order():
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
+            # ОБНОВЛЕННЫЙ ЗАПРОС INSERT (Добавлено payment_status)
             cursor.execute('''
-                    INSERT INTO orders (
-                        id, 
-                        user_name, user_surname, user_phone, user_email,
-                        delivery_address, payment_method, comment, items_json, 
-                        created_at, status, total_price
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
+                        INSERT INTO orders (
+                            id, 
+                            user_name, user_surname, user_phone, user_email,
+                            delivery_address, payment_method, payment_status, 
+                            comment, items_json, 
+                            created_at, status, total_price
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
                 order_id,
                 name, surname, phone, user_email,
-                address, payment_method, comment, cart_json,
+                address, payment_method, pay_status,  # <-- Вставляем статус
+                comment, cart_json,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "Новый",
-                total_sum  # Сохраняем сумму
+                total_sum
             ))
             conn.commit()
 
@@ -332,6 +345,25 @@ def create_order():
     else:
         return redirect(f'/ru/order-success.html?order_id={order_id}')
 
+# === API: ОПЛАТА ЗАКАЗА (ОБНОВЛЕНИЕ СТАТУСА) ===
+@app.route('/api/pay_order', methods=['POST'])
+def pay_order_api():
+    data = request.json
+    order_id = data.get('order_id')
+
+    if not order_id:
+        return jsonify({"success": False, "error": "No ID"})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            # Ставим статус оплаты 'paid'
+            cursor.execute("UPDATE orders SET payment_status = 'paid' WHERE id = ?", (order_id,))
+            conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 # === API: ОТМЕНА ЗАКАЗА ===
 @app.route('/api/cancel_order', methods=['POST'])
 def cancel_order_api():
@@ -342,13 +374,53 @@ def cancel_order_api():
         return jsonify({"success": False, "error": "No ID"})
 
     try:
+        user_email = None
+        user_name = "Покупатель"
+
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-            # Обновляем статус на "Отменен"
+
+            # 1. Сначала получаем Email и Имя из заказа, чтобы знать, куда слать письмо
+            cursor.execute('SELECT user_email, user_name FROM orders WHERE id = ?', (order_id,))
+            row = cursor.fetchone()
+
+            if row:
+                user_email = row[0]
+                if row[1]:
+                    user_name = row[1]
+
+            # 2. Обновляем статус на "Отменен"
             cursor.execute('UPDATE orders SET status = ? WHERE id = ?', ("Отменен", order_id))
             conn.commit()
+
+        # 3. Отправляем письмо об отмене (если нашли email)
+        if user_email:
+            # Пытаемся определить язык по Referer (откуда пришел запрос)
+            referer = request.referrer or ""
+            is_ukrainian = '/ua/' in referer
+
+            if is_ukrainian:
+                subject = f"Скасування замовлення №{order_id}"
+                body = f"""Вітаємо, {user_name}!
+
+Ваше замовлення скасовано.
+Номер замовлення: {order_id}
+"""
+            else:
+                # Текст, который вы просили
+                subject = f"Отмена заказа №{order_id}"
+                body = f"""Здравствуйте, {user_name}!
+
+Ваш заказ отменён.
+Номер заказа: {order_id}
+"""
+
+            send_email_real(user_email, subject, body)
+
         return jsonify({"success": True})
+
     except Exception as e:
+        print(f"Ошибка отмены: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':

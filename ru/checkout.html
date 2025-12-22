@@ -118,6 +118,7 @@
     <div class="checkout-container">
         <form id="checkoutForm" class="co-grid" action="/create_order" method="POST">
             <input type="hidden" name="full_address" id="hiddenAddress">
+            <input type="hidden" name="payment_status" id="hiddenPayStatus" value="unpaid">
 
             <div class="co-left">
 
@@ -1516,6 +1517,13 @@
                     btn.textContent = 'Оформляем...';
                     btn.disabled = true;
                 }
+
+                let finalPayStatus = 'unpaid';
+                if (paymentType === 'card_online' && isOrderPaid) {
+                    finalPayStatus = 'paid';
+                }
+
+                document.getElementById('hiddenPayStatus').value = finalPayStatus;
 
                 // 4. Реальная отправка формы на сервер
                 form.submit();

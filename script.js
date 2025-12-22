@@ -1889,6 +1889,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 cancelBtnHtml = `<button class="btn-cancel-order" onclick="window.cancelOrderFromHistory(${order.id})">${btnText}</button>`;
             }
 
+            // --- КНОПКА ОПЛАТЫ (Зеленая, открывает модалку) ---
+            let payBtnHtml = '';
+            const isCard = (order.payment_method === 'card_online');
+            const isUnpaid = (order.payment_status !== 'paid');
+            const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
+
+            let isFresh = false;
+            if(order.created_at) {
+                const isoDate = order.created_at.replace(' ', 'T');
+                const orderDate = new Date(isoDate);
+                const now = new Date();
+                const diffMs = now - orderDate;
+                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                if(diffDays <= 7) isFresh = true;
+            }
+
+            // Если все условия совпали — показываем кнопку
+            if (isCard && isUnpaid && isNotCancelled && isFresh) {
+                const btnPayText = isUA ? 'Сплатити карткою' : 'Оплатить картой';
+                // ВАЖНО: Вызываем функцию открытия модалки
+                payBtnHtml = `<button class="btn-pay-late" onclick="window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    ${btnPayText}
+                </button>`;
+            }
+            // ==========================================
+
             return `
             <div class="order-block">
                 <div class="ob-header">
@@ -1896,8 +1923,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="ob-id">№ ${order.id}</span>
                         <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
                     </div>
-                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
-                        <span style="color:#94a3b8; font-size:13px; margin-right:4px;">${TEXT.statusLabel}</span>
+
+                    <div class="ob-actions">
+                        ${payBtnHtml}
                         <span class="ob-status ${stClass}">${displayStatus}</span>
                         ${cancelBtnHtml}
                     </div>
@@ -1977,4 +2005,101 @@ document.addEventListener('DOMContentLoaded', () => {
         renderOrdersPage();
         document.querySelector('.cab-content').scrollIntoView({ behavior: 'smooth' });
     };
+});
+
+// === ЛОГИКА МОДАЛЬНОГО ОКНА В ИСТОРИИ ЗАКАЗОВ ===
+
+window.currentPayOrderId = null;
+
+window.openPayModal = function(orderId, sum) {
+    const modal = document.getElementById('historyPayModal');
+    if(!modal) return;
+
+    window.currentPayOrderId = orderId;
+
+    document.getElementById('payModalOrderNum').textContent = `Замовлення №${orderId}`;
+    document.getElementById('histPaySum').textContent = sum;
+
+    modal.classList.add('active');
+
+    // Маски ввода (те же, что и в чекауте)
+    setupCardInputs();
+};
+
+window.closePayModal = function() {
+    const modal = document.getElementById('historyPayModal');
+    if(modal) modal.classList.remove('active');
+};
+
+// Инициализация масок для полей модалки истории
+function setupCardInputs() {
+    const iNum = document.getElementById('histCardNum');
+    const iDate = document.getElementById('histCardDate');
+
+    if(iNum) {
+        iNum.oninput = (e) => {
+            let v = e.target.value.replace(/\D/g,'').substring(0,16);
+            e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+        }
+    }
+    if(iDate) {
+        iDate.oninput = (e) => {
+            let v = e.target.value.replace(/\D/g,'').substring(0,4);
+            if(v.length >= 2) e.target.value = v.substring(0,2) + '/' + v.substring(2);
+            else e.target.value = v;
+        }
+        iDate.onkeydown = (e) => {
+            if (e.key === 'Backspace' && e.target.value.endsWith('/'))
+                e.target.value = e.target.value.slice(0, -1);
+        }
+    }
+}
+
+// Обработка кнопки "Оплатить" внутри модалки
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('histDoPayBtn');
+    if(btn) {
+        btn.addEventListener('click', () => {
+            const num = document.getElementById('histCardNum').value;
+            const date = document.getElementById('histCardDate').value;
+            const cvv = document.getElementById('histCardCvv').value;
+
+            // Простейшая валидация
+            if(num.length < 16 || !date || cvv.length < 3) {
+                alert("Перевірте дані картки");
+                return;
+            }
+
+            // Визуально показываем процесс
+            btn.textContent = "Обробка...";
+            btn.disabled = true;
+
+            // === РЕАЛЬНЫЙ ЗАПРОС НА СЕРВЕР ===
+            fetch('/api/pay_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: window.currentPayOrderId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Оплата успішна!");
+                    window.closePayModal();
+                    // Перезагружаем страницу.
+                    // Так как в базе теперь payment_status = 'paid', кнопка при отрисовке исчезнет сама.
+                    location.reload();
+                } else {
+                    alert("Помилка: " + data.error);
+                    btn.textContent = "Сплатити";
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Помилка з'єднання");
+                btn.textContent = "Сплатити";
+                btn.disabled = false;
+            });
+        });
+    }
 });

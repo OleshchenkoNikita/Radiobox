@@ -475,14 +475,56 @@
         }
 
         function submitPayment() {
+            // Берем ID заказа из текста на странице
+            const idText = document.getElementById('orderNum').textContent.trim();
+            // Если там вдруг "..." или пусто, берем из URL
+            const params = new URLSearchParams(window.location.search);
+            const orderId = idText !== '...' ? idText : params.get('order_id');
+
+            if (!orderId) {
+                alert("Помилка: номер замовлення не знайдено");
+                return;
+            }
+
             const btn = document.querySelector('.final-btn');
             btn.textContent = 'Обробка...';
-            setTimeout(() => {
-                alert('Оплата пройшла успішно! (Тест)');
+            btn.disabled = true;
+
+            // Отправляем реальный запрос на сервер
+            fetch('/api/pay_order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Оплата успішна!');
+                    btn.textContent = 'Сплачено';
+
+                    // Закрываем шторку
+                    document.getElementById('paymentSidebar').classList.remove('active');
+                    document.getElementById('overlay').classList.remove('active');
+
+                    // Скрываем кнопку "Сплатити зараз" на баннере, так як вже оплачено
+                    const payNowBtn = document.getElementById('payNowBtn');
+                    if(payNowBtn) payNowBtn.style.display = 'none';
+
+                    // Обновляем текст статуса (опционально)
+                    const bannerText = document.getElementById('osBannerText');
+                    if(bannerText) bannerText.innerHTML = "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
+                } else {
+                    alert("Помилка: " + data.error);
+                    btn.textContent = 'Сплатити';
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Помилка з'єднання");
                 btn.textContent = 'Сплатити';
-                document.getElementById('paymentSidebar').classList.remove('active');
-                document.getElementById('overlay').classList.remove('active');
-            }, 1500);
+                btn.disabled = false;
+            });
         }
 
         async function cancelOrder() {
