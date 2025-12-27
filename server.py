@@ -15,7 +15,7 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 # ==================================================
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SENDER = "oleshchenko.nikita@gmail.com" 
+EMAIL_SENDER = "oleshchenko.nikita@gmail.com"
 EMAIL_PASSWORD = "test"
 # ==================================================
 
@@ -305,39 +305,39 @@ def create_order():
         print(f"Ошибка БД: {e}")
         return f"Ошибка при сохранении: {e}", 500
 
-    # 5. Определяем язык и отправляем письмо
-    # Смотрим, откуда пришел пользователь
+    # 5. Определяем язык и отправляем письмо (закомментировано, т.к. в СРМ есть отправка писем)
+    # Смотрим, откуда пришел пользователь (оставил для логики после отправки письма)
     referer = request.referrer or ""
     is_ukrainian = '/ua/' in referer
 
-    if user_email:
-        if is_ukrainian:
-            # === УКРАИНСКАЯ ВЕРСИЯ ===
-            profile_link = "https://radiobox.in.ua/ua/profile.html"
-            subject = "Підтвердження вашого замовлення в RadioBox"
-            body = f"""Вітаємо, {name}!
-
-Замовлення прийнято! Номер замовлення: {order_id}
-Дякуємо Вам за інтерес до товарів radiobox.in.ua.
-
-Деталі замовлення ви можете переглянути за посиланням:
-{profile_link}
-"""
-        else:
-            # === РУССКАЯ ВЕРСИЯ ===
-            profile_link = "https://radiobox.in.ua/ru/profile.html"
-            subject = "Подтверждение вашего заказа в RadioBox"
-            body = f"""Здравствуйте, {name}!
-
-Заказ принят! Номер заказа: {order_id}
-Благодарим Вас за интерес к товарам radiobox.in.ua.
-
-Детали заказа вы можете увидеть по ссылке:
-{profile_link}
-"""
-
-        # Отправляем сформированное письмо
-        send_email_real(user_email, subject, body)
+#     if user_email:
+#         if is_ukrainian:
+#             # === УКРАИНСКАЯ ВЕРСИЯ ===
+#             profile_link = "https://radiobox.in.ua/ua/profile.html"
+#             subject = "Підтвердження вашого замовлення в RadioBox"
+#             body = f"""Вітаємо, {name}!
+#
+# Замовлення прийнято! Номер замовлення: {order_id}
+# Дякуємо Вам за інтерес до товарів radiobox.in.ua.
+#
+# Деталі замовлення ви можете переглянути за посиланням:
+# {profile_link}
+# """
+#         else:
+#             # === РУССКАЯ ВЕРСИЯ ===
+#             profile_link = "https://radiobox.in.ua/ru/profile.html"
+#             subject = "Подтверждение вашего заказа в RadioBox"
+#             body = f"""Здравствуйте, {name}!
+#
+# Заказ принят! Номер заказа: {order_id}
+# Благодарим Вас за интерес к товарам radiobox.in.ua.
+#
+# Детали заказа вы можете увидеть по ссылке:
+# {profile_link}
+# """
+#
+#         # Отправляем сформированное письмо
+#         send_email_real(user_email, subject, body)
 
     # 6. Редирект на страницу успеха (с учетом языка)
     if is_ukrainian:
@@ -394,28 +394,28 @@ def cancel_order_api():
             conn.commit()
 
         # 3. Отправляем письмо об отмене (если нашли email)
-        if user_email:
-            # Пытаемся определить язык по Referer (откуда пришел запрос)
-            referer = request.referrer or ""
-            is_ukrainian = '/ua/' in referer
-
-            if is_ukrainian:
-                subject = f"Скасування замовлення №{order_id}"
-                body = f"""Вітаємо, {user_name}!
-
-Ваше замовлення скасовано.
-Номер замовлення: {order_id}
-"""
-            else:
-                # Текст, который вы просили
-                subject = f"Отмена заказа №{order_id}"
-                body = f"""Здравствуйте, {user_name}!
-
-Ваш заказ отменён.
-Номер заказа: {order_id}
-"""
-
-            send_email_real(user_email, subject, body)
+#         if user_email:
+#             # Пытаемся определить язык по Referer (откуда пришел запрос)
+#             referer = request.referrer or ""
+#             is_ukrainian = '/ua/' in referer
+#
+#             if is_ukrainian:
+#                 subject = f"Скасування замовлення №{order_id}"
+#                 body = f"""Вітаємо, {user_name}!
+#
+# Ваше замовлення скасовано.
+# Номер замовлення: {order_id}
+# """
+#             else:
+#                 # Текст, который вы просили
+#                 subject = f"Отмена заказа №{order_id}"
+#                 body = f"""Здравствуйте, {user_name}!
+#
+# Ваш заказ отменён.
+# Номер заказа: {order_id}
+# """
+#
+#             send_email_real(user_email, subject, body)
 
         return jsonify({"success": True})
 
