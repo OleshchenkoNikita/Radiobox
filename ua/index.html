@@ -522,60 +522,99 @@
     <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
     <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('homeShowcase');
     if (!grid) return;
 
-    // Определяем текущий язык по URL или тегу html, чтобы взять правильную базу
+    // 1. Определяем язык и ключ
     const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
     const LS_KEY = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
 
+    // === ФУНКЦИЯ ОТРИСОВКИ ===
+    function renderShowcase(list) {
+        // Фильтруем (берем только те, где on_index == 1)
+        // Проверка (p.on_index == 1) сработает и для числа 1, и для строки "1"
+        let displayItems = list.filter(p => p.on_index == 1);
+
+        // Берем первые 15
+        displayItems = displayItems.slice(0, 15);
+
+        if (displayItems.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста. (Нет товаров с on_index=1)</div>';
+            return;
+        }
+
+        grid.innerHTML = displayItems.map(p => {
+            const stClass = p.in_stock ? 'is-instock' : 'is-out';
+            const stText = isUA
+                ? (p.in_stock ? 'Готовий до відправки' : 'Немає в наявності')
+                : (p.in_stock ? 'Готово к отправке' : 'Нет в наличии');
+
+            const btnText = isUA ? 'Купити' : 'Купить';
+
+            // ЛОГИКА НАЗВАНИЯ (чтобы не было undefined)
+            let productTitle = p.title;
+            if (!productTitle) {
+                productTitle = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
+            }
+
+            // ЛОГИКА КАРТИНКИ
+            let img = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='14' font-family='sans-serif'%3ENo Image%3C/text%3E%3C/svg%3E";
+            if (p.image) img = p.image;
+            else if (p.images && p.images.length > 0) img = p.images[0];
+
+            return `
+            <article class="product-card is-clickable" onclick="location.href='product.html?id=${p.id}'">
+                <div class="product-card__img">
+                     <img src="${img}" alt="${productTitle}" loading="lazy">
+                </div>
+                <h3 class="product-card__title">${productTitle}</h3>
+                <div class="product-card__meta">Code: <span>${p.sku}</span></div>
+                <div class="product-card__price">${p.price} ₴</div>
+                <div class="product-card__status ${stClass}">${stText}</div>
+                <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+            </article>
+            `;
+        }).join('');
+    }
+
+    // === ГЛАВНАЯ ЛОГИКА ===
     let items = [];
+
+    // Шаг 1: Пробуем достать из LocalStorage
     try {
         const s = localStorage.getItem(LS_KEY);
         if (s) items = JSON.parse(s).items || [];
     } catch (e) { console.error(e); }
 
-    if (!items.length) {
-        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Каталог обновляется...</div>';
-        return;
+    // Проверяем, есть ли там товары для витрины
+    const hasShowcaseItems = items.some(p => p.on_index == 1);
+
+    if (hasShowcaseItems) {
+        console.log("✅ Товары найдены в памяти браузера.");
+        renderShowcase(items);
+    } else {
+        // Шаг 2: Если в памяти пусто или "плохие" данные - качаем с сервера!
+        console.log("🔄 В памяти пусто (или нет on_index). Качаем с сервера...");
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px;">Загрузка товаров...</div>';
+
+        try {
+            const res = await fetch('/api/products');
+            const data = await res.json();
+
+            if (data.items && data.items.length > 0) {
+                // Сохраняем правильные данные (с on_index) в память
+                localStorage.setItem(LS_KEY, JSON.stringify(data));
+                console.log("💾 Данные обновлены и сохранены.");
+                renderShowcase(data.items);
+            } else {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Товаров нет в базе данных.</div>';
+            }
+        } catch (err) {
+            console.error(err);
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:red;">Ошибка соединения с сервером.</div>';
+        }
     }
-
-    // ЛОГИКА АДМИН-ПАНЕЛИ (Витрина):
-    // 1. Берем только те, у которых on_index === true
-    let displayItems = items.filter(p => p.on_index === true);
-
-    // 2. Если вдруг таких нет (база старая), берем просто последние добавленные
-    if (displayItems.length === 0) {
-        displayItems = items;
-    }
-
-    // 3. Сортируем: сначала новые (по ID), потом берем первые 15
-    displayItems = displayItems.sort((a, b) => b.id - a.id).slice(0, 15);
-
-    // 4. Рендерим
-    grid.innerHTML = displayItems.map(p => {
-        const stClass = p.in_stock ? 'is-instock' : 'is-out';
-        const stText = isUA
-            ? (p.in_stock ? 'Готовий до відправки' : 'Немає в наявності')
-            : (p.in_stock ? 'Готово к отправке' : 'Нет в наличии');
-
-        const btnText = isUA ? 'Купити' : 'Купить';
-        const img = p.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='14' font-family='sans-serif'%3EPhoto%3C/text%3E%3C/svg%3E";
-
-        return `
-        <article class="product-card is-clickable" onclick="location.href='product.html?id=${p.id}'">
-            <div class="product-card__img">
-                 <img src="${img}" alt="${p.title}" loading="lazy">
-            </div>
-            <h3 class="product-card__title">${p.title}</h3>
-            <div class="product-card__meta">Code: <span>${p.sku}</span></div>
-            <div class="product-card__price">${p.price} ₴</div>
-            <div class="product-card__status ${stClass}">${stText}</div>
-            <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
-        </article>
-        `;
-    }).join('');
 });
 </script>
 </body>

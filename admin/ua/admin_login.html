@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Вхід в адмін-панель — RadioBox</title>
+    <style>
+        body { background: #f1f5f9; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif; margin: 0; color: #0f172a; position: relative;}
+        .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 320px; }
+        .brand { text-align: center; margin-bottom: 24px; font-size: 24px; font-weight: 800; color: #0d2b4e; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #64748b; }
+        input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: #189BFF; }
+        button { width: 100%; padding: 14px; background: #0d2b4e; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 16px; margin-top: 10px; transition: background 0.2s; }
+        button:hover { background: #1e293b; }
+        .error { background: #fee2e2; color: #ef4444; padding: 10px; border-radius: 6px; font-size: 14px; text-align: center; margin-bottom: 20px; }
+        .back-link { display: block; text-align: center; margin-top: 24px; color: #64748b; text-decoration: none; font-size: 14px; }
+        .back-link:hover { color: #0d2b4e; }
+
+        .lang-switch { position: absolute; top: 20px; right: 20px; font-size: 14px; font-weight: 600; }
+        .lang-switch a { text-decoration: none; color: #94a3b8; margin: 0 5px; }
+        .lang-switch a.active { color: #0d2b4e; text-decoration: underline; }
+    </style>
+    <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+    <div class="lang-switch">
+        <a href="/admin/ru/login">RU</a> | <a href="/admin/ua/login" class="active">UA</a>
+    </div>
+
+    <div class="login-box">
+        <div class="brand">RadioBox Admin</div>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="POST">
+            <div class="form-group"><label>Логін</label><input type="text" name="login" required autofocus></div>
+            <div class="form-group"><label>Пароль</label><input type="password" name="password" required></div>
+            <button type="submit">Увійти</button>
+        </form>
+        <a href="/ua/index.html" class="back-link">← Повернутися в магазин</a>
+    </div>
+</body>
+</html>

@@ -2,9 +2,13 @@ import sqlite3
 import random
 import smtplib
 import json
-from datetime import datetime
+import shutil
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
-from flask import Flask, request, jsonify, send_from_directory, session, redirect
+from functools import wraps
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import current_user
 
@@ -22,10 +26,22 @@ EMAIL_PASSWORD = "test"
 DB_NAME = "radiobox.db"
 app.secret_key = 'super_secret_key_radiobox_123'
 
+def cleanup_deleted_products():
+    """Удаляет товары из корзины старше 30 дней"""
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute("DELETE FROM products WHERE deleted_at IS NOT NULL AND deleted_at < ?", (month_ago,))
+            conn.commit()
+    except: pass
 
 def init_db():
+    make_daily_backup()
+
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
+
+        # 1. Пользователи
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,34 +53,146 @@ def init_db():
             )
         ''')
 
-        # --- ДОБАВЛЕНО payment_status ---
+        # 2. Заказы
         cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS orders (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_name TEXT,
-                        user_surname TEXT,
-                        user_phone TEXT,
-                        user_email TEXT,
-                        delivery_method TEXT,
-                        delivery_address TEXT,
-                        payment_method TEXT,
-                        payment_status TEXT DEFAULT 'unpaid', 
-                        comment TEXT,
-                        total_price REAL,
-                        status TEXT DEFAULT 'Новый',
-                        items_json TEXT,
-                        created_at TEXT
-                    )
-                ''')
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_name TEXT, user_surname TEXT, user_phone TEXT, user_email TEXT,
+                delivery_method TEXT, delivery_address TEXT,
+                payment_method TEXT, payment_status TEXT DEFAULT 'unpaid', 
+                comment TEXT, total_price REAL, status TEXT DEFAULT 'Новый',
+                items_json TEXT, created_at TEXT, ttn TEXT
+            )
+        ''')
 
-        # --- МИГРАЦИЯ ДЛЯ СТАРЫХ БАЗ (Если таблица уже есть) ---
+        # 3. Админы
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS admins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        ''')
+
+        # 4. Товары
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sku TEXT, title_ru TEXT, title_ua TEXT, price REAL,
+                in_stock INTEGER DEFAULT 1, qty_stock INTEGER DEFAULT 0,
+                category TEXT, subcategory TEXT, images_json TEXT,
+                on_index INTEGER DEFAULT 0, is_visible INTEGER DEFAULT 1,
+                created_at TEXT
+            )
+        ''')
+
+        # 5. ОТЗЫВЫ (Вернул на место)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER, 
+                author TEXT,
+                rating INTEGER,
+                comment TEXT,
+                date TEXT,
+                reply TEXT, 
+                is_visible INTEGER DEFAULT 1
+            )
+        ''')
+
+        # === ВАЖНЫЕ МИГРАЦИИ ===
+        # Этот блок спасет твою админку. Он добавляет колонки в старую таблицу orders.
+        columns_to_add = [
+            ("orders", "ttn", "TEXT DEFAULT ''"),
+            ("orders", "comment", "TEXT DEFAULT ''"),
+            ("orders", "delivery_address", "TEXT DEFAULT ''"),
+            ("orders", "delivery_method", "TEXT DEFAULT ''"),
+            ("orders", "payment_method", "TEXT DEFAULT ''"),
+            ("orders", "payment_status", "TEXT DEFAULT 'unpaid'")
+        ]
+
+        # === МИГРАЦИЯ ДЛЯ ТОВАРОВ (добавляем новые поля) ===
+        product_cols = [
+            ("products", "description_ru", "TEXT DEFAULT ''"),
+            ("products", "description_ua", "TEXT DEFAULT ''"),
+            ("products", "position", "INTEGER DEFAULT 0"),
+            ("products", "deleted_at", "TEXT"),
+            ("products", "created_at", "TEXT DEFAULT CURRENT_TIMESTAMP"),
+
+            # === ДОБАВЬТЕ ВОТ ЭТУ СТРОКУ: ===
+            ("products", "on_index", "INTEGER DEFAULT 0")
+        ]
+
+        for table, col, dtype in product_cols:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+            except:
+                pass
+
+            # === ДОБАВИТЬ ВОТ ЭТО (ЛЕЧЕНИЕ NULL) ===
         try:
-            cursor.execute("ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'unpaid'")
+            cursor.execute("UPDATE products SET on_index = 0 WHERE on_index IS NULL")
+            conn.commit()
         except:
-            pass  # Колонка уже есть
+            pass
 
+        cleanup_deleted_products()  # Запуск очистки при старте
+
+        for table, col, dtype in columns_to_add:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+                print(f"[Migration] Добавлена колонка {col} в таблицу {table}")
+            except sqlite3.OperationalError:
+                pass # Колонка уже есть, идем дальше
+
+        # Создаем дефолтного админа, если нет
+        cursor.execute("SELECT count(*) FROM admins")
+        if cursor.fetchone()[0] == 0:
+            pw_hash = generate_password_hash("admin123")
+            cursor.execute("INSERT INTO admins (login, password) VALUES (?, ?)", ("admin", pw_hash))
+            print("[Init] Создан админ по умолчанию: admin / admin123")
+
+        # === МАССОВОЕ ОБНОВЛЕНИЕ СТАТУСОВ ===
+        # Если заказ оплачен, но статус не "Оплаченный" — исправляем
+        try:
+            cursor.execute(
+                "UPDATE orders SET status = 'Оплаченный' WHERE payment_status = 'paid' AND status != 'Оплаченный'")
+            print("[Init] Статусы оплаченных заказов обновлены.")
+        except:
+            pass
+
+        cleanup_deleted_products()  # Запуск очистки при старте
         conn.commit()
 
+
+# === БЭКАПЫ ===
+def make_daily_backup():
+    if not os.path.exists('backups'):
+        os.makedirs('backups')
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    backup_name = f"backups/radiobox_{date_str}.db"
+
+    # Делаем бэкап, если его еще нет за сегодня
+    if not os.path.exists(backup_name) and os.path.exists(DB_NAME):
+        shutil.copy(DB_NAME, backup_name)
+        print(f"[Backup] Создана копия: {backup_name}")
+
+    # Удаление старых бэкапов (оставляем 5 последних)
+    files = sorted(os.listdir('backups'))
+    if len(files) > 5:
+        for f in files[:-5]:
+            os.remove(os.path.join('backups', f))
+            print(f"[Backup] Удален старый файл: {f}")
+
+# === ДЕКОРАТОР ДЛЯ ЗАЩИТЫ АДМИНКИ ===
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            return redirect('/admin/login')
+        return f(*args, **kwargs)
+    return decorated_function
 
 # === ФУНКЦИЯ ОТПРАВКИ ПИСЬМА ===
 def send_email_real(to_email, subject, body):
@@ -218,7 +346,19 @@ def get_user_orders():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # ДОБАВЛЕНО: payment_method, payment_status
+        # 1. Сначала загружаем карту картинок товаров (id -> картинка)
+        cursor.execute("SELECT id, sku, images_json FROM products")
+        products_map = {}
+        for p in cursor.fetchall():
+            try:
+                imgs = json.loads(p['images_json'])
+                # Берем первую картинку или None
+                image = imgs[0] if imgs else None
+            except:
+                image = None
+            products_map[p['id']] = image
+
+        # 2. Загружаем заказы
         cursor.execute('''
             SELECT id, created_at, status, total_price, items_json, 
                    delivery_method, payment_method, payment_status 
@@ -230,15 +370,32 @@ def get_user_orders():
         rows = cursor.fetchall()
         orders = []
         for row in rows:
+            # Разбираем товары заказа
+            items = []
+            if row["items_json"]:
+                try:
+                    raw_items = json.loads(row["items_json"])
+                    for item in raw_items:
+                        # Подставляем актуальную картинку из базы товаров
+                        prod_id = int(item.get('id', 0))
+
+                        # Если в базе товаров есть картинка для этого ID — берем её
+                        if prod_id in products_map and products_map[prod_id]:
+                            item['image'] = products_map[prod_id]
+
+                        items.append(item)
+                except:
+                    items = []
+
             orders.append({
                 "id": row["id"],
                 "created_at": row["created_at"],
                 "status": row["status"],
                 "total_price": row["total_price"],
-                "items": json.loads(row["items_json"]),
+                "items": items,
                 "delivery": row["delivery_method"],
-                "payment_method": row["payment_method"],  # <-- Новое поле
-                "payment_status": row["payment_status"]  # <-- Новое поле
+                "payment_method": row["payment_method"],
+                "payment_status": row["payment_status"]
             })
 
     return jsonify({"success": True, "orders": orders})
@@ -278,23 +435,27 @@ def create_order():
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
             # ОБНОВЛЕННЫЙ ЗАПРОС INSERT (Добавлено payment_status)
+
+            initial_status = "Оплаченный" if pay_status == 'paid' else "Новый"
+
             cursor.execute('''
-                        INSERT INTO orders (
-                            id, 
-                            user_name, user_surname, user_phone, user_email,
-                            delivery_address, payment_method, payment_status, 
-                            comment, items_json, 
-                            created_at, status, total_price
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
+                                    INSERT INTO orders (
+                                        id, 
+                                        user_name, user_surname, user_phone, user_email,
+                                        delivery_address, payment_method, payment_status, 
+                                        comment, items_json, 
+                                        created_at, status, total_price, ttn
+                                    )
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ''', (
                 order_id,
                 name, surname, phone, user_email,
-                address, payment_method, pay_status,  # <-- Вставляем статус
+                address, payment_method, pay_status,
                 comment, cart_json,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "Новый",
-                total_sum
+                initial_status,  # <--- БЫЛО "Новый", СТАЛО initial_status
+                total_sum,
+                ""  # ttn (пустой при создании)
             ))
             conn.commit()
 
@@ -351,14 +512,13 @@ def pay_order_api():
     data = request.json
     order_id = data.get('order_id')
 
-    if not order_id:
-        return jsonify({"success": False, "error": "No ID"})
+    if not order_id: return jsonify({"success": False, "error": "No ID"})
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-            # Ставим статус оплаты 'paid'
-            cursor.execute("UPDATE orders SET payment_status = 'paid' WHERE id = ?", (order_id,))
+            # Обновляем И статус оплаты, И статус заказа
+            cursor.execute("UPDATE orders SET payment_status = 'paid', status = 'Оплаченный' WHERE id = ?", (order_id,))
             conn.commit()
         return jsonify({"success": True})
     except Exception as e:
@@ -423,7 +583,525 @@ def cancel_order_api():
         print(f"Ошибка отмены: {e}")
         return jsonify({"success": False, "error": str(e)})
 
+
+# === РОУТЫ АДМИНКИ ===
+
+# 1. Корневой редирект (если зашли просто на /admin)
+@app.route('/admin')
+def admin_root():
+    # Если залогинен -> на дашборд RU, иначе -> на логин RU
+    if session.get('admin_logged_in'):
+        return redirect('/admin/ru/dashboard')
+    else:
+        return redirect('/admin/ru/login')
+
+
+# 2. Универсальный ВХОД (Логин)
+@app.route('/admin/<lang>/login', methods=['GET', 'POST'])
+def admin_login_lang(lang):
+    # Защита: если язык не ru/ua, кидаем на ru
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/login')
+
+    error = None
+    if request.method == 'POST':
+        login = request.form.get('login')
+        password = request.form.get('password')
+
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT password FROM admins WHERE login = ?", (login,))
+            row = cursor.fetchone()
+
+            if row and check_password_hash(row[0], password):
+                session['admin_logged_in'] = True
+                return redirect(f'/admin/{lang}/dashboard')
+            else:
+                error = "Невірний логін або пароль" if lang == 'ua' else "Неверный логин или пароль"
+
+    # Открываем файл из папки admin/ru/ или admin/ua/
+    try:
+        with open(f'admin/{lang}/admin_login.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read(), error=error)
+    except FileNotFoundError:
+        return f"Error: File admin/{lang}/admin_login.html not found!"
+
+@app.route('/admin/<path:filename>')
+def serve_admin_static_files(filename):
+    return send_from_directory('admin', filename)
+
+# 3. Выход
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect('/admin/ru/login')
+
+# === АДМИНКА: СТРАНИЦЫ И API ===
+
+# ДАШБОРД (с учетом языка)
+@app.route('/admin/<lang>/dashboard')
+def admin_dashboard(lang):
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/dashboard')
+
+    if not session.get('admin_logged_in'):
+        return redirect(f'/admin/{lang}/login')
+
+    try:
+        with open(f'admin/{lang}/dashboard.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    except FileNotFoundError:
+        return f"Error: File admin/{lang}/dashboard.html not found!"
+
+
+# === API: АДМИНКА - СПИСОК ЗАКАЗОВ С ФИЛЬТРАМИ ===
+@app.route('/api/admin/orders', methods=['GET'])
+def admin_get_orders():
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "error": "Auth required"}), 403
+
+    # 1. Получаем параметры фильтрации
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    # 2. Параметры сортировки
+    sort_by = request.args.get('sort_by', 'date')  # id, date, client, total, status
+    sort_dir = request.args.get('sort_dir', 'desc')
+
+    # 3. Строим SQL запрос
+    query = "SELECT * FROM orders WHERE 1=1"
+    params = []
+
+    # -- Поиск (ID, Имя, Фамилия, Телефон, ТТН) --
+    if search:
+        query += """ AND (
+            id LIKE ? OR 
+            user_name LIKE ? OR 
+            user_surname LIKE ? OR 
+            user_phone LIKE ? OR 
+            ttn LIKE ?
+        )"""
+        term = f"%{search}%"
+        params.extend([term, term, term, term, term])
+
+    # -- Фильтр по статусу --
+    if status_filter:
+        query += " AND status = ?"
+        params.append(status_filter)
+
+    # -- Фильтр по дате --
+    if date_from:
+        query += " AND created_at >= ?"
+        params.append(date_from + " 00:00:00")
+    if date_to:
+        query += " AND created_at <= ?"
+        params.append(date_to + " 23:59:59")
+
+    # -- Сортировка --
+    direction = "DESC" if sort_dir == 'desc' else "ASC"
+
+    if sort_by == 'id':
+        query += f" ORDER BY id {direction}"
+    elif sort_by == 'client':
+        query += f" ORDER BY user_name {direction}, user_surname {direction}"
+    elif sort_by == 'total':
+        query += f" ORDER BY total_price {direction}"
+    elif sort_by == 'status':
+        query += f" ORDER BY status {direction}"
+    else:
+        # По умолчанию - по дате
+        query += f" ORDER BY created_at {direction}"
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 4. Сначала загружаем словарь товаров (для фото)
+        cursor.execute("SELECT id, sku, images_json FROM products")
+        products_map = {}
+        for p in cursor.fetchall():
+            try:
+                imgs = json.loads(p['images_json'])
+                image = imgs[0] if imgs else None
+            except:
+                image = None
+            products_map[p['id']] = {'sku': p['sku'], 'image': image}
+
+        # 5. Выполняем главный запрос заказов
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        orders = []
+        for row in rows:
+            # Разбираем товары
+            items = []
+            if row["items_json"]:
+                try:
+                    raw_items = json.loads(row["items_json"])
+                    for item in raw_items:
+                        prod_id = int(item.get('id', 0))
+                        prod_info = products_map.get(prod_id, {})
+                        item['sku'] = prod_info.get('sku', '')
+                        item['image'] = prod_info.get('image', '')
+                        items.append(item)
+                except:
+                    pass
+
+            orders.append({
+                "id": row["id"],
+                "name": f"{row['user_name']} {row['user_surname']}",
+                "phone": row["user_phone"],
+                "total": row["total_price"],
+                "status": row["status"],
+                "date": row["created_at"],
+                "payment": row["payment_method"],
+                "pay_status": row["payment_status"],
+                "delivery": row["delivery_method"] or "",
+                "address": row["delivery_address"] or "",
+                "ttn": row["ttn"] or "",
+                "comment": row["comment"] or "",
+                "items": items
+            })
+
+    return jsonify({"success": True, "orders": orders})
+
+# === API: АДМИНКА - СОХРАНИТЬ ТТН ===
+@app.route('/api/admin/order/ttn', methods=['POST'])
+def admin_save_ttn():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (data['ttn'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/order/status', methods=['POST'])
+def admin_update_status():
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "error": "Auth required"}), 403
+
+    data = request.json
+    order_id = data.get('id')
+    new_status = data.get('status')
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+        conn.commit()
+
+    return jsonify({"success": True})
+
+
+# === НАСТРОЙКИ ЗАГРУЗКИ ===
+UPLOAD_FOLDER = 'assets/products'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# === РОУТ: СТРАНИЦА ТОВАРОВ ===
+@app.route('/admin/<lang>/products')
+def admin_products(lang):
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/products')
+
+    if not session.get('admin_logged_in'):
+        return redirect(f'/admin/{lang}/login')
+
+    try:
+        with open(f'admin/{lang}/products.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    except FileNotFoundError:
+        return f"Error: File admin/{lang}/products.html not found!"
+
+
+# === API: СПИСОК ТОВАРОВ С ФИЛЬТРАМИ И СОРТИРОВКОЙ ===
+@app.route('/api/admin/products', methods=['GET'])
+def admin_get_products_api():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    # Параметры из URL
+    show_deleted = request.args.get('show_deleted') == '1'
+    cat_filter = request.args.get('category', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    # Сортировка: def (по умолчанию/позиции), price, date, name, sku, stock
+    sort_by = request.args.get('sort_by', 'def')
+    sort_dir = request.args.get('sort_dir', 'asc')  # asc / desc
+
+    # Базовый запрос
+    query = "SELECT * FROM products WHERE "
+    params = []
+
+    # 1. Условие удаленности
+    if show_deleted:
+        query += "deleted_at IS NOT NULL"
+    else:
+        query += "deleted_at IS NULL"
+
+    # 2. Фильтры
+    if cat_filter:
+        query += " AND category = ?"
+        params.append(cat_filter)
+
+    if date_from:
+        query += " AND created_at >= ?"
+        params.append(date_from + " 00:00:00")
+
+    if date_to:
+        query += " AND created_at <= ?"
+        params.append(date_to + " 23:59:59")
+
+    # 3. Сортировка
+    if show_deleted:
+        # В корзине сортируем просто по дате удаления
+        query += " ORDER BY deleted_at DESC"
+    else:
+        # Валидация направления сортировки во избежание инъекций
+        direction = "DESC" if sort_dir == 'desc' else "ASC"
+
+        if sort_by == 'price':
+            query += f" ORDER BY price {direction}"
+        elif sort_by == 'date':
+            query += f" ORDER BY created_at {direction}"
+        elif sort_by == 'name':
+            query += f" ORDER BY title_ru {direction}"
+        elif sort_by == 'sku':
+            query += f" ORDER BY sku {direction}"
+        elif sort_by == 'stock':
+            query += f" ORDER BY in_stock {direction}"
+        else:
+            # Сортировка "По умолчанию"
+            query += f" ORDER BY category {direction}, position ASC, id DESC"
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        products = []
+        for row in rows:
+            p = dict(row)
+            try:
+                p['images'] = json.loads(row['images_json'])
+                p['image'] = p['images'][0] if p['images'] else ''
+            except:
+                p['images'] = []
+                p['image'] = ''
+            products.append(p)
+
+    return jsonify({"success": True, "products": products})
+
+# === API: ДОБАВИТЬ / ОБНОВИТЬ ТОВАР ===
+@app.route('/api/admin/product/save', methods=['POST'])
+def admin_save_product_api():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+
+    pid = data.get('id')
+    created_at = datetime.now().strftime("%Y-%m-%d")
+
+    # Собираем данные (включая новые описания и флаг витрины)
+    sku = data.get('sku')
+    title_ru = data.get('title_ru')
+    title_ua = data.get('title_ua') or title_ru
+    desc_ru = data.get('description_ru', '')
+    desc_ua = data.get('description_ua', '')
+    price = float(data.get('price', 0))
+    in_stock = int(data.get('in_stock', 1))
+    category = data.get('category')
+    images = json.dumps(data.get('images', []))
+    on_index = int(data.get('on_index', 0))
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        if pid:
+            cursor.execute('''
+                UPDATE products SET 
+                sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
+                price=?, in_stock=?, category=?, images_json=?, on_index=? 
+                WHERE id=?
+            ''', (sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, images, on_index, pid))
+        else:
+            # При создании ставим в конец списка категории
+            cursor.execute("SELECT MAX(position) FROM products WHERE category=?", (category,))
+            max_pos = cursor.fetchone()[0]
+            pos = (max_pos + 1) if max_pos is not None else 1
+
+            cursor.execute('''
+                INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, images_json, on_index, position, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, images, on_index, pos, created_at))
+
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: ЗАГРУЗКА КАРТИНКИ ===
+@app.route('/api/admin/upload', methods=['POST'])
+def admin_upload_file():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file part"})
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No selected file"})
+
+    if file and allowed_file(file.filename):
+        # Создаем папку, если нет
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+
+        filename = secure_filename(file.filename)
+        # Добавляем timestamp, чтобы имена не совпадали
+        ts = int(datetime.now().timestamp())
+        filename = f"{ts}_{filename}"
+
+        # Сохраняем
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        # Возвращаем путь для веба (assets/products/...)
+        web_path = f"/assets/products/{filename}"
+        return jsonify({"success": True, "path": web_path})
+
+    return jsonify({"success": False, "error": "Invalid file type"})
+
+
+# === API: СКРЫТЬ / ПОКАЗАТЬ ТОВАР ===
+@app.route('/api/admin/product/visibility', methods=['POST'])
+def admin_product_visibility():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    data = request.json
+    pid = data.get('id')
+    is_visible = data.get('is_visible')  # 1 или 0
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE products SET is_visible = ? WHERE id = ?", (is_visible, pid))
+        conn.commit()
+
+    return jsonify({"success": True})
+
+# === API: ПУБЛИЧНЫЙ СПИСОК ТОВАРОВ (ДЛЯ МАГАЗИНА) ===
+@app.route('/api/products', methods=['GET'])
+def get_public_products():
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        # Берем только видимые товары
+        cursor.execute("SELECT * FROM products WHERE is_visible = 1 AND deleted_at IS NULL ORDER BY position ASC, id DESC")
+        rows = cursor.fetchall()
+
+        products = []
+        for row in rows:
+            p = dict(row)
+            try:
+                # Распаковываем картинки
+                p['images'] = json.loads(row['images_json'])
+                # Берем первую картинку как главную
+                p['image'] = p['images'][0] if p['images'] else ''
+            except:
+                p['images'] = []
+                p['image'] = ''
+
+            # Удаляем технические поля, если нужно, или оставляем как есть
+            products.append(p)
+
+    return jsonify({"success": True, "items": products})
+
+
+# Мягкое удаление (в корзину)
+@app.route('/api/admin/product/delete', methods=['POST'])
+def admin_delete_product():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    deleted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE products SET deleted_at = ? WHERE id = ?", (deleted_at, data.get('id')))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# Восстановление из корзины
+@app.route('/api/admin/product/restore', methods=['POST'])
+def admin_restore_product():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE products SET deleted_at = NULL WHERE id = ?", (data.get('id'),))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# Сортировка (Вверх/Вниз)
+@app.route('/api/admin/product/move', methods=['POST'])
+def admin_move_product():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    pid = data.get('id')
+    direction = data.get('direction')  # 'up' or 'down'
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. Получаем текущий товар
+        curr = cursor.execute("SELECT id, category, position FROM products WHERE id=?", (pid,)).fetchone()
+        if not curr: return jsonify({"success": False})
+
+        cat = curr['category']
+        pos = curr['position']
+
+        # 2. Ищем соседа
+        if direction == 'up':
+            neighbor = cursor.execute(
+                "SELECT id, position FROM products WHERE category=? AND position < ? ORDER BY position DESC LIMIT 1",
+                (cat, pos)).fetchone()
+        else:
+            neighbor = cursor.execute(
+                "SELECT id, position FROM products WHERE category=? AND position > ? ORDER BY position ASC LIMIT 1",
+                (cat, pos)).fetchone()
+
+        # 3. ЕСЛИ СОСЕД НЕ НАЙДЕН (или позиции сломаны/дублируются), запускаем "ЛЕЧЕНИЕ" нумерации
+        if not neighbor:
+            # Пересчитываем позиции для ВСЕЙ категории по порядку ID
+            products = cursor.execute("SELECT id FROM products WHERE category=? ORDER BY position ASC, id ASC",
+                                      (cat,)).fetchall()
+            for index, prod in enumerate(products):
+                cursor.execute("UPDATE products SET position = ? WHERE id = ?", (index * 10, prod['id']))
+            conn.commit()
+
+            # После лечения пробуем найти соседа еще раз (рекурсивно, но 1 раз)
+            # Но проще просто вернуть success=True, чтобы фронт обновился и подтянул новые позиции
+            return jsonify({"success": True, "message": "Positions fixed"})
+
+        # 4. Если сосед найден, меняемся местами
+        if neighbor:
+            cursor.execute("UPDATE products SET position=? WHERE id=?", (neighbor['position'], curr['id']))
+            cursor.execute("UPDATE products SET position=? WHERE id=?", (curr['position'], neighbor['id']))
+            conn.commit()
+
+    return jsonify({"success": True})
+
+@app.route('/api/admin/product/index', methods=['POST'])
+def admin_product_index_toggle():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE products SET on_index = ? WHERE id = ?", (data['on_index'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
 if __name__ == '__main__':
-    init_db()
-    print("Сервер запущен (только Email). http://127.0.0.1:5000")
+    init_db() # Это создаст новые таблицы и бэкап
+    print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
     app.run(debug=True, port=5000)

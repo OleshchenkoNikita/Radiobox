@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Кабинет продавца — RadioBox</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background: #0d2b4e; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .nav-links { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+        .nav-links li a { display: block; padding: 12px 20px; color: #cbd5e1; text-decoration: none; font-weight: 600; transition: 0.2s; border-left: 4px solid transparent; }
+        .nav-links li a:hover, .nav-links li a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #189BFF; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-logout { color: #fca5a5; text-decoration: none; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { margin: 0; font-size: 24px; color: #0f172a; font-weight: 800; }
+
+        .admin-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); overflow: hidden; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .data-table th { background: #f8fafc; text-align: left; padding: 12px 16px; font-weight: 700; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+        .data-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+        .data-table tr:hover { background: #f8fafc; }
+
+        .status-select { padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; font-size: 13px; cursor: pointer; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .badge-new { background: #dbeafe; color: #1e40af; }
+        .badge-paid { background: #dcfce7; color: #166534; }
+        .badge-unpaid { background: #fee2e2; color: #991b1b; }
+
+        /* Языки в админке */
+        .admin-lang { font-size:14px; font-weight:600; margin-right: 20px; }
+        .admin-lang a { text-decoration:none; color:#94a3b8; margin-left:8px; }
+        .admin-lang a.active { color:#0f172a; text-decoration:underline; }
+
+        @media (max-width: 768px) { body { flex-direction: column; overflow: auto; } .sidebar { width: 100%; height: auto; } .main-content { padding: 15px; } .data-table { display: block; overflow-x: auto; } }
+    </style>
+    <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">RadioBox Seller</div>
+        <ul class="nav-links">
+            <li><a href="/admin/ru/dashboard">Заказы</a></li>
+            <li><a href="/admin/ru/products">Товары</a></li>
+            <li><a href="#" onclick="alert('Скоро: баннеры')">Баннеры</a></li>
+            <li><a href="#" onclick="alert('Скоро: настройки')">Настройки</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="btn-logout">Выйти</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1 class="page-title">Список заказов</h1>
+            <div style="display:flex; align-items:center; gap:20px;">
+                <div class="admin-lang">
+                    <a href="/admin/ru/dashboard" class="active">RU</a>
+                    <a href="/admin/ua/dashboard">UA</a>
+                </div>
+                <button class="btn-primary" onclick="Admin.loadOrders()">↻ Обновить</button>
+            </div>
+        </div>
+
+        <div class="filters-bar">
+            <input type="text" id="f_search" class="filter-search"
+                   placeholder="🔍 Поиск (№, Имя, Тел, ТТН)..."
+                   oninput="Admin.onSearchInput(this.value)"
+                   style="flex:1; min-width:200px; border-color:#189BFF;">
+
+            <select class="filter-select" id="f_status" onchange="Admin.applyFilter()">
+                <option value="">Все статусы</option>
+                <option value="Новый">Новый</option>
+                <option value="Оплаченный">Оплаченный</option>
+                <option value="Необработанный">Необработанный</option>
+                <option value="Принятие решения">Принятие решения</option>
+                <option value="Выполнение">Выполнение</option>
+                <option value="Отменено">Отменено</option>
+            </select>
+
+            <span style="font-size:13px; font-weight:600; color:#64748b;">Дата:</span>
+            <input type="date" class="filter-date" id="f_date_from" onchange="Admin.applyFilter()">
+            <span style="color:#cbd5e1;">—</span>
+            <input type="date" class="filter-date" id="f_date_to" onchange="Admin.applyFilter()">
+
+            <button class="btn-icon" title="Сбросить фильтры" onclick="Admin.resetFilters()">✕</button>
+        </div>
+
+        <div class="admin-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;" onclick="Admin.sortBy('id')" data-sort="id">ID</th>
+                        <th style="width: 9%;" onclick="Admin.sortBy('date')" data-sort="date">Дата</th>
+                        <th style="width: 14%;" onclick="Admin.sortBy('client')" data-sort="client">Клиент</th>
+                        <th style="width: 30%;">Состав заказа</th>
+                        <th style="width: 8%;" onclick="Admin.sortBy('total')" data-sort="total">Сумма</th>
+                        <th style="width: 22%;">Доставка и Оплата</th>
+                        <th style="width: 12%;" onclick="Admin.sortBy('status')" data-sort="status">Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody"></tbody>
+            </table>
+        </div>
+    </main>
+</body>
+</html>

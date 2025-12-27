@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Товары — RadioBox Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background: #0d2b4e; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .nav-links { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+        .nav-links li a { display: block; padding: 12px 20px; color: #cbd5e1; text-decoration: none; font-weight: 600; border-left: 4px solid transparent; transition:0.2s; }
+        .nav-links li a:hover, .nav-links li a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #189BFF; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-logout { color: #fca5a5; text-decoration: none; font-size: 14px; font-weight: 600; }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; position: relative; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .btn-primary { background: #189BFF; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; border: none; cursor: pointer; font-weight: 700; }
+        .btn-primary:hover { filter: brightness(1.1); }
+
+        .admin-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+        /* Кликабельные заголовки */
+        .data-table th { background: #f8fafc; padding: 12px 16px; text-align: left; color: #64748b; border-bottom: 1px solid #e2e8f0; font-weight:700; cursor: pointer; user-select: none; }
+        .data-table th:hover { background: #eff6ff; color: #189BFF; }
+        .data-table th.sort-asc::after { content: " ▲"; font-size: 10px; }
+        .data-table th.sort-desc::after { content: " ▼"; font-size: 10px; }
+
+        .data-table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color:#334155; }
+        .data-table tr:hover { background: #f8fafc; }
+
+        /* Разделитель категорий */
+        .tr-category td { background: #e2e8f0; color: #0f172a; font-weight: 800; font-size: 14px; padding: 8px 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600; color: #64748b; }
+        .tab-btn.active { background: #0d2b4e; color: white; border-color: #0d2b4e; }
+
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+        .badge-ok { background: #dcfce7; color: #166534; }
+        .badge-hidden { background: #f1f5f9; color: #94a3b8; }
+
+        .action-group { display: flex; gap: 5px; justify-content: flex-end; }
+        .btn-icon { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; transition: .2s; }
+        .btn-icon:hover { background: #f1f5f9; color: #0f172a; border-color: #cbd5e1; }
+        .btn-icon.red:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+
+        /* Панель фильтров */
+        .filters-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filter-select, .filter-date { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+
+        /* Модалка (стили те же) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .modal-overlay.active { display: flex; }
+        .modal-window { background: white; width: 700px; max-width: 95%; border-radius: 12px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 0; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 700; color: #334155; }
+        .form-input, .form-select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; }
+        textarea { resize: vertical; min-height: 80px; }
+        .modal-footer { margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; padding-top: 20px; border-top: 1px solid #f1f5f9; }
+        .admin-lang { font-size:14px; font-weight:600; margin-right: 20px; }
+        .admin-lang a { text-decoration:none; color:#94a3b8; margin-left:8px; }
+        .admin-lang a.active { color:#0f172a; text-decoration:underline; }
+    </style>
+    <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">RadioBox Seller</div>
+        <ul class="nav-links">
+            <li><a href="/admin/ru/dashboard">Заказы</a></li>
+            <li><a href="/admin/ru/products">Товары</a></li>
+            <li><a href="#" onclick="alert('Скоро: баннеры')">Баннеры</a></li>
+            <li><a href="#" onclick="alert('Скоро: настройки')">Настройки</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="btn-logout">Выйти</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1 style="margin:0; font-size:24px;">Список товаров</h1>
+            <div style="display:flex; align-items:center; gap: 20px;">
+                <div class="admin-lang">
+                    <a href="/admin/ru/products" style="text-decoration:underline; color:#0f172a;">RU</a>
+                    <a href="/admin/ua/products" style="text-decoration:none; color:#94a3b8; margin-left:8px;">UA</a>
+                </div>
+                <button class="btn-primary" onclick="AdminProducts.openModal()">+ Добавить товар</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="AdminProducts.filterTab('active')" id="tabActive">Активные</button>
+            <button class="tab-btn" onclick="AdminProducts.filterTab('deleted')" id="tabDeleted">Удалённые позиции</button>
+        </div>
+
+        <div class="filters-bar">
+            <input type="text" class="filter-search" placeholder="🔍 Поиск по названию или SKU..."
+               oninput="AdminProducts.onSearchInput(this.value)"
+               style="flex:1; min-width:200px; border-color:#189BFF;">
+
+            <select class="filter-select" id="f_category" onchange="AdminProducts.applyFilter()">
+                <option value="">Все категории</option>
+                <option value="solder">Паяльное оборудование</option>
+                <option value="meas">Измерительные приборы</option>
+                <option value="osc">Осциллографы</option>
+                <option value="prog">Программаторы</option>
+                <option value="repair">Инструменты</option>
+                <option value="consum">Расходные материалы</option>
+                <option value="rmods">Модули</option>
+                <option value="rparts">Радиодетали</option>
+                <option value="psu">Источники питания</option>
+                <option value="cables">Кабели</option>
+            </select>
+
+            <span style="font-size:13px; font-weight:600; color:#64748b;">Дата:</span>
+            <input type="date" class="filter-date" id="f_date_from" onchange="AdminProducts.applyFilter()">
+            <span style="color:#cbd5e1;">—</span>
+            <input type="date" class="filter-date" id="f_date_to" onchange="AdminProducts.applyFilter()">
+
+            <button class="btn-icon" title="Сбросить" onclick="AdminProducts.resetFilters()">✕</button>
+        </div>
+
+        <div class="admin-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px; cursor:default;">Фото</th>
+                        <th onclick="AdminProducts.sortBy('name')" data-sort="name">Название / SKU</th>
+                        <th onclick="AdminProducts.sortBy('def')" data-sort="def">Категория</th>
+                        <th onclick="AdminProducts.sortBy('price')" data-sort="price">Цена</th>
+                        <th onclick="AdminProducts.sortBy('stock')" data-sort="stock">Наличие</th>
+                        <th onclick="AdminProducts.sortBy('date')" data-sort="date">Дата доб.</th>
+                        <th style="text-align:center; cursor:default;">Витрина</th>
+                        <th style="cursor:default;">Статус</th>
+                        <th style="text-align:right; cursor:default;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    <tr><td colspan="8" style="text-align:center; padding:20px;">Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div class="modal-overlay" id="productModal">
+        <div class="modal-window">
+            <h2 style="margin-top:0;" id="modalTitle">Новый товар</h2>
+            <form id="productForm" onsubmit="event.preventDefault(); AdminProducts.save();">
+                <input type="hidden" id="p_id">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Категория</label>
+                        <select id="p_category" class="form-select">
+                            <option value="solder">Паяльное оборудование</option>
+                            <option value="meas">Измерительные приборы</option>
+                            <option value="osc">Осциллографы</option>
+                            <option value="prog">Программаторы</option>
+                            <option value="repair">Инструменты</option>
+                            <option value="consum">Расходные материалы</option>
+                            <option value="rmods">Модули</option>
+                            <option value="rparts">Радиодетали</option>
+                            <option value="psu">Источники питания</option>
+                            <option value="cables">Кабели</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Артикул (SKU)</label>
+                        <input type="text" id="p_sku" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Цена (грн)</label>
+                        <input type="number" id="p_price" class="form-input" required step="0.01">
+                    </div>
+                    <div class="form-group full">
+                        <label>Название (RU)</label>
+                        <input type="text" id="p_title" class="form-input" required>
+                    </div>
+                    <div class="form-group full">
+                        <label>Название (UA)</label>
+                        <input type="text" id="p_title_ua" class="form-input">
+                    </div>
+                    <div class="form-group full">
+                        <label>Описание (RU)</label>
+                        <textarea id="p_desc_ru"></textarea>
+                    </div>
+                    <div class="form-group full">
+                        <label>Опис (UA)</label>
+                        <textarea id="p_desc_ua"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Склад</label>
+                        <select id="p_stock" class="form-select">
+                            <option value="1">В наличии</option>
+                            <option value="0">Нет в наличии</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Отображение</label>
+                        <div style="display:flex; align-items:center; gap:8px; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">
+                            <input type="checkbox" id="p_on_index">
+                            <span style="font-size:13px;">На главной (Витрина)</span>
+                        </div>
+                    </div>
+                    <div class="form-group full">
+                        <label>Фотография</label>
+                        <div style="display:flex; gap:15px; align-items:center;">
+                            <img id="img_preview" src="" style="width:60px; height:60px; object-fit:contain; border:1px solid #eee; border-radius:4px; display:none;">
+                            <div>
+                                <input type="file" id="p_file" onchange="AdminProducts.uploadImage(this)">
+                                <input type="hidden" id="p_image_path">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="AdminProducts.closeModal()">Отмена</button>
+                    <button type="submit" class="btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

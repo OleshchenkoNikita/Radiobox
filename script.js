@@ -896,8 +896,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
 
     // Принудительно перезаписываем, чтобы появилось поле qty_stock
-    write(KEY_UA, toLang(BI_ITEMS, 'ua'));
-    write(KEY_RU, toLang(BI_ITEMS, 'ru'));
+    // НОВАЯ ЛОГИКА: Грузим с сервера
+    fetch('/api/products')
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                // Сервер вернул товары из базы данных!
+                // Нам нужно их адаптировать под формат, который ждет фронтенд (разделение на RU/UA)
+
+                const items = data.items.map(it => ({
+                    id: it.id,
+                    sku: it.sku,
+                    // Выбираем язык в зависимости от ключа, куда пишем (хитрость ниже)
+                    title_ru: it.title_ru,
+                    title_ua: it.title_ua || it.title_ru,
+                    price: it.price,
+                    in_stock: it.in_stock,
+                    qty_stock: 100, // Или it.qty_stock если добавишь это поле в базу
+                    category: it.category,
+                    image: it.image,
+                    images: it.images,
+                    description: 'Описание...'
+                }));
+
+                // Сохраняем для RU версии
+                const ruItems = items.map(i => ({...i, title: i.title_ru}));
+                localStorage.setItem(KEY_RU, JSON.stringify({ items: ruItems }));
+
+                // Сохраняем для UA версии
+                const uaItems = items.map(i => ({...i, title: i.title_ua}));
+                localStorage.setItem(KEY_UA, JSON.stringify({ items: uaItems }));
+
+                // Перерисовываем каталог, если мы на странице каталога
+                if(window.renderCatalog) window.renderCatalog();
+            }
+        })
+        .catch(err => console.error("Ошибка загрузки товаров:", err));
 
     function write(k, items) { localStorage.setItem(k, JSON.stringify({ items })); }
 })();
@@ -1833,23 +1867,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     let title = i.title || `Товар ID: ${i.id}`;
                     let price = parseFloat(i.price || 0);
                     let qty = parseInt(i.qty || 1);
-                    let sum = price * qty;
 
-                    if (!i.title || price === 0) {
-                        try {
-                            const catKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
-                            const catalog = JSON.parse(localStorage.getItem(catKey) || '{"items":[]}').items;
-                            const prod = catalog.find(p => p.id == i.id);
-                            if (prod) {
-                                title = prod.title;
-                                if(price === 0) price = prod.price;
-                            }
-                        } catch(e) {}
-                        sum = price * qty;
+                    // 1. Сразу ищем товар в локальном каталоге (чтобы использовать его данные и ФОТО)
+                    let prod = null;
+                    try {
+                        const catKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+                        const catalog = JSON.parse(localStorage.getItem(catKey) || '{"items":[]}').items;
+                        prod = catalog.find(p => p.id == i.id);
+                    } catch(e) {}
+
+                    // Если в заказе нет названия или цены, берем из каталога
+                    if ((!i.title || price === 0) && prod) {
+                         title = prod.title;
+                         if (price === 0) price = prod.price;
                     }
+
+                    let sum = price * qty;
                     if (totalOrderSum === 0) totalOrderSum += sum;
 
-                    const imgUrl = "../assets/icons/company.png";
+                    // === ЛОГИКА КАРТИНОК ===
+
+                    // 1. Пытаемся взять картинку из объекта товара (пришла с сервера)
+                    let rawImg = i.image;
+
+                    // 2. Если сервер не прислал, берем из локального каталога
+                    if (!rawImg && prod) {
+                        if (prod.images && prod.images.length > 0) rawImg = prod.images[0];
+                        else if (prod.image) rawImg = prod.image;
+                    }
+
+                    // 3. Обработка (берем первое фото, если массив)
+                    let imgUrl = "";
+                    if (Array.isArray(rawImg)) {
+                        imgUrl = rawImg.length > 0 ? rawImg[0] : "";
+                    } else if (rawImg) {
+                        imgUrl = rawImg;
+                    }
+
+                    // 4. Заглушка, если ничего не нашлось
+                    if (!imgUrl) imgUrl = "/assets/icons/company.png";
+                    // (Важно: я поставил слэш в начале пути заглушки, чтобы работало везде)
 
                     return `
                         <tr>
