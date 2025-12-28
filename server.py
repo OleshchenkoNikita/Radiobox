@@ -53,6 +53,18 @@ def init_db():
             )
         ''')
 
+        # Создаем таблицу КАТЕГОРИЙ (если её нет)
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS categories (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        slug TEXT UNIQUE,
+                        parent_slug TEXT,
+                        title_ru TEXT,
+                        title_ua TEXT,
+                        position INTEGER DEFAULT 0
+                    )
+                ''')
+
         # 2. Заказы
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS orders (
@@ -118,15 +130,33 @@ def init_db():
             ("products", "position", "INTEGER DEFAULT 0"),
             ("products", "deleted_at", "TEXT"),
             ("products", "created_at", "TEXT DEFAULT CURRENT_TIMESTAMP"),
-
-            # === ДОБАВЬТЕ ВОТ ЭТУ СТРОКУ: ===
-            ("products", "on_index", "INTEGER DEFAULT 0")
+            ("products", "on_index", "INTEGER DEFAULT 0"),
+            ("products", "seo_title", "TEXT DEFAULT ''"),
+            ("products", "seo_description", "TEXT DEFAULT ''")
         ]
+
+        new_columns = [
+            ("products", "position", "INTEGER DEFAULT 0"),
+            ("products", "subcategory", "TEXT DEFAULT ''"),
+            ("products", "seo_title", "TEXT DEFAULT ''"),
+            ("products", "seo_description", "TEXT DEFAULT ''"),
+            ("products", "on_index", "INTEGER DEFAULT 0"),
+            ("products", "is_visible", "INTEGER DEFAULT 1"),
+            ("products", "deleted_at", "TEXT"),
+            # Добавьте сюда другие, если вдруг чего-то не хватает
+        ]
+
+        for table, col, dtype in new_columns:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+            except:
+                pass
 
         for table, col, dtype in product_cols:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
-            except:
+            except sqlite3.OperationalError:
+                # Ошибка возникает, если колонка уже есть. Это нормально, просто пропускаем.
                 pass
 
             # === ДОБАВИТЬ ВОТ ЭТО (ЛЕЧЕНИЕ NULL) ===
@@ -160,6 +190,36 @@ def init_db():
             print("[Init] Статусы оплаченных заказов обновлены.")
         except:
             pass
+
+            # 4. ЛЕЧЕНИЕ ПОРЯДКА: Если у товаров position везде 0, сортировка глючит.
+            # Проставим им position равный их ID, чтобы был хоть какой-то стартовый порядок.
+            cursor.execute("SELECT count(*) FROM products WHERE position != 0")
+            has_positions = cursor.fetchone()[0]
+
+            if has_positions == 0:
+                print("🔧 Исправляем пустые позиции товаров...")
+                cursor.execute("UPDATE products SET position = id")
+                conn.commit()
+
+            # 5. ЗАПОЛНЕНИЕ КАТЕГОРИЙ (Только если таблица пустая)
+            cursor.execute("SELECT count(*) FROM categories")
+            if cursor.fetchone()[0] == 0:
+                print("📦 База категорий пуста. Загружаем стандартные...")
+                default_cats = [
+                    ('solder', 'Паяльное оборудование', 'Паяльне обладнання'),
+                    ('meas', 'Измерительные приборы', 'Вимірювальні прилади'),
+                    ('osc', 'Осциллографы', 'Осцилографи'),
+                    ('prog', 'Программаторы', 'Програматори'),
+                    ('repair', 'Инструменты', 'Інструменти'),
+                    ('consum', 'Расходные материалы', 'Витратні матеріали'),
+                    ('rmods', 'Модули', 'Модулі'),
+                    ('rparts', 'Радиодетали', 'Радіодеталі'),
+                    ('psu', 'Источники питания', 'Джерела живлення'),
+                    ('cables', 'Кабели', 'Кабелі')
+                ]
+                for idx, (slug, ru, ua) in enumerate(default_cats):
+                    cursor.execute("INSERT INTO categories (slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?)",
+                                   (slug, ru, ua, idx))
 
         cleanup_deleted_products()  # Запуск очистки при старте
         conn.commit()
@@ -843,10 +903,12 @@ def admin_get_products_api():
     else:
         query += "deleted_at IS NULL"
 
-    # 2. Фильтры
     if cat_filter:
-        query += " AND category = ?"
-        params.append(cat_filter)
+        # Ищем совпадение ИЛИ в основной категории, ИЛИ в подкатегории
+        query += " AND (category = ? OR subcategory = ?)"
+
+        # Используем extend, чтобы добавить два значения в общий список
+        params.extend([cat_filter, cat_filter])
 
     if date_from:
         query += " AND created_at >= ?"
@@ -875,8 +937,9 @@ def admin_get_products_api():
         elif sort_by == 'stock':
             query += f" ORDER BY in_stock {direction}"
         else:
-            # Сортировка "По умолчанию"
-            query += f" ORDER BY category {direction}, position ASC, id DESC"
+            # Сначала группируем по Категории, потом сортируем по Позиции
+            # Это важно, чтобы заголовки не дублировались!
+            query += f" ORDER BY category ASC, position ASC"
 
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
@@ -904,9 +967,9 @@ def admin_save_product_api():
     data = request.json
 
     pid = data.get('id')
-    created_at = datetime.now().strftime("%Y-%m-%d")
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Собираем данные (включая новые описания и флаг витрины)
+    # Основные поля
     sku = data.get('sku')
     title_ru = data.get('title_ru')
     title_ua = data.get('title_ua') or title_ru
@@ -915,33 +978,102 @@ def admin_save_product_api():
     price = float(data.get('price', 0))
     in_stock = int(data.get('in_stock', 1))
     category = data.get('category')
+    subcategory = data.get('subcategory', '')
     images = json.dumps(data.get('images', []))
     on_index = int(data.get('on_index', 0))
+
+    # === НОВЫЕ SEO ПОЛЯ ===
+    seo_title = data.get('seo_title', '')
+    seo_desc = data.get('seo_description', '')
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         if pid:
+            # ОБНОВЛЕНИЕ
             cursor.execute('''
                 UPDATE products SET 
                 sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
-                price=?, in_stock=?, category=?, images_json=?, on_index=? 
+                price=?, in_stock=?, category=?, subcategory=?, images_json=?, on_index=?,
+                seo_title=?, seo_description=?
                 WHERE id=?
-            ''', (sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, images, on_index, pid))
+            ''', (sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
+                  seo_title, seo_desc, pid))
         else:
-            # При создании ставим в конец списка категории
+            # СОЗДАНИЕ
             cursor.execute("SELECT MAX(position) FROM products WHERE category=?", (category,))
-            max_pos = cursor.fetchone()[0]
-            pos = (max_pos + 1) if max_pos is not None else 1
+            res = cursor.fetchone()
+            max_pos = res[0] if res and res[0] is not None else 0
+            pos = max_pos + 1
 
             cursor.execute('''
-                INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, images_json, on_index, position, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, subcategory, images_json, on_index, position, created_at, seo_title, seo_description)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, images, on_index, pos, created_at))
+            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index, pos,
+            created_at, seo_title, seo_desc))
 
         conn.commit()
     return jsonify({"success": True})
 
+# === API: ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ КАТЕГОРИЙ И ПОДКАТЕГОРИЙ ===
+@app.route('/api/admin/fix_categories', methods=['GET'])
+def fix_categories_route():
+    if not session.get('admin_logged_in'): return "Access denied", 403
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+
+        # 1. Очищаем таблицу (чтобы создать структуру начисто)
+        cursor.execute("DELETE FROM categories")
+
+        # 2. ОСНОВНЫЕ КАТЕГОРИИ
+        # (slug, ru, ua)
+        main_cats = [
+            ('solder', 'Паяльное оборудование', 'Паяльне обладнання'),
+            ('meas', 'Измерительные приборы', 'Вимірювальні прилади'),
+            ('osc', 'Осциллографы', 'Осцилографи'),
+            ('prog', 'Программаторы', 'Програматори'),
+            ('repair', 'Инструменты', 'Інструменти'),
+            ('consum', 'Расходные материалы', 'Витратні матеріали'),
+            ('rmods', 'Модули', 'Модулі'),
+            ('rparts', 'Радиодетали', 'Радіодеталі'),
+            ('psu', 'Источники питания', 'Джерела живлення'),
+            ('cables', 'Кабели', 'Кабелі')
+        ]
+
+        # Вставляем основные
+        for idx, (slug, ru, ua) in enumerate(main_cats):
+            cursor.execute("INSERT INTO categories (slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?)",
+                           (slug, ru, ua, idx))
+
+        # 3. ПОДКАТЕГОРИИ
+        # (slug, parent_slug, ru, ua)
+        sub_cats = [
+            # Радиомодули (rmods)
+            ('converters', 'rmods', 'Преобразователи напряжения', 'Перетворювачі напруги'),
+
+            # Радиодетали (rparts)
+            ('resistors', 'rparts', 'Резисторы', 'Резистори'),
+            ('potentiometers', 'rparts', 'Потенциометры', 'Потенціометри'),
+            ('capacitors', 'rparts', 'Конденсаторы', 'Конденсатори'),
+            ('transistors', 'rparts', 'Транзисторы', 'Транзистори'),
+            ('leds', 'rparts', 'Светодиоды', 'Світлодіоди'),
+            ('diodes', 'rparts', 'Диоды', 'Діоди'),
+            ('zener', 'rparts', 'Стабилитроны', 'Стабілітрони'),
+            ('ics', 'rparts', 'Интегральные микросхемы', 'Інтегральні мікросхеми'),
+            ('switches', 'rparts', 'Переключатели', 'Перемикачі'),
+            ('quartz', 'rparts', 'Кварцевые резонаторы', 'Кварцові резонатори')
+        ]
+
+        # Вставляем подкатегории
+        for idx, (slug, parent, ru, ua) in enumerate(sub_cats):
+            cursor.execute(
+                "INSERT INTO categories (slug, parent_slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?, ?)",
+                (slug, parent, ru, ua, idx))
+
+        conn.commit()
+
+    return "Структура категорий и подкатегорий успешно создана! Обновите админку."
 
 # === API: ЗАГРУЗКА КАРТИНКИ ===
 @app.route('/api/admin/upload', methods=['POST'])
@@ -1098,6 +1230,116 @@ def admin_product_index_toggle():
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE products SET on_index = ? WHERE id = ?", (data['on_index'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: УНИВЕРСАЛЬНАЯ СОРТИРОВКА (DRAG-AND-DROP) ===
+@app.route('/api/admin/reorder', methods=['POST'])
+def admin_reorder_general():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    data = request.json
+    # Фронт пришлет нам: items = [{ 'id': 10, 'cat': 'meas' }, { 'id': 5, 'cat': 'solder' } ...]
+    items = data.get('items', [])
+
+    if not items:
+        # Поддержка старого формата (если вдруг придет просто ids)
+        if 'ids' in data:
+            old_ids = data['ids']
+            with sqlite3.connect(DB_NAME) as conn:
+                for idx, pid in enumerate(old_ids):
+                    conn.execute("UPDATE products SET position = ? WHERE id = ?", (idx, pid))
+            return jsonify({"success": True})
+        return jsonify({"success": True})
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+
+        for index, item in enumerate(items):
+            pid = item.get('id')
+            new_cat = item.get('cat')  # Новая категория (slug)
+
+            # Обновляем позицию И категорию
+            # Если категория пустая (товар улетел выше всех заголовков), не меняем её (Coalesce или логика питона)
+            if new_cat:
+                cursor.execute("UPDATE products SET position = ?, category = ? WHERE id = ?", (index, new_cat, pid))
+            else:
+                # Если вдруг не определили категорию, обновляем только позицию
+                cursor.execute("UPDATE products SET position = ? WHERE id = ?", (index, pid))
+
+        conn.commit()
+
+    return jsonify({"success": True})
+
+
+# === API: ПОЛУЧИТЬ КАТЕГОРИИ (ДЕРЕВОМ) ===
+@app.route('/api/categories', methods=['GET'])
+def get_categories_api():
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        # Берем все, сортируем по позиции
+        rows = conn.execute("SELECT * FROM categories ORDER BY position ASC").fetchall()
+
+        cats = [dict(r) for r in rows]
+        return jsonify({"success": True, "categories": cats})
+
+
+# === API: СОХРАНИТЬ КАТЕГОРИЮ ===
+@app.route('/api/admin/category/save', methods=['POST'])
+def save_category_api():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+
+    cat_id = data.get('id')  # Если есть ID - редактируем, нет - создаем
+    slug = data.get('slug')
+    parent = data.get('parent_slug') or None  # Может быть None
+    ru = data.get('title_ru')
+    ua = data.get('title_ua')
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+
+        if cat_id:
+            cursor.execute("UPDATE categories SET slug=?, parent_slug=?, title_ru=?, title_ua=? WHERE id=?",
+                           (slug, parent, ru, ua, cat_id))
+        else:
+            # Новая - ставим в конец
+            cursor.execute("SELECT MAX(position) FROM categories WHERE parent_slug IS ?", (parent,))
+            res = cursor.fetchone()
+            pos = (res[0] + 1) if (res and res[0] is not None) else 0
+
+            cursor.execute(
+                "INSERT INTO categories (slug, parent_slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?, ?)",
+                (slug, parent, ru, ua, pos))
+
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: УДАЛИТЬ КАТЕГОРИЮ ===
+@app.route('/api/admin/category/delete', methods=['POST'])
+def delete_category_api():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    cat_id = data.get('id')
+
+    with sqlite3.connect(DB_NAME) as conn:
+        # Удаляем категорию. (В идеале надо проверять, есть ли в ней товары, но пока просто удалим)
+        conn.execute("DELETE FROM categories WHERE id=?", (cat_id,))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: СОРТИРОВКА КАТЕГОРИЙ ===
+@app.route('/api/admin/category/reorder', methods=['POST'])
+def reorder_categories_api():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    ids = request.json.get('ids', [])
+
+    with sqlite3.connect(DB_NAME) as conn:
+        for idx, cid in enumerate(ids):
+            conn.execute("UPDATE categories SET position=? WHERE id=?", (idx, cid))
         conn.commit()
     return jsonify({"success": True})
 

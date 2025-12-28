@@ -67,6 +67,7 @@
         .admin-lang a { text-decoration:none; color:#94a3b8; margin-left:8px; }
         .admin-lang a.active { color:#0f172a; text-decoration:underline; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="/admin/admin.js" defer></script>
 </head>
 <body>
@@ -76,6 +77,7 @@
         <ul class="nav-links">
             <li><a href="/admin/ua/dashboard">Замовлення</a></li>
             <li><a href="/admin/ua/products">Товари</a></li>
+            <li><a href="/admin/ua/showcase.html">Вітрина (Сортування)</a></li>
             <li><a href="#" onclick="alert('Скоро: банери')">Банери</a></li>
             <li><a href="#" onclick="alert('Скоро: налаштування')">Налаштування</a></li>
         </ul>
@@ -92,6 +94,7 @@
                     <a href="/admin/ru/products" style="text-decoration:none; color:#94a3b8;">RU</a>
                     <a href="/admin/ua/products" style="text-decoration:underline; color:#0f172a; margin-left:8px;">UA</a>
                 </div>
+                <button class="btn-primary" style="background:#0d2b4e;" onclick="AdminCats.openManager()">📁 Розділи</button>
                 <button class="btn-primary" onclick="AdminProducts.openModal()">+ Додати товар</button>
             </div>
         </div>
@@ -137,7 +140,7 @@
                         <th onclick="AdminProducts.sortBy('def')" data-sort="def">Категорія</th>
                         <th onclick="AdminProducts.sortBy('price')" data-sort="price">Ціна</th>
                         <th onclick="AdminProducts.sortBy('stock')" data-sort="stock">Наявність</th>
-                        <th onclick="AdminProducts.sortBy('date')" data-sort="date">Дата дод.</th>
+                        <th onclick="AdminProducts.sortBy('date')" data-sort="date">Дата додавання</th>
                         <th style="text-align:center; cursor:default;">Вітрина</th>
                         <th style="cursor:default;">Статус</th>
                         <th style="text-align:right; cursor:default;">Дії</th>
@@ -156,7 +159,7 @@
             <form id="productForm" onsubmit="event.preventDefault(); AdminProducts.save();">
                 <input type="hidden" id="p_id">
                 <div class="form-grid">
-                    <div class="form-group full">
+                    <div class="form-group">
                         <label>Категорія</label>
                         <select id="p_category" class="form-select">
                             <option value="solder">Паяльне обладнання</option>
@@ -175,25 +178,10 @@
                         <label>Артикул (SKU)</label>
                         <input type="text" id="p_sku" class="form-input" required>
                     </div>
+
                     <div class="form-group">
                         <label>Ціна (грн)</label>
                         <input type="number" id="p_price" class="form-input" required step="0.01">
-                    </div>
-                    <div class="form-group full">
-                        <label>Назва (RU)</label>
-                        <input type="text" id="p_title" class="form-input" required>
-                    </div>
-                    <div class="form-group full">
-                        <label>Назва (UA)</label>
-                        <input type="text" id="p_title_ua" class="form-input">
-                    </div>
-                    <div class="form-group full">
-                        <label>Опис (RU)</label>
-                        <textarea id="p_desc_ru"></textarea>
-                    </div>
-                    <div class="form-group full">
-                        <label>Опис (UA)</label>
-                        <textarea id="p_desc_ua"></textarea>
                     </div>
                     <div class="form-group">
                         <label>Склад</label>
@@ -202,6 +190,25 @@
                             <option value="0">Немає в наявності</option>
                         </select>
                     </div>
+
+                    <div class="form-group full">
+                        <label>Назва (RU)</label>
+                        <input type="text" id="p_title" class="form-input" required>
+                    </div>
+                    <div class="form-group full">
+                        <label>Назва (UA)</label>
+                        <input type="text" id="p_title_ua" class="form-input">
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Опис (RU)</label>
+                        <textarea id="p_desc_ru"></textarea>
+                    </div>
+                    <div class="form-group full">
+                        <label>Опис (UA)</label>
+                        <textarea id="p_desc_ua"></textarea>
+                    </div>
+
                     <div class="form-group">
                         <label>Відображення</label>
                         <div style="display:flex; align-items:center; gap:8px; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">
@@ -209,16 +216,45 @@
                             <span style="font-size:13px;">На головній (Вітрина)</span>
                         </div>
                     </div>
-                    <div class="form-group full">
-                        <label>Фотографія</label>
-                        <div style="display:flex; gap:15px; align-items:center;">
-                            <img id="img_preview" src="" style="width:60px; height:60px; object-fit:contain; border:1px solid #eee; border-radius:4px; display:none;">
-                            <div>
-                                <input type="file" id="p_file" onchange="AdminProducts.uploadImage(this)">
-                                <input type="hidden" id="p_image_path">
+                    <div class="form-group"></div>
+
+                    <div class="form-group full" style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <label style="color:#0f172a; font-size:14px; margin-bottom:10px; display:block;">📷 Фотографії</label>
+
+                        <div style="display:flex; gap:20px; align-items:flex-start; margin-bottom:15px;">
+                            <div style="width:120px;">
+                                <div style="font-size:12px; font-weight:700; margin-bottom:4px;">Головне фото</div>
+                                <div style="width:100px; height:100px; border:2px dashed #cbd5e1; border-radius:6px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; position:relative;">
+                                    <img id="preview_main" src="" style="width:100%; height:100%; object-fit:contain; display:none;">
+                                    <span id="placeholder_main" style="font-size:11px; color:#94a3b8; text-align:center;">Немає фото</span>
+                                </div>
+                                <input type="file" id="upload_main" style="display:none" onchange="AdminProducts.uploadSingle(this)">
+                                <button type="button" onclick="document.getElementById('upload_main').click()" style="margin-top:5px; width:100px; font-size:11px; padding:4px;">Завантажити</button>
+                                <input type="hidden" id="path_main">
+                            </div>
+
+                            <div style="flex:1;">
+                                <div style="font-size:12px; font-weight:700; margin-bottom:4px;">Додаткові фото (Галерея)</div>
+                                <div id="gallery_container" style="display:flex; flex-wrap:wrap; gap:10px; min-height:100px; padding:10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">
+                                    </div>
+                                <input type="file" id="upload_gallery" multiple style="display:none" onchange="AdminProducts.uploadGallery(this)">
+                                <button type="button" onclick="document.getElementById('upload_gallery').click()" style="margin-top:5px; font-size:12px; padding:5px 10px;">+ Додати фото</button>
                             </div>
                         </div>
                     </div>
+
+                    <div class="form-group full" style="border-top:1px solid #e2e8f0; margin-top:10px; padding-top:15px;">
+                        <label style="font-size:15px; color:#1e293b;">🔎 SEO (Для пошуковиків)</label>
+                    </div>
+                    <div class="form-group full">
+                        <label>SEO Заголовок (Title)</label>
+                        <input type="text" id="p_seo_title" class="form-input" placeholder="Купити Паяльник 60Вт в Україні | RadioBox">
+                    </div>
+                    <div class="form-group full">
+                        <label>SEO Опис (Description)</label>
+                        <textarea id="p_seo_desc" style="height:60px;" placeholder="Короткий опис товару для Google (до 160 символів)..."></textarea>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="AdminProducts.closeModal()">Скасувати</button>
@@ -227,5 +263,61 @@
             </form>
         </div>
     </div>
+
+    <div class="modal-overlay" id="catsModal">
+        <div class="modal-window" style="width:800px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0;">Керування розділами</h2>
+                <button class="btn-primary" onclick="AdminCats.openEditModal()">+ Додати групу</button>
+            </div>
+
+            <div style="background:#fff7ed; border:1px solid #ffedd5; padding:10px; margin-bottom:15px; font-size:13px; color:#9a3412;">
+                💡 Можна перетягувати групи мишкою для сортування.<br>
+                💡 Код (Slug) має бути англійською (наприклад: <code>solder</code>).
+            </div>
+
+            <div id="catsList" class="cats-tree">Завантаження...</div>
+
+            <div class="modal-footer" style="margin-top:20px;">
+                <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="AdminCats.closeManager()">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="catEditModal" style="z-index: 2000;">
+        <div class="modal-window" style="width:400px;">
+            <h3 id="catModalTitle">Група</h3>
+            <form onsubmit="event.preventDefault(); AdminCats.save();">
+                <input type="hidden" id="c_id">
+
+                <div class="form-group">
+                    <label>Батьківська група</label>
+                    <select id="c_parent" class="form-select">
+                        <option value="">-- Немає (Коренева) --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Назва (RU)</label>
+                    <input type="text" id="c_title_ru" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Назва (UA)</label>
+                    <input type="text" id="c_title_ua" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Код (Slug) для URL</label>
+                    <input type="text" id="c_slug" class="form-input" required placeholder="example: solder">
+                    <small style="color:#64748b;">Тільки англ. літери, без пробілів</small>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="document.getElementById('catEditModal').classList.remove('active')">Скасувати</button>
+                    <button type="submit" class="btn-primary">Зберегти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </body>
 </html>

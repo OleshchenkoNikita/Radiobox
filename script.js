@@ -818,14 +818,19 @@ document.addEventListener('DOMContentLoaded', () => {
 (() => {
     const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
     const IS_UA = langAttr.startsWith('uk') || langAttr === 'ua' || /\/ua\//i.test(location.pathname);
-    const IS_RU = langAttr.startsWith('ru') || /\/ru\//i.test(location.pathname);
     const KEY_UA = 'rb_catalog_v1_ua', KEY_RU = 'rb_catalog_v1_ru';
+    const CURRENT_KEY = IS_UA ? KEY_UA : KEY_RU;
 
-    // Генератор случайного склада (1..20 шт), если товара нет в наличии - 0
-    const rndStock = (inStock) => inStock ? Math.floor(Math.random() * 20) + 1 : 0;
-    const mockImages = (count = 4) => Array(count).fill('');
+    // --- 1. Функция сохранения в память ---
+    function saveToLS(key, items) {
+        localStorage.setItem(key, JSON.stringify({ items }));
+    }
 
-    let id = 1700000000; const N = (p) => ({id: ++id, ...p});
+    // --- 2. Ваши запасные данные (Fallbacks) ---
+    // Оставьте ваш полный список BI_ITEMS здесь! Я для краткости оставил начало.
+    const mockImages = (count = 1) => Array(count).fill('');
+    let idCounter = 1700000000;
+    const N = (p) => ({id: ++idCounter, ...p});
 
     const BI_ITEMS = [
     // ===== solder
@@ -877,63 +882,81 @@ document.addEventListener('DOMContentLoaded', () => {
     N({sku:'00028', title_ua:'Адаптер живлення 9В 2А', title_ru:'Адаптер питания 9В 2А', price:260, in_stock:true, category:'psu', images: mockImages(4), on_index: false })
     ];
 
-    const toLang = (arr, lang) => arr.map(it => ({
-        id: it.id,
-        sku: it.sku,
-        title: lang === 'ru' ? (it.title_ru || it.title || '') : (it.title_ua || it.title || ''),
-        price: it.price,
-        in_stock: it.in_stock,
-        // Добавляем случайное кол-во на складе
-        qty_stock: rndStock(it.in_stock),
-        category: it.category,
-        subcategory: it.subcategory,
-        images: (it.images && it.images.length) ? it.images : [it.image || ''],
-        image: (it.images && it.images.length) ? it.images[0] : (it.image || ''),
-        on_index: it.on_index,
-        description: lang === 'ru'
-            ? 'Полное описание товара, характеристики и комплектация уточняются. Пожалуйста, свяжитесь с менеджером.'
-            : 'Повний опис товару, характеристики та комплектація уточнюються. Будь ласка, зв\'яжіться з менеджером.'
-    }));
+// --- 3. УМНАЯ ПРОВЕРКА: Если данных нет ИЛИ они битые (undefined) ---
+    try {
+        const raw = localStorage.getItem(CURRENT_KEY);
+        let needReset = !raw; // Если пусто, точно надо заполнять
 
-    // Принудительно перезаписываем, чтобы появилось поле qty_stock
-    // НОВАЯ ЛОГИКА: Грузим с сервера
+        if (raw) {
+            const data = JSON.parse(raw);
+            // Если массив пустой или первый элемент имеет undefined в названии - это плохие данные
+            if (!data.items || data.items.length === 0 || !data.items[0].title || data.items[0].title === 'undefined') {
+                needReset = true;
+            }
+        }
+
+        if (needReset) {
+            console.log("[Seed] Обнаружены пустые или битые данные. Перезаписываем заглушками.");
+            const initialItems = BI_ITEMS.map(it => ({
+                id: it.id,
+                sku: it.sku,
+                // Формируем правильный title сразу
+                title: IS_UA ? (it.title_ua || it.title) : (it.title_ru || it.title),
+                price: it.price,
+                in_stock: it.in_stock,
+                qty_stock: 10,
+                category: it.category,
+                subcategory: it.subcategory,
+                images: it.images,
+                image: it.images[0],
+                description: '...'
+            }));
+            saveToLS(CURRENT_KEY, initialItems);
+            // Сразу перерисовываем, если функция доступна (благодаря Шагу 1)
+            if (window.renderCatalog) window.renderCatalog();
+        }
+    } catch (e) { console.error(e); }
+
+    // --- 4. Запрос к серверу за свежими данными ---
     fetch('/api/products')
         .then(r => r.json())
         .then(data => {
             if(data.success) {
-                // Сервер вернул товары из базы данных!
-                // Нам нужно их адаптировать под формат, который ждет фронтенд (разделение на RU/UA)
-
+                // Сервер ответил! Преобразуем данные
                 const items = data.items.map(it => ({
                     id: it.id,
                     sku: it.sku,
-                    // Выбираем язык в зависимости от ключа, куда пишем (хитрость ниже)
                     title_ru: it.title_ru,
                     title_ua: it.title_ua || it.title_ru,
                     price: it.price,
                     in_stock: it.in_stock,
-                    qty_stock: 100, // Или it.qty_stock если добавишь это поле в базу
+                    qty_stock: it.qty_stock || 100,
                     category: it.category,
-                    image: it.image,
+                    subcategory: it.subcategory,
                     images: it.images,
-                    description: 'Описание...'
+
+                    // ГЛАВНОЕ: Формируем title для текущего языка
+                    title: IS_UA ? (it.title_ua || it.title_ru) : it.title_ru,
+
+                    image: (it.images && it.images.length > 0) ? it.images[0] : (it.image || ''),
+                    description: IS_UA ? (it.description_ua || '') : (it.description_ru || ''),
+
+                    // SEO поля
+                    seo_title: it.seo_title,
+                    seo_description: it.seo_description
                 }));
 
-                // Сохраняем для RU версии
-                const ruItems = items.map(i => ({...i, title: i.title_ru}));
-                localStorage.setItem(KEY_RU, JSON.stringify({ items: ruItems }));
+                // Сохраняем актуальную версию
+                saveToLS(CURRENT_KEY, items);
 
-                // Сохраняем для UA версии
-                const uaItems = items.map(i => ({...i, title: i.title_ua}));
-                localStorage.setItem(KEY_UA, JSON.stringify({ items: uaItems }));
-
-                // Перерисовываем каталог, если мы на странице каталога
-                if(window.renderCatalog) window.renderCatalog();
+                // === ВЫЗЫВАЕМ ПЕРЕРИСОВКУ (Теперь это сработает, т.к. мы добавили window.renderCatalog) ===
+                if(window.renderCatalog) {
+                    console.log("[Seed] Данные получены, обновляем каталог.");
+                    window.renderCatalog();
+                }
             }
         })
         .catch(err => console.error("Ошибка загрузки товаров:", err));
-
-    function write(k, items) { localStorage.setItem(k, JSON.stringify({ items })); }
 })();
 
 // === ИСТОРИЯ ПРОСМОТРОВ (Логика) ===
@@ -2159,4 +2182,117 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+});
+
+// ============================================
+// SEO: ДИНАМИЧЕСКАЯ ПОДСТАНОВКА МЕТА-ТЕГОВ
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Проверяем, что мы на странице товара
+    if (!window.location.pathname.includes('product.html')) return;
+
+    // 2. Получаем ID товара из URL
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('id');
+    if (!productId) return;
+
+    // 3. Определяем язык
+    const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || window.location.pathname.includes('/ua/');
+
+    // Ключи для localStorage (откуда мы берем данные, чтобы не делать лишний запрос, если они там есть)
+    // ВАЖНО: Ваша логика каталога сохраняет данные в localStorage (rb_catalog_v1_ru / rb_catalog_v1_ua)
+    const storeKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+
+    // 4. Функция обновления мета-тегов
+    function updateSEO(product) {
+        if (!product) return;
+
+        // --- TITLE ---
+        // Если заполнено SEO поле - берем его, иначе - обычное название + суффикс
+        let pageTitle = product.seo_title;
+        if (!pageTitle) {
+             // Фолбэк (запасной вариант), если SEO-заголовок не заполнен
+             pageTitle = (product.title || product.title_ru || 'RadioBox') + " | Купити в RadioBox";
+        }
+        document.title = pageTitle;
+
+        // --- DESCRIPTION ---
+        let pageDesc = product.seo_description;
+        if (!pageDesc) {
+             // Фолбэк: берем начало описания или генерируем стандартное
+             // Очищаем HTML теги, если они есть в описании
+             const rawDesc = product.description || product.description_ru || "";
+             const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '');
+             pageDesc = cleanDesc.substring(0, 160) + "..."; // Первые 160 символов
+        }
+
+        // Ищем тег <meta name="description">, если нет — создаем
+        let metaDesc = document.querySelector('meta[name="description"]');
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta');
+            metaDesc.name = "description";
+            document.head.appendChild(metaDesc);
+        }
+        metaDesc.content = pageDesc;
+
+        // (Опционально) Обновляем Open Graph (для красивых ссылок в Facebook/Viber/Telegram)
+        let ogTitle = document.querySelector('meta[property="og:title"]');
+        if (!ogTitle) {
+             ogTitle = document.createElement('meta'); ogTitle.setAttribute('property', 'og:title'); document.head.appendChild(ogTitle);
+        }
+        ogTitle.content = pageTitle;
+
+        let ogDesc = document.querySelector('meta[property="og:description"]');
+        if (!ogDesc) {
+             ogDesc = document.createElement('meta'); ogDesc.setAttribute('property', 'og:description'); document.head.appendChild(ogDesc);
+        }
+        ogDesc.content = pageDesc;
+
+        // Картинка для соцсетей
+        if (product.image || (product.images && product.images[0])) {
+             let ogImg = document.querySelector('meta[property="og:image"]');
+             if (!ogImg) {
+                 ogImg = document.createElement('meta'); ogImg.setAttribute('property', 'og:image'); document.head.appendChild(ogImg);
+             }
+             // Если путь относительный, добавляем домен (для соцсетей нужно полный путь)
+             let imgPath = product.image || product.images[0];
+             if (imgPath.startsWith('/')) imgPath = window.location.origin + imgPath;
+             ogImg.content = imgPath;
+        }
+    }
+
+    // 5. Пытаемся найти товар
+    // Сценарий А: Товар уже есть в LocalStorage (быстро)
+    try {
+        const raw = localStorage.getItem(storeKey);
+        if (raw) {
+            const data = JSON.parse(raw);
+            const product = data.items.find(p => p.id == productId);
+            if (product) {
+                updateSEO(product);
+                return; // Всё готово, выходим
+            }
+        }
+    } catch (e) {}
+
+    // Сценарий Б: Товара нет в LocalStorage (или прямой заход по ссылке) -> Запрашиваем с сервера
+    fetch('/api/products')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const product = data.items.find(p => p.id == productId);
+                // Тут нужно учесть язык, так как API отдает сырые поля (title_ru, title_ua)
+                // А функция updateSEO ожидает уже обработанный объект или мы обработаем его тут
+                if (product) {
+                    const finalProduct = {
+                        ...product,
+                        title: isUA ? (product.title_ua || product.title_ru) : product.title_ru,
+                        description: isUA ? (product.description_ua || product.description_ru) : product.description_ru
+                    };
+                    updateSEO(finalProduct);
+                }
+            }
+        })
+        .catch(console.error);
 });

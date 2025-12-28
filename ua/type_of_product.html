@@ -875,6 +875,8 @@
                 window.rbRefreshSideArt && window.rbRefreshSideArt();
             }
 
+            window.renderCatalog = render;
+
             // Події
             pager.addEventListener('click', e => {
                 const a = e.target.closest('a[data-page]'); if (!a) return;

@@ -627,6 +627,8 @@
                 pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
             }
 
+            window.renderCatalog = render;
+
             // ==== события ====
             pager.addEventListener('click', (e) => {
                 const a = e.target.closest('a[data-page]'); if (!a) return;

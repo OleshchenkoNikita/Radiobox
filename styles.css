@@ -2131,3 +2131,30 @@ p {
     .ob-header { align-items: flex-start; }
     .ob-actions { width: 100%; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
 }
+
+/* Убираем стрелочки в input type="number" */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+}
+
+/* Стиль для свернутой категории (для JS) */
+.cat-collapsed .cat-arrow { transform: rotate(-90deg); }
+.cat-arrow { display: inline-block; transition: transform 0.2s; margin-right: 8px; }
+
+/* Подсветка того места, куда упадет товар */
+.sortable-ghost {
+    background: #eff6ff !important;
+    opacity: 0.5;
+    border: 1px dashed #189BFF;
+}
+
+/* Курсор для ручки */
+.drag-handle:active {
+    cursor: grabbing !important;
+    color: #189BFF !important;
+}
