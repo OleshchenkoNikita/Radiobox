@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результати пошуку | RadioBox</title>
+
+    <link rel="stylesheet" href="/styles.css">
+
+    <style>
+        /* Дополнительные стили для верстки страницы поиска */
+        .page-layout {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+            margin-bottom: 50px;
+            align-items: flex-start;
+        }
+
+        /* Место под сайдбар (размер как в каталоге) */
+        #sidebar-placeholder {
+            width: 260px;
+            flex-shrink: 0;
+        }
+
+        /* Основная колонка с результатами */
+        .search-content {
+            flex-grow: 1;
+            min-width: 0; /* Чтобы сетка не разрывала контейнер */
+        }
+
+        .search-title {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .search-query-text {
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 16px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        /* Сетка товаров */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .no-results-msg {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 50px 20px;
+            color: #64748b;
+            font-size: 18px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px dashed #cbd5e1;
+        }
+
+        /* Адаптив для мобильных: одна колонка, сайдбар скрыт */
+        @media (max-width: 991px) {
+            .page-layout { flex-direction: column; gap: 20px; }
+            #sidebar-placeholder { display: none; } /* Скрываем сайдбар на мобильных */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header-placeholder"></div>
+
+    <div class="container page-layout">
+        <aside id="sidebar-placeholder"></aside>
+
+        <main class="search-content">
+            <h1 class="search-title">Результати пошуку</h1>
+            <div id="search-query-display" class="search-query-text"></div>
+
+            <div id="results-wrapper" class="results-grid">
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px;">Завантаження...</div>
+            </div>
+        </main>
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="/script.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Получаем параметр ?q= из адресной строки
+            const params = new URLSearchParams(window.location.search);
+            const query = params.get('q');
+
+            const wrapper = document.getElementById('results-wrapper');
+            const titleDisplay = document.getElementById('search-query-display');
+
+            // Если запрос пустой
+            if (!query || query.trim().length < 2) {
+                titleDisplay.textContent = 'Будь ласка, введіть запит у рядок пошуку.';
+                wrapper.innerHTML = '';
+                return;
+            }
+
+            titleDisplay.textContent = `Ви шукали: «${query}»`;
+
+            try {
+                // 2. Отправляем запрос на Python сервер
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                wrapper.innerHTML = '';
+
+                if (data.success && data.results.length > 0) {
+                    // 3. Выводим найденные товары
+                    data.results.forEach(item => {
+                        // Название: Украинское > Русское
+                        const title = item.title_ua || item.title_ru;
+
+                        // Картинка
+                        const img = (item.images && item.images.length > 0) ? item.images[0] : (item.image || '/assets/icons/company.png');
+
+                        // Статус наличия (классы из styles.css)
+                        const stockClass = item.in_stock ? 'is-instock' : 'is-out';
+                        const stockText = item.in_stock ? 'В наявності' : 'Немає';
+                        const btnText = 'Купити';
+
+                        // Формируем карточку (используем классы из styles.css)
+                        const html = `
+                            <article class="product-card is-clickable" onclick="location.href='product.html?id=${item.id}'">
+                                <div class="product-card__img">
+                                     <img src="${img}" alt="${title}" loading="lazy">
+                                </div>
+                                <h3 class="product-card__title">${title}</h3>
+                                <div class="product-card__meta">Арт: <span>${item.sku}</span></div>
+                                <div class="product-card__price">${item.price} ₴</div>
+                                <div class="product-card__status ${stockClass}">${stockText}</div>
+                                <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${item.id});">${btnText}</button>
+                            </article>
+                        `;
+                        wrapper.insertAdjacentHTML('beforeend', html);
+                    });
+                } else {
+                    wrapper.innerHTML = '<div class="no-results-msg">На жаль, нічого не знайдено. Спробуйте змінити запит.</div>';
+                }
+
+            } catch (error) {
+                console.error(error);
+                wrapper.innerHTML = '<div style="color:red; padding:20px; text-align:center;">Помилка з\'єднання із сервером.</div>';
+            }
+        });
+
+        // === ВАЖНОЕ ИСПРАВЛЕНИЕ: ПРИНУДИТЕЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ХЕДЕРА ===
+        // Это лечит проблему, когда кнопка "График работы" не открывала модалку,
+        // потому что скрипт загружался раньше, чем HTML хедера.
+        window.addEventListener('load', () => {
+            // Даем небольшую задержку (300мс), чтобы fetch('components/header.html') точно успел вставить HTML
+            setTimeout(() => {
+                if (window.initHeaderInteractivity) {
+                    console.log("Force re-init header logic...");
+                    window.initHeaderInteractivity();
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>

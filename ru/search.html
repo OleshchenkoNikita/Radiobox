@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результаты поиска | RadioBox</title>
+
+    <link rel="stylesheet" href="/styles.css">
+
+    <style>
+        /* Те же стили, что и в UA версии */
+        .page-layout { display: flex; gap: 30px; margin-top: 30px; margin-bottom: 50px; align-items: flex-start; }
+        #sidebar-placeholder { width: 260px; flex-shrink: 0; }
+        .search-content { flex-grow: 1; }
+        .search-title { margin-top: 0; margin-bottom: 20px; font-size: 24px; color: #333; }
+        .search-query-text { color: #666; margin-bottom: 20px; font-size: 16px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .no-results-msg { grid-column: 1 / -1; text-align: center; padding: 40px; color: #777; font-size: 18px; background: #f9fafb; border-radius: 8px; }
+
+        @media (max-width: 768px) {
+            .page-layout { flex-direction: column; }
+            #sidebar-placeholder { width: 100%; display: none; }
+        }
+
+        .product-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-decoration: none; color: inherit; transition: transform 0.2s, box-shadow 0.2s; height: 100%; }
+        .product-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .product-card__img { height: 160px; width: 100%; object-fit: contain; margin-bottom: 10px; }
+        .product-card__title { font-size: 15px; font-weight: 600; margin-bottom: 5px; flex-grow: 1; line-height: 1.4; }
+        .product-card__sku { font-size: 12px; color: #94a3b8; margin-bottom: 8px; }
+        .product-card__price { font-size: 18px; font-weight: 700; color: #0f172a; }
+        .status-badge { font-size: 12px; margin-top: 5px; }
+        .status-ok { color: #16a34a; }
+        .status-out { color: #dc2626; }
+    </style>
+</head>
+<body>
+
+    <div id="header-placeholder"></div>
+
+    <div class="container page-layout">
+        <aside id="sidebar-placeholder"></aside>
+
+        <main class="search-content">
+            <h1 class="search-title">Результаты поиска</h1>
+            <div id="search-query-display" class="search-query-text"></div>
+
+            <div id="results-wrapper" class="results-grid">
+                <div style="grid-column: 1/-1; text-align: center;">Загрузка...</div>
+            </div>
+        </main>
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="/script.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const query = params.get('q');
+
+            const wrapper = document.getElementById('results-wrapper');
+            const titleDisplay = document.getElementById('search-query-display');
+
+            if (!query || query.trim().length < 2) {
+                titleDisplay.textContent = 'Пожалуйста, введите запрос в строку поиска.';
+                wrapper.innerHTML = '';
+                return;
+            }
+
+            titleDisplay.textContent = `Вы искали: «${query}»`;
+
+            try {
+                // API то же самое, оно универсальное
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                wrapper.innerHTML = '';
+
+                if (data.success && data.results.length > 0) {
+                    data.results.forEach(item => {
+                        // Тут берем Русское название приоритетным
+                        const title = item.title_ru || item.title_ua;
+                        const img = (item.images && item.images.length > 0) ? item.images[0] : '/assets/icons/company.png';
+
+                        // Перевод статусов
+                        const stockHtml = item.in_stock
+                            ? '<div class="status-badge status-ok">● В наличии</div>'
+                            : '<div class="status-badge status-out">○ Нет</div>';
+
+                        const link = `product.html?id=${item.id}`;
+
+                        const html = `
+                            <a href="${link}" class="product-card">
+                                <img src="${img}" alt="${title}" class="product-card__img">
+                                <div class="product-card__sku">Арт: ${item.sku}</div>
+                                <div class="product-card__title">${title}</div>
+                                <div class="product-card__price">${item.price} ₴</div>
+                                ${stockHtml}
+                            </a>
+                        `;
+                        wrapper.insertAdjacentHTML('beforeend', html);
+                    });
+                } else {
+                    wrapper.innerHTML = '<div class="no-results-msg">Ничего не найдено. Попробуйте изменить запрос.</div>';
+                }
+
+            } catch (error) {
+                console.error(error);
+                wrapper.innerHTML = '<div style="color:red; padding:20px; text-align:center;">Ошибка соединения с сервером.</div>';
+            }
+        });
+    </script>
+</body>
+</html>

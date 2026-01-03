@@ -1,62 +1,3 @@
-// Левое меню: открытие flyout по клику на тач-устройствах
-(function () {
-    const isTouch = window.matchMedia('(hover: none)').matches;
-    if (!isTouch) return;
-
-    document.querySelectorAll('.menu-li.has-flyout > .menu-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const li = link.closest('.menu-li');
-            const opened = li.classList.toggle('open');
-            if (opened) {
-                document.querySelectorAll('.menu-li.has-flyout.open').forEach(x => {
-                    if (x !== li) x.classList.remove('open');
-                });
-            }
-        });
-    });
-})();
-
-// ===== LEFT MENU ACCORDION (plus button) =====
-(function () {
-    const root = document.querySelector('.menu-card');
-    if (!root) return;
-
-    // Инициализация ARIA/hidden для всех уровней
-    root.querySelectorAll('.has-accordion').forEach(li => {
-        const btn = li.querySelector(':scope > .menu-row > .menu-toggle');
-        const submenu = li.querySelector(':scope > .submenu');
-        const isOpen = li.classList.contains('open');
-        if (btn) btn.setAttribute('aria-expanded', String(isOpen));
-        if (submenu) submenu.hidden = !isOpen;
-    });
-
-    // Делегирование кликов по плюсикам
-    root.addEventListener('click', (e) => {
-        const btn = e.target.closest('.menu-toggle');
-        if (!btn || !root.contains(btn)) return;
-
-        e.preventDefault();
-        const li = btn.closest('.has-accordion');
-        if (!li) return;
-
-        const submenu = li.querySelector(':scope > .submenu');
-        const isOpen = li.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(isOpen));
-        if (submenu) submenu.hidden = !isOpen;
-    });
-
-    // Клавиатура: Enter/Space на .menu-toggle
-    root.addEventListener('keydown', (e) => {
-        const btn = e.target.closest('.menu-toggle');
-        if (!btn) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            btn.click();
-        }
-    });
-})();
-
 // ===== BANNER SLIDER (устойчиво к file:// и без manifest) =====
 (function () {
     const root = document.getElementById('bannerSlider');
@@ -2188,6 +2129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(html => {
             placeholder.innerHTML = html;
             initHeaderInteractivity(); // Запускаем логику шапки
+            loadHeaderCategories();
         })
         .catch(err => console.error('Ошибка загрузки шапки:', err));
 
@@ -2326,5 +2268,361 @@ document.addEventListener('DOMContentLoaded', () => {
             closers.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); closeDrawer(); }));
             drawer.addEventListener('click', (e) => { if (panel && !panel.contains(e.target)) closeDrawer(); });
         }
+
+        // 6. === ЖИВОЙ ПОИСК И ОТПРАВКА (ЧЕРЕЗ API) ===
+        const searchInput = document.querySelector('.search-wide input');
+        const searchForm = document.querySelector('.search-wide');
+
+        if (searchInput && searchForm) {
+            // --- А. ОБРАБОТКА ОТПРАВКИ (Enter или Кнопка) ---
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // 1. Отменяем перезагрузку страницы
+
+                const query = searchInput.value.trim();
+                if (query.length < 1) return; // Пустой поиск не отправляем
+
+                // 2. Определяем язык (куда перенаправлять: в ru или ua)
+                const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
+                const targetPage = isUA ? '/ua/search.html' : '/ru/search.html';
+
+                // 3. Переходим на страницу поиска
+                window.location.href = `${targetPage}?q=${encodeURIComponent(query)}`;
+            });
+
+            // --- Б. ЖИВОЙ ПОИСК (Выпадающий список) ---
+            // 1. Создаем контейнер для выпадающего списка, если его нет
+            let dropdown = searchForm.querySelector('.search-results-dropdown');
+            if (!dropdown) {
+                dropdown = document.createElement('div');
+                dropdown.className = 'search-results-dropdown';
+                searchForm.appendChild(dropdown);
+            }
+
+            let debounceTimer;
+
+            searchInput.addEventListener('input', function(e) {
+                const query = e.target.value.trim();
+
+                // Очищаем старый таймер
+                clearTimeout(debounceTimer);
+
+                if (query.length < 2) {
+                    dropdown.classList.remove('active');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+
+                // Ждем 300мс
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        // ЗАПРОС К СЕРВЕРУ
+                        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                        const data = await res.json();
+
+                        dropdown.innerHTML = '';
+
+                        if (data.success && data.results.length > 0) {
+                            const topResults = data.results.slice(0, 5);
+
+                            topResults.forEach(item => {
+                                const isUA = document.documentElement.lang === 'uk';
+                                const title = isUA ? (item.title_ua || item.title_ru) : item.title_ru;
+                                const img = (item.images && item.images.length > 0) ? item.images[0] : '/assets/icons/company.png';
+
+                                const link = document.createElement('a');
+                                link.href = `product.html?id=${item.id}`;
+                                link.className = 'search-result-item';
+                                link.innerHTML = `
+                                    <img src="${img}" class="search-result-thumb" alt="">
+                                    <div class="search-result-info">
+                                        <div class="search-result-name">${title}</div>
+                                        <div class="search-result-price">${item.price} ₴</div>
+                                    </div>
+                                `;
+                                dropdown.appendChild(link);
+                            });
+                            dropdown.classList.add('active');
+                        } else {
+                            dropdown.classList.remove('active');
+                        }
+                    } catch (err) {
+                        console.error("Ошибка живого поиска:", err);
+                    }
+                }, 300);
+            });
+
+            // Скрываем список при клике мимо
+            document.addEventListener('click', function(e) {
+                if (!searchForm.contains(e.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        }
     }
 });
+
+// ============================================
+// 3. ЗАГРУЗКА САЙДБАРА (ДИНАМИЧЕСКИЕ КАТЕГОРИИ + СТАТИЧНЫЕ ССЫЛКИ)
+// ============================================
+document.addEventListener("DOMContentLoaded", () => {
+    loadSidebar();
+});
+
+async function loadSidebar() {
+    // 1. Ищем место для вставки
+    // Поддержка обоих ID, о которых мы говорили
+    const target = document.getElementById('sidebar-container') || document.getElementById('sidebar-placeholder');
+
+    if (!target) return;
+
+    try {
+        // 2. Загружаем HTML-каркас (Меню, О нас, Контакты)
+        const response = await fetch('components/sidebar.html');
+        if (!response.ok) throw new Error('Не удалось загрузить sidebar.html');
+
+        const html = await response.text();
+        target.innerHTML = html;
+
+        // 3. Загружаем категории из Админки и вставляем их в раздел "Товары"
+        await loadDynamicCategories();
+
+        // 4. Оживляем кнопки и подсветку (только когда всё загружено)
+        initSidebarAccordion();
+        highlightCurrentPage();
+
+    } catch (error) {
+        console.error('Ошибка сайдбара:', error);
+    }
+}
+
+// Функция загрузки категорий из API
+async function loadDynamicCategories() {
+    const rootUl = document.getElementById('catalog-root');
+    if (!rootUl) return;
+
+    // Определяем язык
+    const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+
+        // Если категорий нет
+        if (!data.success || !data.categories.length) {
+            rootUl.innerHTML = `<li style="padding:5px 20px; font-size:12px; color:#999;">${isUA ? 'Немає категорій' : 'Нет категорий'}</li>`;
+            return;
+        }
+
+        // Сортировка
+        const cats = data.categories.sort((a, b) => a.position - b.position);
+
+        // Разделяем на Родителей и Детей
+        const roots = cats.filter(c => !c.parent_slug);
+        const children = cats.filter(c => c.parent_slug);
+
+        let html = '';
+
+        roots.forEach(root => {
+            // Выбираем название на нужном языке
+            const title = isUA ? (root.title_ua || root.title_ru) : root.title_ru;
+
+            // Ссылка на категорию
+            const catLink = `type_of_product.html?cat=${root.slug}`;
+
+            // Ищем подкатегории (детей)
+            const myKids = children.filter(c => c.parent_slug === root.slug);
+
+            if (myKids.length > 0) {
+                // ЕСТЬ ПОДКАТЕГОРИИ -> Рисуем выпадающий список
+                myKids.sort((a, b) => a.position - b.position);
+
+                const subItems = myKids.map(kid => {
+                    const kidTitle = isUA ? (kid.title_ua || kid.title_ru) : kid.title_ru;
+                    return `<li><a href="type_of_product.html?cat=${root.slug}&sub=${kid.slug}" class="submenu-link">${kidTitle}</a></li>`;
+                }).join('');
+
+                // Я УБРАЛ style="font-weight:500;" из ссылки ниже
+                html += `
+                <li class="has-accordion">
+                    <div class="menu-row">
+                        <button type="button" class="menu-toggle" aria-expanded="false" aria-label="${isUA ? 'Розгорнути' : 'Развернуть'}"></button>
+                        <a href="${catLink}" class="submenu-link">${title}</a>
+                    </div>
+                    <div class="submenu" hidden>
+                        <ul class="submenu-list">
+                            ${subItems}
+                        </ul>
+                    </div>
+                </li>`;
+
+            } else {
+                // НЕТ ПОДКАТЕГОРИЙ -> Просто ссылка
+                html += `<li><a href="${catLink}" class="submenu-link">${title}</a></li>`;
+            }
+        });
+
+        rootUl.innerHTML = html;
+
+    } catch (e) {
+        console.error("Ошибка API категорий:", e);
+        rootUl.innerHTML = `<li style="color:red; font-size:12px; padding:10px;">Error loading API</li>`;
+    }
+}
+
+// Функция работы аккордеона (клики по стрелочкам)
+function initSidebarAccordion() {
+    // Используем делегирование, чтобы работало и для статики, и для динамики
+    const container = document.getElementById('sidebar-container') || document.getElementById('sidebar-placeholder');
+    if (!container) return;
+
+    container.addEventListener('click', (e) => {
+        // Нас интересует только клик по кнопке .menu-toggle
+        const btn = e.target.closest('.menu-toggle');
+        if (!btn) return;
+
+        e.preventDefault();
+
+        // 1. Ищем, чем управляет эта кнопка
+        // Сначала пробуем найти по aria-controls (для статического меню)
+        let contentId = btn.getAttribute('aria-controls');
+        let content = contentId ? document.getElementById(contentId) : null;
+
+        // Если по ID не нашли, ищем ближайшее меню рядом (для динамического меню)
+        if (!content) {
+             const row = btn.closest('.menu-row');
+             if (row) {
+                 content = row.nextElementSibling; // div.submenu обычно идет сразу за .menu-row
+             }
+        }
+
+        // Если контент нашли — переключаем
+        if (content) {
+            const isExpanded = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', !isExpanded);
+            content.hidden = isExpanded;
+
+            // Добавляем класс родителю (для поворота стрелки через CSS, если настроено)
+            const parentLi = btn.closest('.has-accordion');
+            if (parentLi) {
+                if (!isExpanded) parentLi.classList.add('open');
+                else parentLi.classList.remove('open');
+            }
+        }
+    });
+}
+
+// Подсветка активной страницы
+function highlightCurrentPage() {
+    const currentPath = window.location.pathname.split('/').pop().toLowerCase() || 'index.html';
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentCat = urlParams.get('cat');
+    const currentSub = urlParams.get('sub');
+
+    const links = document.querySelectorAll('.menu-link, .submenu-link');
+
+    links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (!href) return;
+
+        // Парсим ссылку
+        const linkUrl = new URL(href, window.location.origin);
+        const linkPath = linkUrl.pathname.split('/').pop().toLowerCase();
+        const linkCat = linkUrl.searchParams.get('cat');
+        const linkSub = linkUrl.searchParams.get('sub');
+
+        let isActive = false;
+
+        // Если это страница каталога
+        if (currentPath.includes('type_of_product') && linkPath.includes('type_of_product')) {
+            if (currentSub) {
+                if (linkCat === currentCat && linkSub === currentSub) isActive = true;
+            } else {
+                if (linkCat === currentCat && !linkSub) isActive = true;
+            }
+        }
+        // Для обычных страниц
+        else if (currentPath === linkPath) {
+            isActive = true;
+        }
+
+        // Если это главная страница (index.html), а ссылка просто products.html - не подсвечиваем
+        // Но если мы на products.html - подсвечиваем "Товары"
+        if (currentPath === 'products.html' && linkPath === 'products.html') isActive = true;
+
+
+        if (isActive) {
+            link.classList.add('active');
+
+            // Раскрываем всех родителей
+            let parent = link.closest('.submenu');
+            while (parent) {
+                parent.hidden = false;
+
+                // Ищем кнопку управления этим меню и поворачиваем её
+                // (кнопка может быть выше в DOM или в предыдущем элементе)
+                let li = parent.closest('li'); // или .has-accordion
+                if (li) {
+                    li.classList.add('open');
+                    const btn = li.querySelector('.menu-toggle');
+                    if (btn) btn.setAttribute('aria-expanded', 'true');
+                }
+
+                // Идем выше, вдруг вложенность 3 уровня
+                parent = li.parentElement.closest('.submenu');
+            }
+        }
+    });
+}
+
+// Функция загрузки категорий в ШАПКУ (только главные)
+async function loadHeaderCategories() {
+    const rootUl = document.getElementById('header-catalog-root');
+    if (!rootUl) return; // Если в шапке нет этого списка, выходим
+
+    // Определяем язык
+    const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+
+        if (data.success && data.categories.length) {
+            // 1. Сортируем
+            const cats = data.categories.sort((a, b) => a.position - b.position);
+
+            // 2. Фильтруем: берем ТОЛЬКО главные (у которых нет parent_slug)
+            const roots = cats.filter(c => !c.parent_slug);
+
+            // 3. Генерируем HTML
+            const html = roots.map(cat => {
+                const title = isUA ? (cat.title_ua || cat.title_ru) : cat.title_ru;
+                // Ссылка такая же, как в сайдбаре
+                return `<li><a href="type_of_product.html?cat=${cat.slug}">${title}</a></li>`;
+            }).join('');
+
+            rootUl.innerHTML = html;
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки категорий в шапке:", e);
+        // Можно оставить "Загрузка..." или скрыть
+    }
+}
+
+// ===== ГЛОБАЛЬНАЯ ФУНКЦИЯ: ИСПРАВЛЕНИЕ РАСКЛАДКИ =====
+window.fixKeyboardLayout = function(str) {
+    const replacer = {
+        "q":"й", "w":"ц", "e":"у", "r":"к", "t":"е", "y":"н", "u":"г", "i":"ш", "o":"щ", "p":"з", "[":"х", "]":"ъ",
+        "a":"ф", "s":"ы", "d":"в", "f":"а", "g":"п", "h":"р", "j":"о", "k":"л", "l":"д", ";":"ж", "'":"э",
+        "z":"я", "x":"ч", "c":"с", "v":"м", "b":"и", "n":"т", "m":"ь", ",":"б", ".":"ю", "/":".", "`": "ё",
+        "Q":"Й", "W":"Ц", "E":"У", "R":"К", "T":"Е", "Y":"Н", "U":"Г", "I":"Ш", "O":"Щ", "P":"З", "{":"Х", "}":"Ъ",
+        "A":"Ф", "S":"Ы", "D":"В", "F":"А", "G":"П", "H":"Р", "J":"О", "K":"Л", "L":"Д", ":":"Ж", '"':"Э",
+        "Z":"Я", "X":"Ч", "C":"С", "V":"М", "B":"И", "N":"Т", "M":"Ь", "<":"Б", ">":"Ю", "?":",", "~":"Ё"
+    };
+
+    // Экранируем спецсимволы в регулярке, чтобы не было ошибок
+    return str.replace(/[a-zA-Z\[\];',.\/`{}":<>?~]/g, function (x) {
+        return replacer[x] || replacer[x.toLowerCase()] || x;
+    });
+};

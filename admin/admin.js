@@ -319,6 +319,29 @@ const AdminProducts = {
         });
     },
 
+    // Метод исправления раскладки (QWERTY -> ЙЦУКЕН)
+    // Внутри объекта AdminProducts:
+
+    fixLayout: function(str) {
+        const replacer = {
+            "q":"й", "w":"ц", "e":"у", "r":"к", "t":"е", "y":"н", "u":"г", "i":"ш", "o":"щ", "p":"з", "[":"х", "]":"ъ",
+            "a":"ф", "s":"ы", "d":"в", "f":"а", "g":"п", "h":"р", "j":"о", "k":"л", "l":"д", ";":"ж", "'":"э",
+            "z":"я", "x":"ч", "c":"с", "v":"м", "b":"и", "n":"т", "m":"ь", ",":"б", ".":"ю", "/":".", "`": "ё",
+            "Q":"Й", "W":"Ц", "E":"У", "R":"К", "T":"Е", "Y":"Н", "U":"Г", "I":"Ш", "O":"Щ", "P":"З", "{":"Х", "}":"Ъ",
+            "A":"Ф", "S":"Ы", "D":"В", "F":"А", "G":"П", "H":"Р", "J":"О", "K":"Л", "L":"Д", ":":"Ж", '"':"Э",
+            "Z":"Я", "X":"Ч", "C":"С", "V":"М", "B":"И", "N":"Т", "M":"Ь", "<":"Б", ">":"Ю", "?":",", "~":"Ё"
+        };
+
+        // Используем new RegExp для надежности
+        // Мы ищем все английские буквы и спецсимволы раскладки
+        const reg = new RegExp("[a-zA-Z\\[\\];',./`{}|:\"<>?~]", "g");
+
+        return str.replace(reg, function (x) {
+            // Если замены нет, возвращаем как было
+            return replacer[x] || replacer[x.toLowerCase()] || x;
+        });
+    },
+
     saveOrder: async function() {
         const tbody = document.getElementById('productsTableBody');
         // Берем ВСЕ строки таблицы (и товары, и заголовки категорий)
@@ -379,10 +402,29 @@ const AdminProducts = {
 
     renderLocal: function() {
         let list = this.allLoadedProducts;
+
         if (this.searchQuery) {
+            // 1. Исходный запрос (маленькими)
+            const query = this.searchQuery.toLowerCase();
+
+            // 2. Исправленный запрос (маленькими)
+            // ВАЖНО: сначала исправляем раскладку оригинала, потом lowercase
+            // Потому что <kjr превратится в Блок, а нам нужно блок.
+            const fixedQuery = this.fixLayout(this.searchQuery).toLowerCase();
+
+            // ДЛЯ ОТЛАДКИ (Нажмите F12 в браузере -> Console, и введите что-то в поиск)
+            console.log(`Ищем: "${query}" или "${fixedQuery}"`);
+
             list = list.filter(p => {
-                const searchStr = (p.title_ru + ' ' + (p.sku || '')).toLowerCase();
-                return searchStr.includes(this.searchQuery);
+                const nameRu = (p.title_ru || '').toLowerCase();
+                const nameUa = (p.title_ua || '').toLowerCase();
+                const sku = (p.sku || '').toLowerCase();
+
+                return nameRu.includes(query) ||
+                       nameUa.includes(query) ||
+                       sku.includes(query) ||
+                       nameRu.includes(fixedQuery) ||
+                       nameUa.includes(fixedQuery);
             });
         }
         this.render(list);

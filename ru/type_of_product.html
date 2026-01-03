@@ -191,139 +191,7 @@
     <!-- ===== Двухколоночная область ===== -->
     <section class="home-layout container">
         <!-- Левая колонка -->
-        <aside class="home-left">
-            <div class="side-card menu-card">
-                <div class="side-card__title">МЕНЮ</div>
-                <ul class="menu-list">
-
-                    <!-- ТОВАРЫ -->
-                    <li class="menu-li has-accordion">
-                        <div class="menu-row">
-                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-products" aria-label="Развернуть раздел «Товары»"></button>
-                            <a href="products.html" class="menu-link"><span class="menu-link__text">Товары</span></a>
-                        </div>
-
-                        <div id="sub-products" class="submenu" hidden>
-                            <ul class="submenu-list">
-                                <li><a href="type_of_product.html?cat=solder" class="submenu-link">Паяльное оборудование</a></li>
-                                <li><a href="type_of_product.html?cat=repair" class="submenu-link">Всё для ремонта, тестеры, инструменты</a></li>
-                                <li><a href="type_of_product.html?cat=consum" class="submenu-link">Расходные материалы</a></li>
-                                <li><a href="type_of_product.html?cat=osc" class="submenu-link">Осциллографы</a></li>
-                                <li><a href="type_of_product.html?cat=prog" class="submenu-link">Программаторы</a></li>
-                                <li><a href="type_of_product.html?cat=meas" class="submenu-link">Измерительные приборы (мультиметры, тестеры, щупы)</a></li>
-
-                                <!-- Радиомодули (есть подуровень) -->
-                                <li class="has-accordion">
-                                    <div class="menu-row">
-                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiomodules" aria-label="Развернуть «Радиомодули»"></button>
-                                        <a href="type_of_product.html?cat=rmods" class="submenu-link">Радиомодули</a>
-                                    </div>
-                                    <div id="sub-radiomodules" class="submenu" hidden>
-                                        <ul class="submenu-list">
-                                            <li><a href="type_of_product.html?cat=rmods&sub=dcconv" class="submenu-link">Преобразователи напряжения</a></li>
-                                        </ul>
-                                    </div>
-                                </li>
-
-                                <!-- Радиодетали (подкатегории) -->
-                                <li class="has-accordion">
-                                    <div class="menu-row">
-                                        <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-radiodetails" aria-label="Развернуть «Радиодетали»"></button>
-                                        <a href="type_of_product.html?cat=rparts" class="submenu-link">Радиодетали</a>
-                                    </div>
-                                    <div id="sub-radiodetails" class="submenu" hidden>
-                                        <ul class="submenu-list">
-                                            <li><a href="type_of_product.html?cat=rparts&sub=resistors" class="submenu-link">Резисторы</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=pots" class="submenu-link">Потенциометры</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=capacitors" class="submenu-link">Конденсаторы</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=transistors" class="submenu-link">Транзисторы</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=leds" class="submenu-link">Светодиоды</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=diodes" class="submenu-link">Диоды</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=zener" class="submenu-link">Стабилитроны</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=ics" class="submenu-link">Интегральные микросхемы</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=switches" class="submenu-link">Переключатели</a></li>
-                                            <li><a href="type_of_product.html?cat=rparts&sub=crystals" class="submenu-link">Кварцевые резонаторы</a></li>
-                                        </ul>
-                                    </div>
-                                </li>
-
-                                <li><a href="type_of_product.html?cat=cables" class="submenu-link">Кабели, разъёмы, штекеры</a></li>
-                                <li><a href="type_of_product.html?cat=psu" class="submenu-link">Источники питания</a></li>
-                            </ul>
-                        </div>
-                    </li>
-
-                    <!-- О нас -->
-                    <li class="menu-li">
-                        <a href="about.html" class="menu-link"><span class="menu-link__text">О нас</span></a>
-                    </li>
-
-                    <!-- Отзывы -->
-                    <li class="menu-li">
-                        <a href="reviews.html" class="menu-link"><span class="menu-link__text">Отзывы</span></a>
-                    </li>
-
-                    <!-- Возврат и обмен -->
-                    <li class="menu-li has-accordion">
-                        <div class="menu-row">
-                            <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="sub-returns" aria-label="Развернуть раздел «Возврат и обмен»"></button>
-                            <a href="return_policy.html" class="menu-link"><span class="menu-link__text">Возврат и обмен</span></a>
-                        </div>
-                        <div id="sub-returns" class="submenu" hidden>
-                            <ul class="submenu-list">
-                                <li><a href="offer.html" class="submenu-link">Договор публичной оферты</a></li>
-                            </ul>
-                        </div>
-                    </li>
-
-                </ul>
-            </div>
-
-            <!-- КОНТАКТЫ -->
-            <div class="side-card contacts-card">
-                <div class="side-card__title">КОНТАКТЫ</div>
-
-                <div class="contact-row">
-                    <div class="contact-label">КОМПАНИЯ</div>
-                    <div class="contact-value">
-                        <img src="../assets/icons/company.png" alt="Компания" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
-                        Интернет-магазин «RadioBox»
-                    </div>
-                </div>
-
-                <div class="contact-row">
-                    <div class="contact-label">КОНТАКТНОЕ ЛИЦО</div>
-                    <div class="contact-value"><span class="ci ci-user" aria-hidden="true"></span>Сергей Бугаенко</div>
-                </div>
-
-                <div class="contact-row">
-                    <div class="contact-label">АДРЕС</div>
-                    <div class="contact-value"><span class="ci ci-pin" aria-hidden="true"></span>г. Шостка, Украина</div>
-                </div>
-
-                <div class="contact-row">
-                    <div class="contact-label">ТЕЛЕФОНЫ</div>
-                    <div class="contact-value stack">
-                        <div><span class="ci ci-phone"></span> <a href="tel:+380930728887">+380 (93) 072-88-87</a></div>
-                        <div><span class="ci ci-phone"></span> <a href="tel:+380501755718">+380 (50) 175-57-18</a></div>
-                    </div>
-                </div>
-
-                <div class="contact-row">
-                    <div class="contact-label">ДОП. СВЯЗЬ</div>
-                    <div class="contact-value stack">
-                        <div>
-                            <img src="../assets/icons/mail.png" alt="Email" class="contact-icon">
-                            <a href="mailto:pulya133@gmail.com">pulya133@gmail.com</a>
-                        </div>
-                        <div>
-                            <img src="../assets/icons/viber_under_cursor.png" alt="Viber" width="18" height="18" style="display:inline-block; vertical-align:-3px; margin-right:4px;">
-                            <a href="viber://chat?number=%2B380930728887" title="Открыть чат в Viber">+380930728887</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </aside>
+        <div id="sidebar-placeholder"></div>
 
         <!-- Правая колонка -->
         <div class="home-right" data-side-watch>
@@ -434,42 +302,16 @@
     <!-- ================================= -->
     <!-- ===== Логика категории (единый шаблон) ===== -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Карта категорий/подкатегорий (RU)
-            const CATEGORY_TITLES = {
-                solder: 'Паяльное оборудование',
-                repair: 'Всё для ремонта, тестеры, инструменты',
-                consum: 'Расходные материалы',
-                osc: 'Осциллографы',
-                prog: 'Программaторы',
-                meas: 'Измерительные приборы (мультиметры, тестеры, щупы)',
-                rmods: 'Радиомодули',
-                rparts: 'Радиодетали',
-                cables: 'Кабели, разъёмы, штекеры',
-                psu: 'Источники питания'
-            };
-            const SUBCATS = {
-                rmods: [['dcconv', 'Преобразователи напряжения']],
-                rparts: [
-                    ['resistors', 'Резисторы'], ['pots', 'Потенциометры'], ['capacitors', 'Конденсаторы'],
-                    ['transistors', 'Транзисторы'], ['leds', 'Светодиоды'], ['diodes', 'Диоды'],
-                    ['zener', 'Стабилитроны'], ['ics', 'Интегральные микросхемы'],
-                    ['switches', 'Переключатели'], ['crystals', 'Кварцевые резонаторы']
-                ]
-            };
-
-            // Параметры URL
+        document.addEventListener('DOMContentLoaded', async () => {
+            // === 1. ПОЛУЧЕНИЕ ПАРАМЕТРОВ URL ===
             function getParams() {
                 const q = new URLSearchParams(location.search);
-                let cat = q.get('cat'); let sub = q.get('sub') || '';
-                if (!cat) {
-                    const h = (location.hash || '').replace(/^#/, '');
-                    const hp = new URLSearchParams(h);
-                    cat = hp.get('cat'); sub = hp.get('sub') || '';
-                }
-                if (!CATEGORY_TITLES[cat]) cat = 'solder';
+                // Если cat нет, только тогда ставим 'solder', иначе оставляем как есть!
+                let cat = q.get('cat') || 'solder';
+                let sub = q.get('sub') || '';
                 return { cat, sub };
             }
+
             function setParams({ cat, sub }) {
                 const u = new URL(location.href);
                 u.searchParams.set('cat', cat);
@@ -478,18 +320,48 @@
             }
 
             let { cat, sub } = getParams();
-            setParams({ cat, sub });
+            // Не вызываем setParams сразу, чтобы не ломать историю, если параметры верные
 
-            // UA-переключатель сохраняет параметры
-            const uaLink = document.getElementById('langUA');
-            if (uaLink) {
-                const u = new URL(uaLink.getAttribute('href'), document.baseURI);
-                u.searchParams.set('cat', cat);
-                if (sub) u.searchParams.set('sub', sub);
-                uaLink.href = u.pathname + u.search;
+            // === 2. ДАННЫЕ О КАТЕГОРИЯХ (ИЗ API) ===
+            // Нам нужно скачать список категорий, чтобы знать их красивые названия (title_ru/ua)
+            let categoriesMap = [];
+
+            try {
+                const res = await fetch('/api/categories');
+                const data = await res.json();
+                if (data.success) {
+                    categoriesMap = data.categories;
+                }
+            } catch (e) {
+                console.error("Не удалось загрузить названия категорий", e);
             }
 
-            // Элементы UI
+            // Поиск названия категории по её slug
+            const getCatTitle = (slug) => {
+                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+                const found = categoriesMap.find(c => c.slug === slug);
+                if (!found) return slug; // Если не нашли, возвращаем сам slug (напр. 'new-cat')
+
+                return isUA ? (found.title_ua || found.title_ru) : found.title_ru;
+            };
+
+            // Поиск подкатегорий для текущей категории
+            const getSubcats = (parentSlug) => {
+                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+                return categoriesMap
+                    .filter(c => c.parent_slug === parentSlug)
+                    .sort((a, b) => a.position - b.position)
+                    .map(c => ({
+                        slug: c.slug,
+                        title: isUA ? (c.title_ua || c.title_ru) : c.title_ru
+                    }));
+            };
+
+            // === 3. ЭЛЕМЕНТЫ UI ===
             const catTitle = document.getElementById('catTitle');
             const crumbCat = document.getElementById('crumbCat');
             const crumbSepSub = document.getElementById('crumbSepSub');
@@ -504,7 +376,6 @@
             const btnList = document.getElementById('btnList');
             const catalogSec = document.getElementById('catalog');
 
-            // страница карточки товара
             const PRODUCT_PAGE = 'product.html';
 
             function openProduct(pid) {
@@ -516,69 +387,72 @@
                 location.href = u.pathname + u.search;
             }
 
-            // Клик по карточке (кроме кнопки «Купить») — переход на страницу товара
             if (grid) {
                 grid.addEventListener('click', (e) => {
-                    if (e.target.closest('.product-card__buy')) return; // кнопку не трогаем
+                    if (e.target.closest('.product-card__buy')) return;
                     const card = e.target.closest('.product-card.is-clickable');
                     if (!card) return;
                     openProduct(card.dataset.id);
                 });
-
-                // Поддержка Enter/Space для доступности
-                grid.addEventListener('keydown', (e) => {
-                    const card = e.target.closest('.product-card.is-clickable');
-                    if (!card) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openProduct(card.dataset.id);
-                    }
-                });
             }
 
-            // Заголовки/крошки/поднавигация
+            // === 4. ОБНОВЛЕНИЕ ЗАГОЛОВКОВ ===
             function refreshHead() {
-                const catName = CATEGORY_TITLES[cat];
-                document.title = 'RadioBox — ' + catName;
-                catTitle.textContent = catName;
+                const niceTitle = getCatTitle(cat);
+                const subCatsList = getSubcats(cat);
 
-                // крошка категории: если у категории есть подкатегории — делаем ссылку на "чистую" категорию
-                crumbCat.replaceChildren();
-                if ((SUBCATS[cat] || []).length) {
+                document.title = 'RadioBox — ' + niceTitle;
+                catTitle.textContent = niceTitle;
+
+                // Хлебные крошки
+                crumbCat.innerHTML = '';
+                if (subCatsList.length > 0 || sub) {
+                    // Если есть подкатегории или мы в подкатегории -> делаем ссылку
                     const a = document.createElement('a');
-                    a.id = 'crumbCatLink';
                     a.href = `?cat=${encodeURIComponent(cat)}`;
-                    a.textContent = catName;
+                    a.textContent = niceTitle;
+                    // Исправление бага с кликом
+                    a.onclick = (e) => {
+                        e.preventDefault();
+                        sub = '';
+                        setParams({cat, sub});
+                        current = 1;
+                        render();
+                    };
                     crumbCat.appendChild(a);
-
-                    // важно, если в глобальных стилях на .crumb-current стоит pointer-events:none
-                    crumbCat.style.pointerEvents = 'auto';
                 } else {
-                    crumbCat.textContent = catName;
-                    crumbCat.style.pointerEvents = ''; // как было
+                    crumbCat.textContent = niceTitle;
                 }
 
-                const list = SUBCATS[cat] || [];
-                if (list.length) {
+                // Панель подкатегорий (кнопки-овалы)
+                if (subCatsList.length > 0) {
                     subnav.hidden = false;
                     subnav.innerHTML = '';
-                    list.forEach(([slug, title]) => {
+                    subCatsList.forEach(item => {
                         const a = document.createElement('a');
-                        a.href = `?cat=${encodeURIComponent(cat)}&sub=${encodeURIComponent(slug)}`;
-                        a.textContent = title;
-                        if (sub === slug) a.setAttribute('aria-current', 'page');
+                        a.href = `?cat=${encodeURIComponent(cat)}&sub=${encodeURIComponent(item.slug)}`;
+                        a.textContent = item.title;
+                        if (sub === item.slug) a.setAttribute('aria-current', 'page');
+
+                        a.onclick = (e) => {
+                            e.preventDefault();
+                            sub = item.slug;
+                            setParams({cat, sub});
+                            current = 1;
+                            render();
+                        }
                         subnav.appendChild(a);
                     });
                 } else {
                     subnav.hidden = true;
-                    if (sub) { sub = ''; setParams({ cat, sub }); }
                 }
 
+                // Крошка подкатегории
                 if (sub) {
-                    const t = (SUBCATS[cat] || []).find(([s]) => s === sub)?.[1] || '';
+                    const subName = getCatTitle(sub); // Подкатегория тоже есть в общем списке
                     crumbSepSub.hidden = false;
                     crumbSub.hidden = false;
-                    crumbSub.textContent = t;
+                    crumbSub.textContent = subName;
                 } else {
                     crumbSepSub.hidden = true;
                     crumbSub.hidden = true;
@@ -586,13 +460,10 @@
                 }
             }
 
-            // Источник данных
-            // ----- источник каталога из LocalStorage -----
+            // === 5. РАБОТА С ДАННЫМИ (LocalStorage) ===
             const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
             const IS_UA = langAttr.startsWith('uk') || langAttr === 'ua' || /\/ua\//i.test(location.pathname);
             const IS_RU = langAttr.startsWith('ru') || /\/ru\//i.test(location.pathname);
-
-            // UA → rb_catalog_v1_ua, RU → rb_catalog_v1_ru, всё остальное → rb_catalog_v1
             const LS_KEY = IS_UA ? 'rb_catalog_v1_ua' : IS_RU ? 'rb_catalog_v1_ru' : 'rb_catalog_v1';
 
             const loadItems = () => {
@@ -604,32 +475,43 @@
                 } catch { return []; }
             };
 
-
-            const fromLSint = (k, d) => { const v = localStorage.getItem(k); const n = v == null ? NaN : parseInt(v, 10); return Number.isFinite(n) && n > 0 ? n : d; };
             const fromLS = (k, d) => localStorage.getItem(k) || d;
 
-            // Настройки каталога
+            // Настройки просмотра
             const LS_PAGESIZE = 'rb_catalog_pagesize';
             const LS_SORT = 'rb_catalog_sort';
             const LS_VIEW = 'rb_catalog_view';
 
-            let pageSize = fromLSint(LS_PAGESIZE, 6), current = 1, sortMode = fromLS(LS_SORT, 'default'), view = fromLS(LS_VIEW, 'grid');
-            pageSizeSelect.value = String(pageSize); sortSelect.value = sortMode;
+            let pageSize = parseInt(localStorage.getItem(LS_PAGESIZE) || 6);
+            let current = 1;
+            let sortMode = fromLS(LS_SORT, 'default');
+            let view = fromLS(LS_VIEW, 'grid');
 
-            // Фильтрация/сортировка/пагинация
-            const by = k => (a, b) => (a[k] < b[k] ? -1 : a[k] > b[k] ? 1 : 0);
+            pageSizeSelect.value = String(pageSize);
+            sortSelect.value = sortMode;
+
+            // Фильтрация
             function filterByCatSub(all) {
+                // Главный фильтр по категории
                 let arr = all.filter(p => p.category === cat);
-                const hasSub = sub && (SUBCATS[cat] || []).some(([s]) => s === sub);
-                if (hasSub) arr = arr.filter(p => (p.subcategory || '') === sub);
+
+                // Фильтр по подкатегории
+                if (sub) {
+                    arr = arr.filter(p => (p.subcategory || '') === sub);
+                }
+
                 return arr;
             }
+
+            // Сортировка
             function sortItems(arr) {
                 const c = arr.slice();
-                if (sortMode === 'price_asc') return c.sort(by('price'));
+                if (sortMode === 'price_asc') return c.sort((a, b) => a.price - b.price);
                 if (sortMode === 'price_desc') return c.sort((a, b) => b.price - a.price);
                 return c;
             }
+
+            // Пагинация
             const totalPages = arr => Math.max(1, Math.ceil(arr.length / pageSize));
             const slicePage = (arr, p) => arr.slice((p - 1) * pageSize, (p - 1) * pageSize + pageSize);
 
@@ -637,91 +519,89 @@
                 const pages = new Set([1, total]);
                 for (let i = current - neighbors; i <= current + neighbors; i++) if (i > 1 && i < total) pages.add(i);
                 const nums = [...pages].sort((a, b) => a - b);
-                let html = link(current - 1, '←', current === 1);
+
+                let html = '';
+                // Стрелка назад
+                const prevDisabled = current === 1;
+                html += `<a href="#" data-page="${current - 1}" ${prevDisabled ? 'style="pointer-events:none;opacity:0.5"' : ''}>←</a>`;
+
                 nums.forEach((p, i) => {
                     if (i > 0 && (p - nums[i - 1]) > 1) html += '<span>…</span>';
                     html += p === current ? `<a href="#" data-page="${p}" aria-current="page"><strong>${p}</strong></a>` : `<a href="#" data-page="${p}">${p}</a>`;
                 });
-                html += link(current + 1, '→', current === total);
+
+                // Стрелка вперед
+                const nextDisabled = current === total;
+                html += `<a href="#" data-page="${current + 1}" ${nextDisabled ? 'style="pointer-events:none;opacity:0.5"' : ''}>→</a>`;
+
                 return html;
-                function link(p, label, dis) {
-                    return `<a href="#" data-page="${p}" aria-label="${label}" ${dis ? 'aria-disabled="true" style="pointer-events:none;opacity:.4;"' : ''}>${label}</a>`;
-                }
             }
 
+            // HTML Генераторы
             function gridCardHTML(p) {
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
-                const stText = p.in_stock ? 'Готов к отправке' : 'Нет в наличии';
-                const alt = p.title || 'Товар';
+                const stText = p.in_stock ? (IS_UA ? 'В наявності' : 'В наличии') : (IS_UA ? 'Немає' : 'Нет в наличии');
+                const btnText = IS_UA ? 'Купити' : 'Купить';
+
                 return `
-    <article class="product-card is-clickable" data-id="${p.id}" role="link" tabindex="0" aria-label="Открыть товар">
-      <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${alt}">` : `<img src="" alt="${alt}">`}</div>
-      <h3 class="product-card__title">${p.title}</h3>
-      <div class="product-card__meta">Код: <span>${p.sku}</span></div>
-      <div class="product-card__price">${p.price} ₴</div>
-      <div class="product-card__status ${stClass}">${stText}</div>
-      <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">Купить</button>
-    </article>`;
+                <article class="product-card is-clickable" data-id="${p.id}" role="link" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${p.title}"></div>
+                  <h3 class="product-card__title">${p.title}</h3>
+                  <div class="product-card__meta">Код: <span>${p.sku}</span></div>
+                  <div class="product-card__price">${p.price} ₴</div>
+                  <div class="product-card__status ${stClass}">${stText}</div>
+                  <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                </article>`;
             }
 
             function listCardHTML(p) {
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
-                const stText = p.in_stock ? 'Готов к отправке' : 'Нет в наличии';
-                const alt = p.title || 'Товар';
-                return `
-    <article class="product-card product-card--list is-clickable" data-id="${p.id}" role="link" tabindex="0" aria-label="Открыть товар">
-      <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${alt}">` : `<img src="" alt="${alt}">`}</div>
-      <div class="product-info">
-        <h3 class="product-card__title">${p.title}</h3>
-        <div class="product-card__price">${p.price} ₴</div>
-        <div class="product-card__status ${stClass}">${stText}</div>
-        <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
-      </div>
-      <div class="product-cta">
-        <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">Купить</button>
-      </div>
-    </article>`;
-            }
+                const stText = p.in_stock ? (IS_UA ? 'В наявності' : 'В наличии') : (IS_UA ? 'Немає' : 'Нет в наличии');
+                const btnText = IS_UA ? 'Купити' : 'Купить';
 
+                return `
+                <article class="product-card product-card--list is-clickable" data-id="${p.id}" role="link" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${p.title}"></div>
+                  <div class="product-info">
+                    <h3 class="product-card__title">${p.title}</h3>
+                    <div class="product-card__price">${p.price} ₴</div>
+                    <div class="product-card__status ${stClass}">${stText}</div>
+                    <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
+                  </div>
+                  <div class="product-cta">
+                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                  </div>
+                </article>`;
+            }
 
             function applyViewButtons() {
                 btnGrid.classList.toggle('is-active', view === 'grid');
-                btnGrid.setAttribute('aria-pressed', view === 'grid');
                 btnList.classList.toggle('is-active', view === 'list');
-                btnList.setAttribute('aria-pressed', view === 'list');
                 catalogSec.classList.toggle('list-view', view === 'list');
             }
 
+            // === 6. ОСНОВНОЙ РЕНДЕР ===
             function render() {
                 refreshHead();
-
-                // клик по крошке категории: сбрасываем sub и остаёмся в той же категории
-                crumbCat.querySelector('#crumbCatLink')?.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (sub) {
-                        sub = '';
-                        setParams({ cat, sub });
-                        current = 1;
-                        render();
-                    }
-                }, { once: true });
-
                 applyViewButtons();
 
                 const all = loadItems();
-                const filtered = filterByCatSub(all);
+                const filtered = filterByCatSub(all); // <-- Тут больше нет fallback'а на "все товары"
                 const sorted = sortItems(filtered);
                 const total = totalPages(sorted);
                 if (current > total) current = total;
 
-                // красивое пустое состояние
+                // Пустое состояние
                 if (sorted.length === 0) {
-                    const catName = CATEGORY_TITLES[cat] || 'Категория';
+                    const catName = getCatTitle(cat);
                     grid.innerHTML = `
-    <div class="catalog-empty">
-      В этой подкатегории пока нет товаров.
-      <a href="?cat=${encodeURIComponent(cat)}">Показать все из категории «${catName}»</a>.
-    </div>`;
+                        <div class="catalog-empty" style="text-align:center; padding:40px;">
+                          ${IS_UA ? 'У цій категорії поки немає товарів.' : 'В этой категории пока нет товаров.'}
+                          <br>
+                          <a href="products.html" style="color:#0d2b4e; text-decoration:underline; margin-top:10px; display:inline-block;">
+                            ${IS_UA ? 'Дивитись всі товари' : 'Смотреть все товары'}
+                          </a>
+                        </div>`;
                     pager.innerHTML = '';
                     return;
                 }
@@ -729,12 +609,14 @@
                 grid.innerHTML = slicePage(sorted, current).map(view === 'list' ? listCardHTML : gridCardHTML).join('');
                 pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
 
-                window.rbRefreshSideArt && window.rbRefreshSideArt();
+                // Обновляем боковые баннеры, если есть скрипт
+                if (window.rbRefreshSideArt) window.rbRefreshSideArt();
             }
 
+            // Публичный метод для вызова из других скриптов
             window.renderCatalog = render;
 
-            // События
+            // === 7. СОБЫТИЯ ===
             pager.addEventListener('click', e => {
                 const a = e.target.closest('a[data-page]'); if (!a) return;
                 e.preventDefault();
@@ -764,24 +646,11 @@
                 view = 'list'; localStorage.setItem(LS_VIEW, view); render();
             });
 
-            document.getElementById('subcats').addEventListener('click', e => {
-                const a = e.target.closest('a'); if (!a) return;
-                e.preventDefault();
-                const u = new URL(a.href, document.baseURI);
-                const newCat = u.searchParams.get('cat') || cat;
-                const newSub = u.searchParams.get('sub') || '';
-                if (newCat !== cat || newSub !== sub) {
-                    cat = newCat; sub = newSub; current = 1;
-                    setParams({ cat, sub });
-                    render();
-                    catalogSec?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            });
-
             window.addEventListener('popstate', () => {
                 const p = getParams(); cat = p.cat; sub = p.sub; current = 1; render();
             });
 
+            // ПЕРВЫЙ ЗАПУСК
             render();
         });
     </script>

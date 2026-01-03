@@ -107,7 +107,13 @@ a{color:inherit;text-decoration:none;transition:color .15s ease,opacity .15s eas
 /* ======================
    БЕЛАЯ ПОЛОСА
 ====================== */
-.b-white-bar{background:#fafafa;border-bottom:1px solid #e6e8ed}
+.b-white-bar {
+    background: #fafafa;
+    border-bottom: 1px solid #e6e8ed;
+    /* ПОДНИМАЕМ БЛОК ВЫШЕ ВСЕХ */
+    position: relative;
+    z-index: 101;
+}
 .white-inner{display:grid;align-items:center;grid-template-columns:1fr 2fr auto;gap:24px;padding:14px 20px;}
 .brand{display:inline-flex;align-items:center;gap:14px}
 .brand-logo{width:72px;height:72px;object-fit:cover;display:block;background:#dcdcdc;border:1px solid #cfcfcf;}
@@ -2171,3 +2177,59 @@ input[type=number] {
         min-height: 120px; /* Примерная высота шапки на планшетах/мобильных */
     }
 }
+
+/* Резервируем место под сайдбар на ПК */
+@media (min-width: 992px) {
+    #sidebar-placeholder {
+        width: 300px; /* Ширина вашей левой колонки */
+        flex-shrink: 0;
+    }
+}
+
+.submenu[hidden] {
+    display: none !important;
+}
+
+/* === ЖИВОЙ ПОИСК (ВЫПАДАЮЩИЙ СПИСОК) === */
+/* ВЫПАДАЮЩИЙ СПИСОК ПОИСКА */
+.search-wide {
+    display: flex;
+    align-items: stretch;
+    border: 4px solid #0d2b4e;
+    border-radius: 8px;
+    background: #fff;
+    overflow: visible; /* <-- ИСПРАВЛЕНИЕ: разрешаем списку выпадать */
+    position: relative; /* Обязательно, чтобы список позиционировался от этого блока */
+}
+
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    display: none; /* Скрыт */
+    max-height: 400px;
+    overflow-y: auto;
+}
+.search-results-dropdown.active {
+    display: block; /* Показываем, когда работает JS */
+}
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-decoration: none;
+    color: #333;
+    transition: background 0.2s;
+}
+.search-result-item:hover { background: #f4f7f6; }
+.search-result-thumb { width: 40px; height: 40px; object-fit: contain; margin-right: 10px; }
+.search-result-name { font-size: 14px; font-weight: 600; }
+.search-result-price { font-size: 13px; color: #28a745; margin-left: auto; }

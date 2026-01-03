@@ -14,6 +14,21 @@ from flask_login import current_user
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
+# === СЛОВАРЬ ДЛЯ ИСПРАВЛЕНИЯ РАСКЛАДКИ (QWERTY -> ЙЦУКЕН) ===
+ENG_TO_RUS_MAP = {
+    "q":"й", "w":"ц", "e":"у", "r":"к", "t":"е", "y":"н", "u":"г", "i":"ш", "o":"щ", "p":"з", "[":"х", "]":"ъ",
+    "a":"ф", "s":"ы", "d":"в", "f":"а", "g":"п", "h":"р", "j":"о", "k":"л", "l":"д", ";":"ж", "'":"э",
+    "z":"я", "x":"ч", "c":"с", "v":"м", "b":"и", "n":"т", "m":"ь", ",":"б", ".":"ю", "/":".", "`": "ё",
+    "Q":"Й", "W":"Ц", "E":"У", "R":"К", "T":"Е", "Y":"Н", "U":"Г", "I":"Ш", "O":"Щ", "P":"З", "{":"Х", "}":"Ъ",
+    "A":"Ф", "S":"Ы", "D":"В", "F":"А", "G":"П", "H":"Р", "J":"О", "K":"Л", "L":"Д", ":":"Ж", '"':"Э",
+    "Z":"Я", "X":"Ч", "C":"С", "V":"М", "B":"И", "N":"Т", "M":"Ь", "<":"Б", ">":"Ю", "?":",", "~":"Ё",
+    "@": "\"" # Иногда бывает полезно
+}
+
+def fix_layout(text):
+    """Меняет английские буквы на русские/украинские по раскладке"""
+    return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
+
 # ==================================================
 # НАСТРОЙКИ ПОЧТЫ (ЗАПОЛНИ ЗАНОВО!)
 # ==================================================
@@ -1342,6 +1357,63 @@ def reorder_categories_api():
             conn.execute("UPDATE categories SET position=? WHERE id=?", (idx, cid))
         conn.commit()
     return jsonify({"success": True})
+
+
+# === API: ПОИСК ТОВАРОВ (ПУБЛИЧНЫЙ) ===
+@app.route('/api/search', methods=['GET'])
+def public_search_api():
+    query = request.args.get('q', '').strip()
+
+    if len(query) < 2:
+        return jsonify({"success": True, "results": []})
+
+    # 1. Оригинальный запрос (например "gfzkmybr" или "Паяльник")
+    term_orig = f"%{query.lower()}%"
+
+    # 2. Исправленный запрос (например "паяльник")
+    fixed_query = fix_layout(query)
+    term_fixed = f"%{fixed_query.lower()}%"
+
+    with sqlite3.connect(DB_NAME) as conn:
+        # Учим SQLite понимать нижний регистр для кириллицы
+        conn.create_function("LOWER", 1, lambda s: s.lower() if s else s)
+
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # SQL: Ищем совпадение ИЛИ по оригиналу, ИЛИ по исправленной раскладке
+        sql = """
+            SELECT * FROM products 
+            WHERE (
+                LOWER(title_ru) LIKE ? OR 
+                LOWER(title_ua) LIKE ? OR 
+                LOWER(sku) LIKE ? OR
+
+                LOWER(title_ru) LIKE ? OR 
+                LOWER(title_ua) LIKE ? 
+            )
+            AND is_visible = 1 
+            AND deleted_at IS NULL
+            ORDER BY in_stock DESC, position ASC
+        """
+
+        # Передаем параметры: 3 раза оригинал, 2 раза исправленный (для названий)
+        cursor.execute(sql, (term_orig, term_orig, term_orig, term_fixed, term_fixed))
+        rows = cursor.fetchall()
+
+        results = []
+        for row in rows:
+            p = dict(row)
+            try:
+                p['images'] = json.loads(row['images_json'])
+                p['image'] = p['images'][0] if p['images'] else ''
+            except:
+                p['images'] = []
+                p['image'] = ''
+
+            results.append(p)
+
+    return jsonify({"success": True, "results": results})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап
