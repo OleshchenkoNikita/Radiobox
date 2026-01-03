@@ -2158,3 +2158,16 @@ input[type=number] {
     cursor: grabbing !important;
     color: #189BFF !important;
 }
+
+/* Резервируем место под шапку, чтобы сайт не прыгал */
+#header-placeholder {
+    min-height: 205px; /* Примерная высота шапки на ПК */
+    display: block;
+}
+
+/* Для мобильных высота шапки меньше, поэтому уменьшаем резерв */
+@media (max-width: 991px) {
+    #header-placeholder {
+        min-height: 120px; /* Примерная высота шапки на планшетах/мобильных */
+    }
+}

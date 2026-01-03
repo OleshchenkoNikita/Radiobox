@@ -1,62 +1,3 @@
-// Заглушка: не отправляем поиск, просто логируем
-document.querySelectorAll('.search-wide').forEach(form => {
-    form.addEventListener('submit', e => {
-        e.preventDefault();
-        const q = form.querySelector('input[name="q"]')?.value || "";
-        console.log("[search placeholder] q=", q);
-        // здесь потом подставишь реальный обработчик/переход
-    });
-});
-
-
-// ===== CART DRAWER =====
-(function () {
-    const drawer = document.querySelector('.cart-drawer');
-    if (!drawer) return;
-
-    const panel = drawer.querySelector('.cart-drawer__panel');
-    const openers = document.querySelectorAll('[data-cart-open]');
-    const closers = drawer.querySelectorAll('[data-cart-close]');
-
-    function openDrawer() {
-        drawer.classList.add('is-open');
-        document.body.classList.add('is-cart-open');
-        drawer.setAttribute('aria-hidden', 'false');
-        const closeBtn = drawer.querySelector('.cart-drawer__close');
-        closeBtn && closeBtn.focus();
-    }
-
-    function closeDrawer() {
-        drawer.classList.remove('is-open');
-        document.body.classList.remove('is-cart-open');
-        drawer.setAttribute('aria-hidden', 'true');
-    }
-
-    openers.forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            openDrawer();
-        });
-    });
-
-    closers.forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            closeDrawer();
-        });
-    });
-
-    drawer.addEventListener('click', (e) => {
-        if (!panel.contains(e.target)) closeDrawer();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
-            closeDrawer();
-        }
-    });
-})();
-
 // Левое меню: открытие flyout по клику на тач-устройствах
 (function () {
     const isTouch = window.matchMedia('(hover: none)').matches;
@@ -371,9 +312,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (match) match.a.classList.add("active");
     };
-
-    // Верхняя синяя навигация
-    setActiveOne(document.querySelectorAll(".main-nav a[href]"));
 
     // Левое меню
     setActiveOne(document.querySelectorAll(".menu-card .menu-link[href]"));
@@ -1296,8 +1234,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.rbCartRemove = removeItem;
     window.rbCartRender = renderCart;
 
-    // Инициализация
-    renderCart();
 });
 
 // ============================================
@@ -1309,53 +1245,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
     const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
 
-    // ТЕКСТЫ (Локализация - убрали лишнее про SMS)
+    // ТЕКСТЫ
     const TEXT = isUA ? {
         btnEnter: "Вхід", btnReg: "Реєстрація", or: "або",
         hello: "Вітаємо,", cab: "Кабінет", orders: "Мої замовлення",
         settings: "Налаштування", logout: "Вийти",
-
         errConnection: "Помилка з'єднання з сервером",
         errWrongCode: "Невірний код підтвердження",
         successReg: "Реєстрація успішна!",
         successPass: "Пароль успішно змінено! Тепер ви можете увійти.",
-
         tabLogin: "Вхід", tabReg: "Реєстрація",
         labelLogin: "E-mail", labelPass: "Пароль", forgotPass: "Забули пароль?",
         submitLogin: "Увійти", googleLogin: "Увійти через Google",
-
         labelName: "Ім'я", labelSurname: "Прізвище", labelEmail: "E-mail",
         labelPhone: "Телефон", labelCreatePass: "Вигадайте пароль",
         submitReg: "Зареєструватися", googleReg: "Реєстрація з Google",
-
         recTitle: "Відновлення паролю",
-        recLabelEmail: "Введіть ваш E-mail", // Просто E-mail
+        recLabelEmail: "Введіть ваш E-mail",
         recLabelCode: "Код з листа",
         recNewPass: "Новий пароль",
         recBtnCode: "Отримати код",
         recBtnSave: "Зберегти пароль",
         recBack: "Назад до входу",
-        recAlertSent: "Код відправлено на вашу пошту!", // Простое сообщение
-
+        recAlertSent: "Код відправлено на вашу пошту!",
         phName: "Іван", phSurname: "Іванов"
     } : {
         btnEnter: "Вход", btnReg: "Регистрация", or: "или",
         hello: "Приветствуем,", cab: "Кабинет", orders: "Мои заказы",
         settings: "Настройки", logout: "Выйти",
-
         errConnection: "Ошибка соединения с сервером",
         errWrongCode: "Неверный код подтверждения",
         successReg: "Регистрация успешна!",
         successPass: "Пароль успешно изменен! Теперь вы можете войти.",
-
         tabLogin: "Вход", tabReg: "Регистрация",
         labelLogin: "E-mail", labelPass: "Пароль", forgotPass: "Забыли пароль?",
         submitLogin: "Войти", googleLogin: "Войти через Google",
-
         labelName: "Имя", labelSurname: "Фамилия", labelEmail: "E-mail",
         labelPhone: "Телефон", labelCreatePass: "Придумайте пароль",
         submitReg: "Зарегистрироваться", googleReg: "Регистрация с Google",
-
         recTitle: "Восстановление пароля",
         recLabelEmail: "Введите ваш E-mail",
         recLabelCode: "Код из письма",
@@ -1364,7 +1291,6 @@ document.addEventListener('DOMContentLoaded', () => {
         recBtnSave: "Сохранить пароль",
         recBack: "Назад ко входу",
         recAlertSent: "Код отправлен на вашу почту!",
-
         phName: "Иван", phSurname: "Иванов"
     };
 
@@ -1396,7 +1322,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { success: false, error: TEXT.errConnection };
             }
         },
-        // Теперь метод принимает только email
         sendCode: async (email) => {
             try {
                 const response = await fetch('/api/recover/send-code', {
@@ -1438,42 +1363,21 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 3. UI TEMPLATES ---
-    const iconUser = `<span class="icon" aria-hidden="true" style="width:16px;height:16px;display:inline-block;background:url('data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%23cfd3d7\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' %3E%3Cpath d=\\'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\\'/%3E%3Ccircle cx=\\'12\\' cy=\\'7\\' r=\\'4\\'/%3E%3C/svg%3E') center/contain no-repeat;"></span>`;
     const iconGoogle = `<svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.27C4.672 5.143 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>`;
-
-    const renderLoggedHeader = (user) => `
-        <div class="auth-user" id="userMenuTrigger" style="cursor:pointer;">
-            ${iconUser}
-            <span class="link" style="border-bottom:1px dotted transparent;">${user.name} ${user.surname}</span>
-        </div>
-    `;
-
-    const renderGuestHeader = () => `
-        <div class="auth-user">
-            ${iconUser}
-            <a href="#" class="link" data-auth-trigger="login">${TEXT.btnEnter}</a>
-            <span class="sep">|</span>
-            <a href="#" class="link" data-auth-trigger="register">${TEXT.btnReg}</a>
-        </div>
-    `;
 
     const modalHTML = `
         <div class="auth-modal hours-modal" aria-hidden="true" id="authModal">
             <div class="hours-modal__backdrop" data-auth-close></div>
             <div class="hours-modal__panel auth-modal__panel" role="dialog" aria-modal="true">
                 <button type="button" class="hours-modal__close" aria-label="Close" data-auth-close>×</button>
-
                 <div class="auth-tabs" id="authTabs">
                     <button class="auth-tab is-active" data-tab="login">${TEXT.tabLogin}</button>
                     <button class="auth-tab" data-tab="register">${TEXT.tabReg}</button>
                 </div>
-
                 <div class="auth-tabs" id="recoveryTitle" style="display:none; border-bottom:1px solid #e6e8ed; padding:16px; font-weight:700; color:#0d2b4e; justify-content:center;">
                     ${TEXT.recTitle}
                 </div>
-
                 <div class="auth-content">
-
                     <form id="formLogin" class="auth-form is-visible">
                         <div class="co-field"><label>${TEXT.labelLogin}</label><input type="email" name="email" required placeholder="example@mail.com"></div>
                         <div class="co-field" style="margin-top:12px;"><label>${TEXT.labelPass}</label><input type="password" name="password" required></div>
@@ -1484,7 +1388,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="auth-divider">${TEXT.or}</div>
                         <button type="button" class="btn-google" onclick="alert('Google Mock')">${iconGoogle} ${TEXT.googleLogin}</button>
                     </form>
-
                     <form id="formRegister" class="auth-form">
                         <div class="co-field"><label>${TEXT.labelName}</label><input type="text" name="name" required placeholder="${TEXT.phName}"></div>
                         <div class="co-field" style="margin-top:12px;"><label>${TEXT.labelSurname}</label><input type="text" name="surname" required placeholder="${TEXT.phSurname}"></div>
@@ -1495,20 +1398,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="auth-divider">${TEXT.or}</div>
                         <button type="button" class="btn-google" onclick="alert('Google Mock')">${iconGoogle} ${TEXT.googleReg}</button>
                     </form>
-
                     <form id="formRecovery" class="auth-form">
                         <div class="co-field">
                             <label>${TEXT.recLabelEmail}</label>
                             <input type="email" name="rec_email" required placeholder="example@mail.com">
                         </div>
-
                         <div id="recStep2" style="display:none; margin-top:12px;">
                              <div class="co-field"><label>${TEXT.recLabelCode}</label><input type="text" name="rec_code" placeholder="1234"></div>
                              <div class="co-field" style="margin-top:12px;"><label>${TEXT.recNewPass}</label><input type="password" name="rec_pass"></div>
                         </div>
-
                         <button type="submit" class="cart-checkout-btn auth-submit" style="margin-top:20px;" id="recSubmitBtn">${TEXT.recBtnCode}</button>
-
                         <div style="margin-top:15px; text-align:center;">
                             <a href="#" id="backToLogin" style="font-size:13px; color:#6b7280; text-decoration:underline;">${TEXT.recBack}</a>
                         </div>
@@ -1523,23 +1422,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     }
 
-    const currentUser = Session.getCurrentUser();
-    const reviewsBlock = document.querySelector('.topbar-inner .reviews');
-
-    if (reviewsBlock) {
-        if (currentUser) {
-            reviewsBlock.insertAdjacentHTML('beforebegin', renderLoggedHeader(currentUser));
-        } else {
-            reviewsBlock.insertAdjacentHTML('beforebegin', renderGuestHeader());
-        }
-    }
+    // ВАЖНО: Мы убрали отсюда код вставки кнопок в шапку, так як шапка теперь грузится отдельно.
+    // Код вставки "Вхід / Кабінет" тепер знаходиться в функції initHeaderInteractivity
 
     initAuthLogic();
-
-    if (currentUser) {
-        // initUserDrawer(currentUser); - Шторка для Кабинета Покупателя. Уже неактуальна и не нужна
-    }
-
 
     // --- 5. LOGIC ---
 
@@ -1553,13 +1439,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const formReg = document.getElementById('formRegister');
         const formRec = document.getElementById('formRecovery');
 
-        document.querySelectorAll('[data-auth-trigger]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // === ГЛАВНОЕ ИСПРАВЛЕНИЕ: ДЕЛЕГУВАННЯ ПОДІЙ ===
+        // Використовуємо document.body, щоб зловити клік, навіть якщо кнопка з'явилась пізніше
+        document.body.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-auth-trigger]');
+            if (btn) {
                 e.preventDefault();
                 modal.classList.add('is-open');
                 switchTab(btn.dataset.authTrigger);
-            });
+            }
         });
+
+        // Закрытие модалки
         modal.querySelectorAll('[data-auth-close]').forEach(btn => btn.addEventListener('click', () => modal.classList.remove('is-open')));
 
         const tabs = modal.querySelectorAll('.auth-tab');
@@ -1647,29 +1538,20 @@ document.addEventListener('DOMContentLoaded', () => {
             // ШАГ 1: Запрос кода
             if (!generatedCode) {
                 const email = fData.get('rec_email');
-
                 btn.textContent = "..."; btn.disabled = true;
-
-                // Отправляем запрос на сервер (сервер шлет Email)
                 const res = await Backend.sendCode(email);
-
                 btn.disabled = false;
                 btn.textContent = TEXT.recBtnSave;
 
                 if (res.success) {
                     emailUsed = email;
                     generatedCode = res.debug_code;
-
-                    // Показываем сообщение БЕЗ кода (код уже на почте)
                     alert(TEXT.recAlertSent);
-                    console.log("DEBUG: Code is", generatedCode); // Для удобства разработки
-
                     document.getElementById('recStep2').style.display = 'block';
                 } else {
                     btn.textContent = TEXT.recBtnCode;
                     alert(res.error);
                 }
-
             } else {
                 // ШАГ 2: Смена пароля
                 const code = fData.get('rec_code');
@@ -1679,9 +1561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(TEXT.errWrongCode);
                     return;
                 }
-
                 const res = await Backend.changePassword(emailUsed, newPass);
-
                 if (res.success) {
                     alert(TEXT.successPass);
                     location.reload();
@@ -1692,40 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Левое меню
-    function initUserDrawer(user) {
-        const drawerHTML = `
-            <div class="user-drawer" id="userDrawer">
-                <div class="user-drawer__backdrop" id="userDrawerBackdrop"></div>
-                <div class="user-drawer__panel">
-                    <div class="user-drawer__header">
-                        <div class="user-drawer__title">${TEXT.hello} ${user.name}!</div>
-                        <button class="user-drawer__close" id="userDrawerClose">×</button>
-                    </div>
-                    <ul class="user-menu-list">
-                        <li class="user-menu-item"><a href="#" class="user-menu-link"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>${TEXT.cab}</a></li>
-                        <li class="user-menu-item"><a href="#" class="user-menu-link"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>${TEXT.orders}</a></li>
-                        <li class="user-menu-item"><a href="#" class="user-menu-link"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>${TEXT.settings}</a></li>
-                    </ul>
-                    <button class="user-logout-btn" onclick="window.rbLogout()"><svg style="width:20px;height:20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>${TEXT.logout}</button>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', drawerHTML);
-
-        const drawer = document.getElementById('userDrawer');
-        const trigger = document.getElementById('userMenuTrigger');
-        const closeBtn = document.getElementById('userDrawerClose');
-        const backdrop = document.getElementById('userDrawerBackdrop');
-
-        const openD = () => drawer.classList.add('is-open');
-        const closeD = () => drawer.classList.remove('is-open');
-
-        if(trigger) trigger.addEventListener('click', openD);
-        if(closeBtn) closeBtn.addEventListener('click', closeD);
-        if(backdrop) backdrop.addEventListener('click', closeD);
-    }
-
+    // Глобальная функция выхода
     window.rbLogout = () => {
         if(confirm(isUA ? "Ви дійсно хочете вийти?" : "Вы действительно хотите выйти?")) {
             Session.end();
@@ -1733,6 +1580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 });
+
 
 // ============================================
 // ЛОГИКА КАБИНЕТА ПОЛЬЗОВАТЕЛЯ (PROFILE)
@@ -2295,4 +2143,188 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })
         .catch(console.error);
+});
+
+// ============================================
+// ЗАГРУЗКА ПОДВАЛА (FOOTER)
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    const placeholder = document.getElementById('footer-placeholder');
+    // Если на странице нет места под футер — выходим
+    if (!placeholder) return;
+
+    // Просто ищем папку components рядом с текущим HTML файлом
+    fetch('components/footer.html')
+        .then(response => {
+            if (!response.ok) throw new Error('Footer not found');
+            return response.text();
+        })
+        .then(html => {
+            placeholder.innerHTML = html;
+
+            // Авто-обновление года (чтобы не менять руками)
+            const copyEl = placeholder.querySelector('.copy');
+            if (copyEl) {
+                const year = new Date().getFullYear();
+                copyEl.innerHTML = copyEl.innerHTML.replace(/\d{4}/, year);
+            }
+        })
+        .catch(err => console.error('Ошибка загрузки подвала:', err));
+});
+
+// ============================================
+// ЗАГРУЗКА ШАПКИ (HEADER) — УНИВЕРСАЛЬНАЯ ВЕРСИЯ
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    const placeholder = document.getElementById('header-placeholder');
+    if (!placeholder) return;
+
+    // Универсальный путь: ищем папку components рядом с текущим HTML файлом
+    fetch('components/header.html')
+        .then(response => {
+            if (!response.ok) throw new Error('Header not found');
+            return response.text();
+        })
+        .then(html => {
+            placeholder.innerHTML = html;
+            initHeaderInteractivity(); // Запускаем логику шапки
+        })
+        .catch(err => console.error('Ошибка загрузки шапки:', err));
+
+    // --- ФУНКЦИЯ ОЖИВЛЕНИЯ ШАПКИ ---
+    function initHeaderInteractivity() {
+        const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
+
+        // 1. === СЧЕТЧИК ОТЗЫВОВ ===
+        const reviewsLink = document.querySelector('.reviews .link');
+        if (reviewsLink) {
+            try {
+                // Пытаемся достать реальное кол-во из памяти
+                const raw = localStorage.getItem('rb_reviews_v1');
+                const items = raw ? JSON.parse(raw).items : [];
+                const n = items ? items.length : 0;
+
+                // ЛОГИКА: Обновляем текст ТОЛЬКО если есть реальные отзывы (>0)
+                // Если n === 0, оставляем "1743", которые прописаны в HTML файле
+                if (n > 0) {
+                    const plural = (n, one, few, many) => {
+                        const n10 = n % 10, n100 = n % 100;
+                        if (n10 === 1 && n100 !== 11) return one;
+                        if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few;
+                        return many;
+                    };
+
+                    const txt = isUA
+                        ? `${n} ${plural(n, 'відгук', 'відгуки', 'відгуків')}`
+                        : `${n} ${plural(n, 'отзыв', 'отзыва', 'отзывов')}`;
+
+                    reviewsLink.textContent = txt;
+                }
+
+                // Делаем видимым (на случай, если стили скрывают пустой блок)
+                reviewsLink.style.visibility = 'visible';
+                reviewsLink.style.opacity = '1';
+
+            } catch (e) { console.error('Ошибка счетчика отзывов:', e); }
+        }
+
+        // 2. === ГРАФИК РАБОТЫ (MODAL) ===
+        const workBtn = document.querySelector('.worktime a');
+        const workModal = document.querySelector('.hours-modal');
+        if (workBtn && workModal) {
+            workBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                workModal.classList.add('is-open');
+                document.body.classList.add('is-hours-open');
+            });
+            // Дублируем закрытие для надежности
+            workModal.querySelectorAll('[data-hours-close]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    workModal.classList.remove('is-open');
+                    document.body.classList.remove('is-hours-open');
+                });
+            });
+        }
+
+        // 3. === ИМЯ ПОЛЬЗОВАТЕЛЯ (АВТОРИЗАЦИЯ) ===
+        const reviewsBlock = document.querySelector('.topbar-inner .reviews');
+        if (reviewsBlock) {
+            const iconUser = `<span class="icon" aria-hidden="true" style="width:16px;height:16px;display:inline-block;background:url('data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%23cfd3d7\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' %3E%3Cpath d=\\'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\\'/%3E%3Ccircle cx=\\'12\\' cy=\\'7\\' r=\\'4\\'/%3E%3C/svg%3E') center/contain no-repeat;"></span>`;
+
+            let user = null;
+            try { user = JSON.parse(localStorage.getItem('rb_session_v1')); } catch {}
+
+            // Удаляем старые, чтобы не дублировалось
+            document.querySelectorAll('.auth-user').forEach(el => el.remove());
+
+            if (user) {
+                const html = `
+                <div class="auth-user" id="userMenuTrigger" style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    ${iconUser}
+                    <span class="link" style="border-bottom:1px dotted transparent;">${user.name} ${user.surname || ''}</span>
+                </div>`;
+                reviewsBlock.insertAdjacentHTML('beforebegin', html);
+            } else {
+                const txtLogin = isUA ? "Вхід" : "Вход";
+                const txtReg = isUA ? "Реєстрація" : "Регистрация";
+                const html = `
+                <div class="auth-user" style="display:flex; align-items:center; gap:6px;">
+                    ${iconUser}
+                    <a href="#" class="link" data-auth-trigger="login">${txtLogin}</a>
+                    <span class="sep">|</span>
+                    <a href="#" class="link" data-auth-trigger="register">${txtReg}</a>
+                </div>`;
+                reviewsBlock.insertAdjacentHTML('beforebegin', html);
+            }
+        }
+
+        // 4. === ЯЗЫКИ И АКТИВНОЕ МЕНЮ ===
+        const currentFile = location.pathname.split('/').pop() || 'index.html';
+
+        // Языки
+        document.querySelectorAll('.lang-link').forEach(link => {
+            const lang = link.dataset.lang;
+            if (lang === 'uk') {
+                link.href = isUA ? '#' : `../ua/${currentFile}`;
+                if (isUA) link.setAttribute('aria-current', 'page');
+            } else {
+                link.href = isUA ? `../ru/${currentFile}` : '#';
+                if (!isUA) link.setAttribute('aria-current', 'page');
+            }
+        });
+
+        // Меню
+        const menuLinks = document.querySelectorAll(".main-nav a[href]");
+        const currentPath = currentFile.toLowerCase();
+        menuLinks.forEach(a => {
+            const href = a.getAttribute("href").split('/').pop().toLowerCase();
+            if (href === currentPath) {
+                a.classList.add("active");
+                a.setAttribute("aria-current", "page");
+            }
+        });
+
+        // 5. === КОРЗИНА ===
+        if (window.rbCartRender) window.rbCartRender();
+
+        const drawer = document.querySelector('.cart-drawer');
+        const openers = document.querySelectorAll('[data-cart-open]');
+        const closers = document.querySelectorAll('[data-cart-close]');
+        const panel = drawer ? drawer.querySelector('.cart-drawer__panel') : null;
+
+        if (drawer) {
+            const openDrawer = () => {
+                if (window.rbCartRender) window.rbCartRender();
+                drawer.classList.add('is-open');
+                document.body.classList.add('is-cart-open');
+            };
+            const closeDrawer = () => {
+                drawer.classList.remove('is-open');
+                document.body.classList.remove('is-cart-open');
+            };
+            openers.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); }));
+            closers.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); closeDrawer(); }));
+            drawer.addEventListener('click', (e) => { if (panel && !panel.contains(e.target)) closeDrawer(); });
+        }
+    }
 });
