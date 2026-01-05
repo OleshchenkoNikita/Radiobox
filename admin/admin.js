@@ -1169,5 +1169,514 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('catsModal')) {
         AdminCats.init();
     }
+    if (document.getElementById('reviewsContainer')) {
+        AdminReviews.init();
+    }
+    // 2. Инициализация глобальных элементов (Меню есть на ВСЕХ страницах)
+    // Ставим это в конец, без проверок if, так как сайдбар есть везде.
+    if (typeof AdminSidebar !== 'undefined') {
+        AdminSidebar.init();
+    }
 });
 
+// === УПРАВЛЕНИЕ БАННЕРАМИ (ФОТО + ВИДЕО CROP) ===
+const AdminBanners = {
+    cropper: null,
+    currentFile: null,
+    isEditMode: false, // Редактируем старый или грузим новый?
+    editId: null,      // ID баннера при редактировании
+
+    init: function() {
+        if (!document.getElementById('bannersGrid')) return;
+        this.lang = document.documentElement.lang === 'uk' ? 'ua' : 'ru';
+        this.load();
+    },
+
+    load: async function() {
+        const container = document.getElementById('bannersGrid');
+        try {
+            const res = await fetch('/api/admin/banners');
+            const data = await res.json();
+            if (data.success) this.render(data.banners);
+        } catch(e) { console.error(e); }
+    },
+
+    render: function(list) {
+        const container = document.getElementById('bannersGrid');
+        const isUA = this.lang === 'ua';
+
+        if (list.length === 0) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:#94a3b8;">${isUA ? 'Банерів немає.' : 'Баннеров нет.'}</div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(b => {
+            let mediaHtml = '';
+
+            if (b.file_type === 'video') {
+                // ИЗМЕНЕНИЯ:
+                // 1. Убрал autoplay
+                // 2. onmouseenter/leave перенес на DIV-обертку
+                // 3. pointer-events: none осталось на видео, чтобы не было кнопок браузера
+                mediaHtml = `
+                <div style="position:relative; width:100%; height:120px; overflow:hidden; background:#000; cursor: pointer;"
+                     onmouseenter="const v = this.querySelector('video'); v.play();"
+                     onmouseleave="const v = this.querySelector('video'); v.pause(); v.currentTime = 0;">
+
+                    <video src="${b.filename}"
+                           style="width:100%; height:100%; object-fit:contain; ${b.css_style}; pointer-events: none;"
+                           muted loop playsinline disablepictureinpicture tabindex="-1">
+                    </video>
+
+                    <div style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10;"></div>
+                </div>`;
+            } else {
+                mediaHtml = `<img src="${b.filename}" class="banner-preview">`;
+            }
+
+            const visBadge = b.is_visible
+                ? `<span class="badge badge-vis">OK</span>`
+                : `<span class="badge badge-hid">OFF</span>`;
+
+            const btnEditTitle = isUA ? 'Змінити область' : 'Изменить область';
+
+            return `
+            <div class="banner-card" data-id="${b.id}" data-type="${b.file_type}" data-src="${b.filename}">
+                ${mediaHtml}
+                <div class="banner-footer">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="drag-handle" title="Move">:::</div>
+                        ${visBadge}
+                    </div>
+                    <div class="action-group">
+                        <button class="btn-icon" title="${btnEditTitle}" onclick="AdminBanners.editCrop(${b.id}, '${b.filename}', '${b.file_type}')">✂️</button>
+                        <button class="btn-icon" onclick="AdminBanners.toggleVis(${b.id}, ${b.is_visible})">${b.is_visible ? '👁️' : '🙈'}</button>
+                        <button class="btn-icon red" onclick="AdminBanners.delete(${b.id})">🗑️</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        new Sortable(container, {
+            handle: '.drag-handle',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: () => this.saveOrder()
+        });
+    },
+
+    // === 1. ЗАГРУЗКА НОВОГО ФАЙЛА ===
+    handleFileSelect: async function(input) {
+        if (!input.files || !input.files[0]) return;
+        this.currentFile = input.files[0];
+        this.isEditMode = false;
+
+        const isVideo = this.currentFile.type.startsWith('video/');
+
+        if (isVideo) {
+            // Для видео: извлекаем кадр для Кроппера
+            await this.openVideoCropper(this.currentFile);
+        } else {
+            // Для фото: обычный ридер
+            const reader = new FileReader();
+            reader.onload = (e) => this.initCropper(e.target.result, false);
+            reader.readAsDataURL(this.currentFile);
+        }
+        input.value = '';
+    },
+
+    // === 2. РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕГО ===
+    editCrop: async function(id, src, type) {
+        this.isEditMode = true;
+        this.editId = id;
+
+        if (type === 'video') {
+            // Грузим видео как Blob (чтобы захватить кадр), или пробуем captureVideoFrame по URL
+            // Упростим: просто создадим видео элемент с src
+            this.captureFrameFromUrl(src);
+        } else {
+            // Для картинок редактирование кропа невозможно без оригинала.
+            // Но пользователь просил "править".
+            // Если картинка уже обрезана, мы можем только обрезать её ЕЩЕ раз.
+            this.initCropper(src, false);
+        }
+    },
+
+    // --- ЛОГИКА ВИДЕО: Получить кадр ---
+    openVideoCropper: function(file) {
+        const url = URL.createObjectURL(file);
+        this.captureFrameFromUrl(url);
+    },
+
+    captureFrameFromUrl: function(url) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.muted = true;
+        video.crossOrigin = "anonymous"; // важно для существующих файлов
+        video.currentTime = 1; // Берем кадр на 1й секунде
+
+        video.onloadeddata = async () => {
+             // Ждем чуть-чуть, чтобы кадр точно отрендерился
+             video.play(); // Запускаем на миг
+             setTimeout(() => {
+                 video.pause();
+                 const canvas = document.createElement('canvas');
+                 canvas.width = video.videoWidth;
+                 canvas.height = video.videoHeight;
+                 const ctx = canvas.getContext('2d');
+                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                 const dataUrl = canvas.toDataURL();
+                 this.initCropper(dataUrl, true); // true = isVideo
+             }, 300);
+        };
+        video.load();
+    },
+
+    // --- ЗАПУСК КРОППЕРА (ОБЩИЙ) ---
+    initCropper: function(imgSrc, isVideoContext) {
+        const image = document.getElementById('cropImage');
+        image.src = imgSrc;
+        this.isVideoContext = isVideoContext;
+
+        document.getElementById('cropModal').classList.add('active');
+
+        // Удаляем старый, если был
+        if (this.cropper) this.cropper.destroy();
+
+        this.cropper = new Cropper(image, {
+            viewMode: 1, // Ограничить рамками
+            autoCropArea: 0.8,
+            zoomable: true,
+            movable: true,
+            // Для видео свободный аспект (или можно задать 3/1 как у баннера)
+            aspectRatio: NaN,
+        });
+    },
+
+    // === 3. ПОДТВЕРЖДЕНИЕ ===
+    confirmCrop: function() {
+        if (!this.cropper) return;
+
+        // A) Если это КАРТИНКА и мы грузим НОВУЮ -> Физическая обрезка
+        if (!this.isVideoContext && !this.isEditMode) {
+            this.cropper.getCroppedCanvas().toBlob((blob) => {
+                const ext = this.currentFile.name.split('.').pop() || 'jpg';
+                const newFile = new File([blob], "banner." + ext, { type: "image/" + ext });
+                this.uploadFile(newFile, ''); // Стиль пустой, так как файл обрезан
+                this.closeCropModal();
+            });
+            return;
+        }
+
+        // B) Если это ВИДЕО или РЕДАКТИРОВАНИЕ -> Виртуальная обрезка (CSS)
+        // Считаем проценты
+        const data = this.cropper.getData(); // x, y, width, height (px)
+        const imgData = this.cropper.getImageData(); // naturalWidth, naturalHeight
+
+        // Формула CSS для зума в точку:
+        // Контейнер (на сайте) имеет overflow:hidden.
+        // Видео внутри должно быть растянуто так, чтобы видимая зона заполнила контейнер.
+
+        // 1. Считаем Scale (насколько кроп меньше оригинала)
+        // scale = naturalWidth / cropWidth
+        const scaleX = imgData.naturalWidth / data.width;
+        const scaleY = imgData.naturalHeight / data.height;
+        // Берем максимальный скейл, чтобы заполнить (обычно cover)
+        // Но для точного позиционирования:
+
+        // Простой CSS метод:
+        // width: (100 * scaleX)%
+        // transform: translate( -x_percent%, -y_percent% )
+
+        const widthPct = (imgData.naturalWidth / data.width) * 100;
+        const heightPct = (imgData.naturalHeight / data.height) * 100;
+
+        const xPct = (data.x / imgData.naturalWidth) * 100;
+        const yPct = (data.y / imgData.naturalHeight) * 100;
+
+        // Чтобы сместить правильно при увеличенной ширине:
+        // margin-left = - (x / crop_width) * 100% ... это сложно для margin.
+        // Используем object-position? Нет, он не зумит (только позиционирует внутри cover).
+        // Используем transform: scale и transform-origin?
+
+        // САМЫЙ НАДЕЖНЫЙ ВАРИАНТ:
+        // width: ${widthPct}%;
+        // height: ${heightPct}%;
+        // margin-left: -${xPct * (widthPct/100)}%;  <-- нет, это от родителя
+        // transform: translate(-${(data.x / data.width) * 100}%, -${(data.y / data.height) * 100}%) <-- нет, это от самого элемента
+
+        // Давайте проще:
+        // Мы растягиваем видео до widthPct.
+        // И сдвигаем его влево на data.x (в процентах от НОВОЙ ширины).
+
+        const cssStyle = `
+            width: ${widthPct.toFixed(2)}% !important;
+            height: ${heightPct.toFixed(2)}% !important;
+            max-width: none !important;
+            transform: translate(-${((data.x / imgData.naturalWidth)*100).toFixed(2)}%, -${((data.y / imgData.naturalHeight)*100).toFixed(2)}%) !important;
+            transform-origin: 0 0 !important;
+            object-fit: fill !important;
+        `;
+
+        if (this.isEditMode) {
+            // Просто обновляем стиль в БД
+            this.updateStyle(this.editId, cssStyle);
+        } else {
+            // Грузим файл + стиль
+            this.uploadFile(this.currentFile, cssStyle);
+        }
+        this.closeCropModal();
+    },
+
+    closeCropModal: function() {
+        document.getElementById('cropModal').classList.remove('active');
+        if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
+    },
+
+    // --- API ЗАПРОСЫ ---
+    uploadFile: async function(file, cssStyle) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('css_style', cssStyle);
+
+        const btn = document.querySelector('.btn-primary');
+        const oldText = btn.textContent;
+        btn.textContent = '⏳...'; btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/admin/banner/upload', { method: 'POST', body: formData });
+            const d = await res.json();
+            if (d.success) this.load();
+            else alert('Error: ' + d.error);
+        } catch(e) { console.error(e); }
+        btn.textContent = oldText; btn.disabled = false;
+    },
+
+    updateStyle: async function(id, cssStyle) {
+        try {
+            await fetch('/api/admin/banner/update_style', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id, css_style: cssStyle})
+            });
+            this.load();
+        } catch(e) { console.error(e); }
+    },
+
+    delete: async function(id) {
+        if(!confirm('Удалить?')) return;
+        await fetch('/api/admin/banner/delete', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({id})
+        });
+        this.load();
+    },
+
+    toggleVis: async function(id, cur) {
+        await fetch('/api/admin/banner/visibility', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({id, is_visible: !cur})
+        });
+        this.load();
+    },
+
+    saveOrder: async function() {
+        const ids = Array.from(document.querySelectorAll('.banner-card')).map(el => el.getAttribute('data-id'));
+        await fetch('/api/admin/banner/reorder', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ids})
+        });
+    }
+};
+
+// === АДМИНКА ОТЗЫВОВ ===
+const AdminReviews = {
+    lang: 'ru', // По умолчанию
+
+    init: function() {
+        // Определяем язык по тегу html или URL
+        this.lang = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/') ? 'ua' : 'ru';
+
+        if (document.getElementById('reviewsContainer')) {
+            this.load();
+        }
+    },
+
+    load: async function() {
+        const container = document.getElementById('reviewsContainer');
+        const loadingText = this.lang === 'ua' ? 'Завантаження...' : 'Загрузка...';
+        container.innerHTML = `<div style="text-align:center; padding:20px;">${loadingText}</div>`;
+
+        try {
+            const res = await fetch('/api/admin/reviews');
+            const data = await res.json();
+            if (data.success) {
+                this.render(data.reviews);
+            } else {
+                container.innerHTML = 'Error';
+            }
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = 'Connection Error';
+        }
+    },
+
+    render: function(list) {
+        const container = document.getElementById('reviewsContainer');
+        const isUA = this.lang === 'ua';
+
+        if (list.length === 0) {
+            container.innerHTML = `<div style="text-align:center;">${isUA ? 'Відгуків поки немає' : 'Отзывов пока нет'}</div>`;
+            return;
+        }
+
+        const TEXT = {
+            replyLabel: isUA ? 'Відповідь адміністратора:' : 'Ответ администратора:',
+            placeholder: isUA ? 'Напишіть відповідь...' : 'Напишите ответ...',
+            visible: isUA ? '👁️ Видно' : '👁️ Виден',
+            hidden: isUA ? '🙈 Приховано' : '🙈 Скрыт',
+            delete: isUA ? 'Видалити' : 'Удалить',
+            save: isUA ? 'Зберегти' : 'Сохранить',
+            confirmDel: isUA ? 'Видалити цей відгук безповоротно?' : 'Удалить этот отзыв безвозвратно?',
+            saved: isUA ? 'Збережено!' : 'Сохранено!'
+        };
+
+        container.innerHTML = list.map(r => {
+            const replyVal = r.reply || '';
+            const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+
+            const isVis = (r.is_visible == 1) ? 1 : 0;
+            const isHiddenClass = isVis ? '' : 'hidden-rev';
+            const visBtnText = isVis ? TEXT.visible : TEXT.hidden;
+
+            return `
+            <div class="rev-admin-card ${isHiddenClass}" id="arev-${r.id}">
+                <div class="ra-head">
+                    <div>
+                        <span class="ra-author">${r.author}</span>
+                        <span style="color:#f59e0b; margin-left:8px;">${stars}</span>
+                    </div>
+                    <div class="ra-date">${r.date}</div>
+                </div>
+                <div class="ra-text">${r.comment}</div>
+
+                <div class="ra-reply-box">
+                    <label class="ra-reply-label">${TEXT.replyLabel}</label>
+                    <textarea class="ra-textarea" id="reply-${r.id}" placeholder="${TEXT.placeholder}">${replyVal}</textarea>
+                    <div class="ra-actions">
+                        <div>
+                            <button class="btn-small btn-vis" onclick="AdminReviews.toggleVis(${r.id}, ${isVis})">${visBtnText}</button>
+                            <button class="btn-small btn-red" onclick="AdminReviews.delete(${r.id}, '${TEXT.confirmDel}')">${TEXT.delete}</button>
+                        </div>
+                        <button class="btn-small btn-blue" onclick="AdminReviews.saveReply(${r.id}, '${TEXT.saved}')">${TEXT.save}</button>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    },
+
+    saveReply: async function(id, successMsg) {
+        const text = document.getElementById(`reply-${id}`).value;
+        try {
+            const res = await fetch('/api/admin/review/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, reply: text })
+            });
+            const d = await res.json();
+            if(d.success) {
+                alert(successMsg);
+                this.load();
+            }
+        } catch(e){ alert('Error'); }
+    },
+
+    toggleVis: async function(id, curState) {
+        const newState = (curState == 1) ? 0 : 1;
+        try {
+            const res = await fetch('/api/admin/review/visibility', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, is_visible: newState })
+            });
+            if (res.ok) {
+                this.load();
+            } else {
+                alert('Server Error');
+            }
+        } catch(e){ console.error(e); }
+    },
+
+    delete: async function(id, confirmMsg) {
+        if(!confirm(confirmMsg)) return;
+        try {
+            await fetch('/api/admin/review/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            });
+            document.getElementById(`arev-${id}`).remove();
+        } catch(e){ alert('Error'); }
+    }
+};
+
+// === СИСТЕМА УВЕДОМЛЕНИЙ В МЕНЮ ===
+const AdminSidebar = {
+    init: function() {
+        this.checkReviewsBadge();
+    },
+
+    checkReviewsBadge: async function() {
+        // Ищем ссылку "Отзывы" в меню (ищем по части ссылки 'reviews')
+        const links = document.querySelectorAll('.nav-links a');
+        let reviewLink = null;
+        links.forEach(a => {
+            const href = a.getAttribute('href');
+            if (href && href.includes('reviews')) reviewLink = a;
+        });
+
+        if (!reviewLink) return;
+
+        try {
+            // 1. Узнаем, сколько всего отзывов в базе
+            const res = await fetch('/api/admin/reviews/count_all');
+            const data = await res.json();
+
+            if (data.success) {
+                const serverCount = data.count;
+
+                // 2. Узнаем, сколько мы видели в последний раз
+                const localCount = parseInt(localStorage.getItem('admin_reviews_seen_count') || '0');
+
+                // 3. Если мы сейчас НА странице отзывов — обновляем просмотры сразу
+                if (window.location.href.includes('/reviews')) {
+                    localStorage.setItem('admin_reviews_seen_count', serverCount);
+                    return; // Бейдж не нужен, мы уже тут и всё видим
+                }
+
+                // 4. Считаем разницу
+                const newItems = serverCount - localCount;
+
+                if (newItems > 0) {
+                    // Рисуем кружочек
+                    const badge = document.createElement('span');
+                    badge.style.background = '#ef4444';
+                    badge.style.color = 'white';
+                    badge.style.fontSize = '11px';
+                    badge.style.fontWeight = 'bold';
+                    badge.style.padding = '2px 6px';
+                    badge.style.borderRadius = '10px';
+                    badge.style.marginLeft = '8px';
+                    badge.style.verticalAlign = 'middle';
+                    badge.textContent = `+${newItems}`;
+
+                    reviewLink.appendChild(badge);
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка проверки уведомлений:', e);
+        }
+    }
+};

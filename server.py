@@ -123,9 +123,22 @@ def init_db():
                 comment TEXT,
                 date TEXT,
                 reply TEXT, 
-                is_visible INTEGER DEFAULT 1
+                is_visible INTEGER DEFAULT 1,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        # 6. БАННЕРЫ (Добавляем новую таблицу)
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS banners (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        filename TEXT NOT NULL,
+                        file_type TEXT DEFAULT 'image', -- 'image' или 'video'
+                        position INTEGER DEFAULT 0,
+                        is_visible INTEGER DEFAULT 1,
+                        created_at TEXT
+                    )
+                ''')
 
         # === ВАЖНЫЕ МИГРАЦИИ ===
         # Этот блок спасет твою админку. Он добавляет колонки в старую таблицу orders.
@@ -182,6 +195,16 @@ def init_db():
             pass
 
         cleanup_deleted_products()  # Запуск очистки при старте
+
+        # --- Вставь это в init_db() или в начало запуска ---
+        # Проверяем, есть ли колонка css_style в таблице banners
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("ALTER TABLE banners ADD COLUMN css_style TEXT DEFAULT ''")
+                print("✅ Added css_style column to banners")
+            except sqlite3.OperationalError:
+                pass  # Колонка уже есть
 
         for table, col, dtype in columns_to_add:
             try:
@@ -1414,6 +1437,252 @@ def public_search_api():
             results.append(p)
 
     return jsonify({"success": True, "results": results})
+
+
+# === СТРАНИЦА БАННЕРОВ ===
+@app.route('/admin/<lang>/banners')
+def admin_banners_page(lang):
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/banners')
+    if not session.get('admin_logged_in'): return redirect(f'/admin/{lang}/login')
+    try:
+        # Мы создадим этот файл на Шаге 2
+        with open(f'admin/{lang}/banners.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    except FileNotFoundError:
+        return f"Error: File admin/{lang}/banners.html not found!"
+
+
+# === API: СПИСОК БАННЕРОВ (АДМИН) ===
+@app.route('/api/admin/banners', methods=['GET'])
+def admin_get_banners():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        # Сортируем по позиции
+        rows = conn.execute("SELECT * FROM banners ORDER BY position ASC").fetchall()
+        banners = [dict(r) for r in rows]
+    return jsonify({"success": True, "banners": banners})
+
+
+# === API: ЗАГРУЗКА БАННЕРА ===
+@app.route('/api/admin/banner/upload', methods=['POST'])
+def admin_upload_banner():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    if 'file' not in request.files: return jsonify({"success": False, "error": "No file"})
+    file = request.files['file']
+    css_style = request.form.get('css_style', '')  # <--- ПОЛУЧАЕМ СТИЛЬ
+
+    if file.filename == '': return jsonify({"success": False, "error": "Empty filename"})
+
+    ALLOWED_BANNERS = {'png', 'jpg', 'jpeg', 'webp', 'mp4', 'webm'}
+    ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+
+    if ext not in ALLOWED_BANNERS:
+        return jsonify({"success": False, "error": "Invalid file type"})
+
+    file_type = 'video' if ext in ['mp4', 'webm'] else 'image'
+    BANNER_FOLDER = 'assets/banners'
+    if not os.path.exists(BANNER_FOLDER): os.makedirs(BANNER_FOLDER)
+
+    filename = secure_filename(file.filename)
+    ts = int(datetime.now().timestamp())
+    filename = f"{ts}_{filename}"
+
+    file.save(os.path.join(BANNER_FOLDER, filename))
+    web_path = f"/assets/banners/{filename}"
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT MAX(position) FROM banners")
+        res = cursor.fetchone()
+        pos = (res[0] + 1) if (res and res[0] is not None) else 0
+
+        # Сохраняем css_style
+        cursor.execute(
+            "INSERT INTO banners (filename, file_type, position, is_visible, created_at, css_style) VALUES (?, ?, ?, ?, ?, ?)",
+            (web_path, file_type, pos, 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), css_style))
+        conn.commit()
+
+    return jsonify({"success": True})
+
+@app.route('/api/admin/banner/update_style', methods=['POST'])
+def admin_banner_update_style():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE banners SET css_style = ? WHERE id = ?", (data['css_style'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
+# === API: УДАЛЕНИЕ БАННЕРА ===
+@app.route('/api/admin/banner/delete', methods=['POST'])
+def admin_delete_banner():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    bid = data.get('id')
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Сначала получаем имя файла, чтобы удалить с диска
+        cursor.execute("SELECT filename FROM banners WHERE id=?", (bid,))
+        row = cursor.fetchone()
+        if row:
+            # Путь в базе начинается с /, убираем его для os.remove
+            file_path = row[0].lstrip('/')
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+
+            cursor.execute("DELETE FROM banners WHERE id=?", (bid,))
+            conn.commit()
+
+    return jsonify({"success": True})
+
+
+# === API: ВИДИМОСТЬ БАННЕРА ===
+@app.route('/api/admin/banner/visibility', methods=['POST'])
+def admin_banner_visibility():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE banners SET is_visible = ? WHERE id = ?", (data['is_visible'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: СОРТИРОВКА БАННЕРОВ ===
+@app.route('/api/admin/banner/reorder', methods=['POST'])
+def admin_banner_reorder():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    ids = request.json.get('ids', [])
+    with sqlite3.connect(DB_NAME) as conn:
+        for idx, bid in enumerate(ids):
+            conn.execute("UPDATE banners SET position = ? WHERE id = ?", (idx, bid))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === ПУБЛИЧНЫЙ API ДЛЯ ГЛАВНОЙ СТРАНИЦЫ ===
+@app.route('/api/banners', methods=['GET'])
+def public_get_banners():
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        # ВАЖНО: Добавили css_style в выборку
+        rows = conn.execute("SELECT filename, file_type, css_style FROM banners WHERE is_visible = 1 ORDER BY position ASC").fetchall()
+        banners = [dict(r) for r in rows]
+    return jsonify({"success": True, "banners": banners})
+
+# === API: ОТЗЫВЫ (ПУБЛИЧНЫЕ) ===
+@app.route('/api/reviews', methods=['GET'])
+def get_public_reviews():
+    # Получаем список видимых отзывов
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM reviews WHERE is_visible = 1 ORDER BY id DESC")
+        rows = cursor.fetchall()
+        reviews = [dict(r) for r in rows]
+    return jsonify({"success": True, "reviews": reviews})
+
+@app.route('/api/reviews/count', methods=['GET'])
+def get_reviews_count():
+    # Легкий запрос только для шапки (число)
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT count(*) FROM reviews WHERE is_visible = 1")
+        count = cursor.fetchone()[0]
+    return jsonify({"success": True, "count": count})
+
+@app.route('/api/reviews/add', methods=['POST'])
+def add_public_review():
+    data = request.json
+    author = data.get('author')
+    rating = int(data.get('rating', 5))
+    comment = data.get('comment')
+    # Формируем дату как DD.MM.YYYY
+    date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+                    INSERT INTO reviews (product_id, author, rating, comment, date, is_visible) 
+                    VALUES (0, ?, ?, ?, ?, 1) 
+                """, (author, rating, comment, date_str))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: ОТЗЫВЫ (АДМИН) ===
+@app.route('/api/admin/reviews', methods=['GET'])
+def admin_get_reviews():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM reviews ORDER BY id DESC")
+        rows = cursor.fetchall()
+        reviews = [dict(r) for r in rows]
+    return jsonify({"success": True, "reviews": reviews})
+
+@app.route('/api/admin/review/delete', methods=['POST'])
+def admin_delete_review():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        # Полное удаление (или можно делать is_visible=0)
+        conn.execute("DELETE FROM reviews WHERE id = ?", (data['id'],))
+        conn.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/admin/review/reply', methods=['POST'])
+def admin_reply_review():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE reviews SET reply = ? WHERE id = ?", (data['reply'], data['id']))
+        conn.commit()
+    return jsonify({"success": True})
+
+@app.route('/admin/ru/reviews')
+def admin_reviews_page():
+    # Проверка авторизации (если она у вас так реализована)
+    if not session.get('admin_logged_in'):
+        return redirect('/admin/login')
+    # Отдаем файл reviews.html из папки admin/ru
+    return send_from_directory('admin/ru', 'reviews.html')
+
+@app.route('/api/admin/review/visibility', methods=['POST'])
+def admin_review_vis():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            # Обновляем статус is_visible
+            conn.execute("UPDATE reviews SET is_visible = ? WHERE id = ?", (data['is_visible'], data['id']))
+            conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"Error in visibility: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/admin/reviews/count_all', methods=['GET'])
+def admin_reviews_count_all():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Считаем ВСЕ отзывы (и видимые, и скрытые)
+        cursor.execute("SELECT count(*) FROM reviews")
+        count = cursor.fetchone()[0]
+    return jsonify({"success": True, "count": count})
+
+@app.route('/admin/ua/reviews')
+def admin_reviews_page_ua():
+    if not session.get('admin_logged_in'):
+        return redirect('/admin/ua/login')
+    return send_from_directory('admin/ua', 'reviews.html')
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

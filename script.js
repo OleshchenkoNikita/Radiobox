@@ -1,16 +1,11 @@
-// ===== BANNER SLIDER (устойчиво к file:// и без manifest) =====
+// ===== BANNER SLIDER (Поддержка БД и ВИДЕО) =====
 (function () {
     const root = document.getElementById('bannerSlider');
     if (!root) return;
 
-    const path = root.dataset.path || 'assets/banners/';
-    const AUTOPLAY_MS = 5000;
+    const AUTOPLAY_MS = 6000; // Чуть дольше, т.к. могут быть видео
 
-    // 1) Сначала читаем fallback-<img>, пока ВООБЩЕ НИЧЕГО не добавляли внутрь root
-    const fallbackImgs = Array.from(root.querySelectorAll(':scope > img[src]'))
-        .map(img => img.getAttribute('src'));
-
-    // 2) Сбор UI
+    // Сборка UI
     const viewport = document.createElement('div');
     viewport.className = 'rb-slider__viewport';
     const track = document.createElement('div');
@@ -22,59 +17,107 @@
     dots.className = 'rb-dots';
     root.appendChild(dots);
 
-    // helpers
-    const createSlide = (src, alt = '') => {
+    const createSlide = (item) => {
         const s = document.createElement('div');
         s.className = 'rb-slide';
-        const img = document.createElement('img');
-        img.src = src; img.alt = alt;
-        s.appendChild(img);
+        s.style.overflow = 'hidden';
+        s.style.position = 'relative';
+
+        let content;
+        if (item.file_type === 'video') {
+            // 1. Создаем обычное ВИДЕО
+            const vid = document.createElement('video');
+            vid.src = item.filename;
+
+            // Настройки для автовоспроизведения
+            vid.muted = true;      // Обязательно для автоплей
+            vid.loop = true;       // Зацикливание
+            vid.autoplay = true;   // Автостарт
+            vid.playsInline = true; // Для айфонов
+
+            // Атрибуты против интерфейса
+            vid.setAttribute('disablepictureinpicture', 'true');
+            vid.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback');
+            vid.setAttribute('tabindex', '-1');
+
+            // CSS стили
+            // pointerEvents = 'none' делает видео "прозрачным" для мыши
+            vid.style.pointerEvents = 'none';
+            vid.style.outline = 'none';
+            vid.style.border = 'none';
+
+            if (item.css_style) {
+                vid.style.cssText += item.css_style;
+                vid.style.position = 'absolute';
+                vid.style.top = '0';
+                vid.style.left = '0';
+
+                // Повторяем, так как cssText перезаписывает style
+                vid.style.pointerEvents = 'none';
+            } else {
+                vid.style.width = "100%";
+                vid.style.height = "100%";
+                vid.style.objectFit = "cover";
+                vid.style.pointerEvents = 'none';
+            }
+
+            // 2. Создаем ЩИТ (Оверлей)
+            // Это пустой блок, который лежит ПОВЕРХ видео.
+            // Браузер думает, что мышка ходит по нему, а не по видео.
+            const shield = document.createElement('div');
+            shield.style.position = 'absolute';
+            shield.style.top = '0';
+            shield.style.left = '0';
+            shield.style.width = '100%';
+            shield.style.height = '100%';
+            shield.style.zIndex = '10'; // Он выше видео
+            shield.style.background = 'transparent';
+
+            // Сначала добавляем видео, потом щит
+            s.appendChild(vid);
+            s.appendChild(shield);
+            return s;
+
+        } else {
+            // Картинка
+            const img = document.createElement('img');
+            img.src = item.filename;
+             if (item.css_style) {
+                img.style.cssText = item.css_style;
+                img.style.position = 'absolute';
+                img.style.top = '0';
+                img.style.left = '0';
+            }
+            s.appendChild(img);
+        }
         return s;
     };
+
     const setActiveDot = i => {
         dots.querySelectorAll('.rb-dot').forEach((d, idx) => d.classList.toggle('is-active', idx === i));
     };
 
-    async function getSrcList() {
-        // 0) inline <script type="application/json" id="bannerManifest">…</script>
-        const inline = document.getElementById('bannerManifest');
-        if (inline) {
-            try {
-                const arr = JSON.parse(inline.textContent);
-                return (Array.isArray(arr) ? arr : []).map(n =>
-                    /^https?:/i.test(n) ? n : (path.endsWith('/') ? path : (path + '/')) + n
-                );
-            } catch (e) {/* ignore */ }
-        }
-
-        // 1) fallback-<img> внутри #bannerSlider
-        if (fallbackImgs.length) return fallbackImgs;
-
-        // 2) внешний assets/banners/manifest.json (сработает на http/https)
+    // ЗАГРУЗКА ДАННЫХ ИЗ API
+    async function getDataList() {
         try {
-            const r = await fetch((path.endsWith('/') ? path : (path + '/')) + 'manifest.json', { cache: 'no-store' });
-            if (r.ok) {
-                const json = await r.json();
-                let arr = Array.isArray(json) ? json.slice()
-                    : (Array.isArray(json.files) ? json.files.slice() : []);
-                const order = (json.order || json.sort || '').toString().toLowerCase();
-                if (['oldest-first', 'asc', 'oldest'].includes(order)) arr.reverse();
-                else if (order === 'filename-desc') arr.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
-                return arr.map(n => /^https?:/i.test(n) ? n : (path.endsWith('/') ? path : (path + '/')) + n);
+            const r = await fetch('/api/banners');
+            const data = await r.json();
+            if (data.success && data.banners.length > 0) {
+                return data.banners;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.error("Banner API Error:", e); }
 
+        // Если API не ответил, возвращаем пустой массив (или можно оставить старый фоллбэк)
         return [];
     }
 
-    // Построение
     let idx = 0, count = 0, allow = true, timer = null;
 
     function translateTo(i, animate = true) {
         if (!animate) {
             track.style.transition = 'none';
             track.style.transform = `translateX(-${i * 100}%)`;
-            void track.offsetHeight; // reflow
+            void track.offsetHeight;
             track.style.transition = '';
         } else {
             track.style.transform = `translateX(-${i * 100}%)`;
@@ -88,7 +131,7 @@
         translateTo(idx, true);
         const onEnd = () => {
             track.removeEventListener('transitionend', onEnd);
-            if (idx === count) { // перескок с клона на начало
+            if (idx === count) {
                 idx = 0;
                 translateTo(0, false);
             }
@@ -101,20 +144,14 @@
     function stepBackward() {
         if (!allow) return;
         allow = false;
-
         if (idx === 0) {
             translateTo(count, false);
             idx = count - 1;
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    translateTo(idx, true);
-                });
-            });
+            requestAnimationFrame(() => requestAnimationFrame(() => translateTo(idx, true)));
         } else {
             idx--;
             translateTo(idx, true);
         }
-
         const onEnd = () => {
             track.removeEventListener('transitionend', onEnd);
             setActiveDot(idx);
@@ -123,72 +160,61 @@
         track.addEventListener('transitionend', onEnd, { once: true });
     }
 
-    function jumpSmart(target) {
-        if (count < 2 || target === idx) return;
-
-        const forward = target >= idx ? (target - idx) : (count - idx + target);
-        const backward = count - forward;
-        let steps = (backward < forward) ? backward : forward;
-        const stepFn = (backward < forward) ? stepBackward : stepForward;
-
-        const run = () => {
-            stepFn();
-            if (--steps <= 0) { restartAutoplay(); return; }
-            const once = () => { track.removeEventListener('transitionend', once); run(); };
-            track.addEventListener('transitionend', once, { once: true });
-        };
-        run();
-    }
-
     function startAutoplay() { stopAutoplay(); timer = setInterval(stepForward, AUTOPLAY_MS); }
     function stopAutoplay() { if (timer) clearInterval(timer); timer = null; }
     function restartAutoplay() { stopAutoplay(); startAutoplay(); }
 
+    // ГЛАВНЫЙ ЗАПУСК
     (async function () {
-        const srcs = await getSrcList();
+        const items = await getDataList();
 
-        // убираем fallback img из DOM (если были)
+        // Очищаем старые img внутри рута, если были
         root.querySelectorAll(':scope > img').forEach(n => n.remove());
 
-        if (!srcs.length) {
-            track.appendChild(createSlide('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='));
-            translateTo(0, false);
+        if (!items.length) {
+            // Если баннеров нет вообще, скрываем слайдер или показываем заглушку
+            root.style.display = 'none';
             return;
         }
 
-        // наполняем трек
-        srcs.forEach(src => track.appendChild(createSlide(src)));
-        // клон первого для бесшовной прокрутки
-        track.appendChild(createSlide(srcs[0]));
-        count = srcs.length;
+        // Наполняем трек
+        items.forEach(item => track.appendChild(createSlide(item)));
 
-        // точки
-        srcs.forEach((_, i) => {
+        // Клон первого для бесшовной прокрутки
+        track.appendChild(createSlide(items[0]));
+
+        count = items.length;
+
+        // Точки
+        items.forEach((_, i) => {
             const d = document.createElement('button');
             d.type = 'button'; d.className = 'rb-dot';
-            d.setAttribute('aria-label', `Перейти к баннеру ${i + 1}`);
             dots.appendChild(d);
         });
 
-        // начальные состояния
         translateTo(0, false);
         setActiveDot(0);
 
-        // события
+        // Клики по точкам
         dots.addEventListener('click', e => {
             const btn = e.target.closest('.rb-dot');
             if (!btn) return;
-            const all = [...dots.querySelectorAll('.rb-dot')];
-            const target = all.indexOf(btn);
-            if (target !== -1) jumpSmart(target);
+            const target = [...dots.querySelectorAll('.rb-dot')].indexOf(btn);
+            if (target !== -1 && target !== idx) {
+                // Упрощенный прыжок
+                idx = target;
+                translateTo(idx, true);
+                setActiveDot(idx);
+                restartAutoplay();
+            }
         });
 
+        // Пауза при наведении
         root.addEventListener('mouseenter', stopAutoplay);
         root.addEventListener('mouseleave', startAutoplay);
 
-        // стрелки
+        // Стрелки
         addArrows();
-
         startAutoplay();
     })();
 
@@ -204,14 +230,8 @@
         nav.append(prev, next);
         viewport.appendChild(nav);
 
-        prev.addEventListener('click', () => {
-            stepBackward();
-            restartAutoplay();
-        });
-        next.addEventListener('click', () => {
-            stepForward();
-            restartAutoplay();
-        });
+        prev.addEventListener('click', () => { stepBackward(); restartAutoplay(); });
+        next.addEventListener('click', () => { stepForward(); restartAutoplay(); });
     }
 })();
 
@@ -366,141 +386,107 @@ document.addEventListener("DOMContentLoaded", () => {
     else markCurrent(ru); // дефолт — RU
 })();
 
-// ===== Страница «Отзывы»: локаль, хранение, пагинация, форма =====
+// ===== Страница «Отзывы»: API Версия =====
 document.addEventListener('DOMContentLoaded', () => {
+    const wrap = document.getElementById('revList');
+    // Если на странице нет списка отзывов, выходим
+    if (!wrap) return;
+
     const _lang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
     const IS_RU = _lang.startsWith('ru');
 
-    // 🔤 Карта оценок (обе стороны)
-    const GRADE_MAP = IS_RU
-        ? { 'Відмінно': 'Отлично', 'Добре': 'Хорошо', 'Нейтрально': 'Нейтрально', 'Погано': 'Плохо', 'Дуже погано': 'Очень плохо' }
-        : { 'Отлично': 'Відмінно', 'Хорошо': 'Добре', 'Нейтрально': 'Нейтрально', 'Плохо': 'Погано', 'Очень плохо': 'Дуже погано' };
-
-    const RATING_TO_GRADE = (isRu) => isRu
-        ? { 5: 'Отлично', 4: 'Хорошо', 3: 'Нейтрально', 2: 'Плохо', 1: 'Очень плохо' }
-        : { 5: 'Відмінно', 4: 'Добре', 3: 'Нейтрально', 2: 'Погано', 1: 'Дуже погано' };
-
-    const tGrade = (txt) => GRADE_MAP[txt] || txt;
     const NEXT_LABEL = IS_RU ? 'Следующая страница' : 'Наступна сторінка';
     const PREV_LABEL = IS_RU ? 'Предыдущая страница' : 'Попередня сторінка';
     const OF_FIVE = IS_RU ? 'из 5' : 'з 5';
+    const ADMIN_REPLY_TITLE = IS_RU ? 'Ответ магазина RadioBox' : 'Відповідь магазину RadioBox';
 
-    // ====== localStorage helpers ======
-    const LS_KEY = 'rb_reviews_v1';
-    const loadSavedItems = () => {
+    // Константы
+    const PER_PAGE = 10; // Показывать по 10
+    let allReviews = [];
+    let currentPage = 1;
+
+    // --- 1. ЗАГРУЗКА ОТЗЫВОВ С СЕРВЕРА ---
+    async function loadReviews() {
+        wrap.innerHTML = '<div style="padding:20px; text-align:center;">Загрузка...</div>';
         try {
-            const s = localStorage.getItem(LS_KEY);
-            if (!s) return null;
-            const data = JSON.parse(s);
-            return Array.isArray(data?.items) ? data.items : null;
-        } catch { return null; }
-    };
-    const saveItems = (items) => {
-        try { localStorage.setItem(LS_KEY, JSON.stringify({ items })); } catch { }
-    };
-
-    // ====== дефолтные 5 штук ======
-    const DEFAULT_ITEMS = [
-        { author: "Володимир С.", date: "05.10.2025", rating: 5, gradeText: "Відмінно", comment: "Заказ из нескольких позиций был быстро собран и аккуратно упакован. Все товары отличного качества. Мне всё понравилось. Спасибо! Собираюсь заказывать тут и в дальнейшем" },
-        { author: "Павло С.", date: "02.10.2025", rating: 4, gradeText: "Добре", comment: "Всё как обычно на высоте" },
-        { author: "Александр Ш.", date: "28.09.2025", rating: 5, gradeText: "Відмінно", comment: "Спасибо все работает !!!" },
-        { author: "Сергій Т.", date: "17.09.2025", rating: 5, gradeText: "Відмінно", comment: "Вау" },
-        { author: "Андрій К.", date: "14.09.2025", rating: 4, gradeText: "Добре", comment: "Зручний магазин, швидка відправка." }
-    ];
-
-    // ====== состояние и константы пагинации ======
-    const PER_PAGE = 5;
-    let items = loadSavedItems() || DEFAULT_ITEMS.slice();
-
-    function updateTopbarReviewsCount() {
-        const el = document.querySelector('.b-head-control-panel__container .reviews .link');
-        if (!el) return;
-
-        // читаем localStorage
-        let n = 0;
-        try {
-            const raw = localStorage.getItem('rb_reviews_v1');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                n = Array.isArray(parsed?.items) ? parsed.items.length : 0;
+            const res = await fetch('/api/reviews');
+            const data = await res.json();
+            if (data.success) {
+                allReviews = data.reviews;
+                renderCurrent();
+                // Также обновляем счетчик в шапке, раз уж мы получили данные
+                updateHeaderCountDirectly(allReviews.length);
+            } else {
+                wrap.innerHTML = '<div style="color:red; text-align:center;">Ошибка загрузки</div>';
             }
-        } catch { }
-
-        // язык и склонение
-        const lang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-        const plural = (n, one, few, many) => {
-            const n10 = n % 10, n100 = n % 100;
-            return (n10 === 1 && n100 !== 11) ? one
-                : (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) ? few
-                    : many;
-        };
-
-        const txt = lang.startsWith('ru')
-            ? `${n} ${plural(n, 'отзыв', 'отзыва', 'отзывов')}`
-            : `${n} ${plural(n, 'відгук', 'відгуки', 'відгуків')}`;
-
-        el.textContent = txt;
-
-        // показать (убираем «скрыто»)
-        el.style.visibility = 'visible';      // если используешь visibility
-        el.classList.add('is-ready');         // если используешь вариант с opacity
+        } catch (e) {
+            console.error(e);
+            wrap.innerHTML = '<div style="color:red; text-align:center;">Ошибка соединения</div>';
+        }
     }
 
-    updateTopbarReviewsCount();
-
-    // читаем страницу из hash (#page=2) или ставим 1
-    const readPageFromHash = () => {
-        const m = location.hash.match(/page=(\d+)/i);
-        const p = m ? parseInt(m[1], 10) : 1;
-        return Number.isFinite(p) && p > 0 ? p : 1;
-    };
-    const setPageToHash = (p) => {
-        const newHash = `#page=${p}`;
-        if (location.hash !== newHash) history.replaceState(null, '', newHash);
-    };
-
-    let currentPage = clampPage(readPageFromHash());
-
-    function clampPage(p) {
-        const total = calcTotalPages();
-        return Math.min(Math.max(1, p), total || 1);
+    function updateHeaderCountDirectly(n) {
+        const el = document.querySelector('.reviews .link');
+        if(el && n > 0) el.textContent = IS_RU ? `${n} отзывов` : `${n} відгуків`;
     }
+
+    // --- 2. РЕНДЕР ---
     function calcTotalPages() {
-        return Math.max(1, Math.ceil(items.length / 5));
-    }
-    function pageSlice(page) {
-        const start = (page - 1) * 5;
-        return items.slice(start, start + 5);
+        return Math.max(1, Math.ceil(allReviews.length / PER_PAGE));
     }
 
-    // ====== иконка звезды ======
+    function pageSlice(page) {
+        const start = (page - 1) * PER_PAGE;
+        return allReviews.slice(start, start + PER_PAGE);
+    }
+
     const Star = (filled) => `
     <svg viewBox="0 0 24 24" ${filled ? "" : 'class="is-empty"'} aria-hidden="true">
       <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.62L12 2 9.19 8.62 2 9.24l5.46 4.73L5.82 21z" fill="currentColor" />
     </svg>`;
 
-    // ====== рендер списка отзывов ======
+    function getGradeText(rating) {
+        const map = IS_RU
+            ? { 5: 'Отлично', 4: 'Хорошо', 3: 'Нейтрально', 2: 'Плохо', 1: 'Очень плохо' }
+            : { 5: 'Відмінно', 4: 'Добре', 3: 'Нейтрально', 2: 'Погано', 1: 'Дуже погано' };
+        return map[rating] || '';
+    }
+
     function renderReviewsList(list) {
-        const wrap = document.getElementById('revList');
-        if (!wrap) return;
         wrap.innerHTML = '';
+        if (list.length === 0) {
+            wrap.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">${IS_RU ? 'Отзывов пока нет. Будьте первыми!' : 'Відгуків поки немає. Будьте першими!'}</div>`;
+            return;
+        }
+
         list.forEach(r => {
             const stars = Array.from({ length: 5 }, (_, i) => Star(i < r.rating)).join('');
+
+            // Проверка на ответ администратора
+            let replyHtml = '';
+            if (r.reply && r.reply.trim() !== '') {
+                replyHtml = `
+                <div style="margin-top:12px; background:#f1f5f9; padding:12px 16px; border-radius:8px; border-left:4px solid #0d2b4e; font-size:14px; color:#334155;">
+                    <div style="font-weight:700; color:#0d2b4e; margin-bottom:4px; font-size:13px; text-transform:uppercase;">${ADMIN_REPLY_TITLE}</div>
+                    ${r.reply}
+                </div>`;
+            }
+
             wrap.insertAdjacentHTML('beforeend', `
-        <article class="rev-card">
-          <header class="rev-head">
-            <div class="rev-author">${r.author}</div>
-            <div class="rev-date">${r.date}</div>
-            <div class="rev-stars" aria-label="Рейтинг: ${r.rating} ${OF_FIVE}">${stars}</div>
-            <div class="rev-grade">${tGrade(r.gradeText)}</div>
-          </header>
-          <div class="rev-text">${r.comment || ""}</div>
-        </article>
-      `);
+            <article class="rev-card">
+              <header class="rev-head">
+                <div class="rev-author">${r.author}</div>
+                <div class="rev-date">${r.date}</div>
+                <div class="rev-stars" aria-label="Рейтинг: ${r.rating} ${OF_FIVE}">${stars}</div>
+                <div class="rev-grade">${getGradeText(r.rating)}</div>
+              </header>
+              <div class="rev-text">${r.comment || ""}</div>
+              ${replyHtml}
+            </article>
+          `);
         });
     }
 
-    // ====== рендер пагинатора ======
     function renderPager() {
         const pager = document.getElementById('revPager');
         if (!pager) return;
@@ -510,126 +496,87 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '';
         if (total > 1) {
             html += `<a href="#" data-page="${cur - 1}" aria-label="${PREV_LABEL}" ${cur === 1 ? 'aria-disabled="true" style="pointer-events:none;opacity:.4;"' : ''}>←</a>`;
-            html += pageLink(1, cur);
-            if (total >= 2) html += pageLink(2, cur);
-            if (total > 3) html += `<span>…</span>`;
-            if (total >= 3) html += pageLink(total, cur);
+            for(let i=1; i<=total; i++) {
+                if (i === cur) html += `<a href="#" data-page="${i}" aria-current="page"><strong>${i}</strong></a>`;
+                else html += `<a href="#" data-page="${i}">${i}</a>`;
+            }
             html += `<a href="#" data-page="${cur + 1}" aria-label="${NEXT_LABEL}" ${cur === total ? 'aria-disabled="true" style="pointer-events:none;opacity:.4;"' : ''}>→</a>`;
         }
         pager.innerHTML = html;
-
-        function pageLink(i, cur) {
-            if (i === cur) return `<a href="#" data-page="${i}" aria-current="page"><strong>${i}</strong></a>`;
-            return `<a href="#" data-page="${i}">${i}</a>`;
-        }
     }
 
     function renderCurrent() {
-        currentPage = clampPage(currentPage);
-        setPageToHash(currentPage);
         renderReviewsList(pageSlice(currentPage));
         renderPager();
     }
 
+    // Пагинация (клик)
     document.getElementById('revPager')?.addEventListener('click', (e) => {
         const a = e.target.closest('a[data-page]');
         if (!a) return;
         e.preventDefault();
         const p = parseInt(a.dataset.page, 10);
-        if (!Number.isFinite(p)) return;
-        currentPage = clampPage(p);
-        renderCurrent();
+        if (p > 0 && p <= calcTotalPages()) {
+            currentPage = p;
+            renderCurrent();
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     });
 
-    window.addEventListener('hashchange', () => {
-        currentPage = clampPage(readPageFromHash());
-        renderCurrent();
-    });
-
-    // первоначальный рендер
-    renderCurrent();
-
-    // ====== форма ======
+    // --- 3. ФОРМА ДОБАВЛЕНИЯ ---
     const addBtn = document.querySelector('.btn-add-review');
     const form = document.getElementById('reviewForm');
-    const inpName = document.getElementById('rfName');
-    const radios = [...document.querySelectorAll('input[name="rating"]')];
-    const taComment = document.getElementById('rfComment');
-    const cntEl = document.getElementById('rfCnt');
     const btnCancel = document.getElementById('rfCancel');
 
-    function showForm() {
-        form.hidden = false;
-        addBtn?.closest('.reviews-actions')?.classList.add('is-hidden');
-        inpName?.focus();
-    }
-    function hideForm() {
-        form.hidden = true;
-        addBtn?.closest('.reviews-actions')?.classList.remove('is-hidden');
-        form.reset();
-        updateCounter();
-        clearErrors();
-    }
-    function clearErrors() {
-        const e1 = document.getElementById('errName');
-        const e2 = document.getElementById('errRating');
-        if (e1) e1.textContent = '';
-        if (e2) e2.textContent = '';
-    }
-    function updateCounter() {
-        if (!taComment || !cntEl) return;
-        cntEl.textContent = taComment.value.length.toString();
-    }
+    addBtn?.addEventListener('click', (e) => { e.preventDefault(); form.hidden = false; addBtn.closest('.reviews-actions').classList.add('is-hidden'); });
+    btnCancel?.addEventListener('click', (e) => { e.preventDefault(); form.hidden = true; addBtn.closest('.reviews-actions').classList.remove('is-hidden'); });
 
-    addBtn?.addEventListener('click', (e) => { e.preventDefault(); showForm(); });
-    btnCancel?.addEventListener('click', (e) => { e.preventDefault(); hideForm(); });
-    taComment?.addEventListener('input', updateCounter);
-    updateCounter();
-
-    form?.addEventListener('submit', (e) => {
+    form?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        clearErrors();
 
-        const name = (inpName?.value || '').trim();
-        const rEl = radios.find(r => r.checked);
-        const rate = rEl ? parseInt(rEl.value, 10) : NaN;
-        const text = (taComment?.value || '').trim();
-
-        let ok = true;
-        if (!name) { ok = false; document.getElementById('errName').textContent = IS_RU ? 'Укажите имя' : "Вкажіть ім'я"; }
-        if (!rate || rate < 1 || rate > 5) { ok = false; document.getElementById('errRating').textContent = IS_RU ? 'Выберите оценку' : 'Оберіть оцінку'; }
-        if (!ok) return;
-
-        // дата DD.MM.YYYY
-        const d = new Date();
-        const DD = String(d.getDate()).padStart(2, '0');
-        const MM = String(d.getMonth() + 1).padStart(2, '0');
-        const YYYY = d.getFullYear();
-        const dateStr = `${DD}.${MM}.${YYYY}`;
-
-        const gradeText = (IS_RU
-            ? { 5: 'Отлично', 4: 'Хорошо', 3: 'Нейтрально', 2: 'Плохо', 1: 'Очень плохо' }
-            : { 5: 'Відмінно', 4: 'Добре', 3: 'Нейтрально', 2: 'Погано', 1: 'Дуже погано' }
-        )[rate];
-
-        const newItem = {
-            id: Date.now(),
-            author: name,
-            date: dateStr,
-            rating: rate,
-            gradeText,
-            comment: text
+        const fData = new FormData(form);
+        const data = {
+            author: fData.get('author'),
+            rating: fData.get('rating'),
+            comment: fData.get('comment')
         };
 
-        items.unshift(newItem);
-        saveItems(items);
+        if(!data.author || !data.rating) {
+            alert(IS_RU ? 'Заполните имя и оценку' : "Заповніть ім'я та оцінку");
+            return;
+        }
 
-        currentPage = 1;
-        renderCurrent();
-        updateTopbarReviewsCount();
+        try {
+            const res = await fetch('/api/reviews/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const ans = await res.json();
 
-        hideForm();
+            if(ans.success) {
+                // 1. Скрываем форму
+                form.hidden = true;
+                addBtn.closest('.reviews-actions').classList.remove('is-hidden');
+                form.reset();
+
+                // 2. Обновляем список (но не скроллим!)
+                await loadReviews();
+
+                // СТРОКИ НИЖЕ УДАЛИТЬ ИЛИ ЗАКОММЕНТИРОВАТЬ:
+                // const yOffset = -150;
+                // const y = wrap.getBoundingClientRect().top + window.scrollY + yOffset;
+                // window.scrollTo({top: y, behavior: 'smooth'});
+            } else {
+                alert('Ошибка сервера');
+            }
+        } catch(err) {
+            alert('Ошибка сети');
+        }
     });
+
+    // Старт
+    loadReviews();
 });
 
 // === Автообновление боковых фонов (единый, без дублей) ===
@@ -2137,37 +2084,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function initHeaderInteractivity() {
         const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
 
-        // 1. === СЧЕТЧИК ОТЗЫВОВ ===
+        // 1. === СЧЕТЧИК ОТЗЫВОВ (С СЕРВЕРА) ===
         const reviewsLink = document.querySelector('.reviews .link');
         if (reviewsLink) {
-            try {
-                // Пытаемся достать реальное кол-во из памяти
-                const raw = localStorage.getItem('rb_reviews_v1');
-                const items = raw ? JSON.parse(raw).items : [];
-                const n = items ? items.length : 0;
+            fetch('/api/reviews/count')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.count > 0) {
+                        const n = data.count;
+                        const plural = (n, one, few, many) => {
+                            const n10 = n % 10, n100 = n % 100;
+                            if (n10 === 1 && n100 !== 11) return one;
+                            if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few;
+                            return many;
+                        };
+                        const txt = isUA
+                            ? `${n} ${plural(n, 'відгук', 'відгуки', 'відгуків')}`
+                            : `${n} ${plural(n, 'отзыв', 'отзыва', 'отзывов')}`;
 
-                // ЛОГИКА: Обновляем текст ТОЛЬКО если есть реальные отзывы (>0)
-                // Если n === 0, оставляем "1743", которые прописаны в HTML файле
-                if (n > 0) {
-                    const plural = (n, one, few, many) => {
-                        const n10 = n % 10, n100 = n % 100;
-                        if (n10 === 1 && n100 !== 11) return one;
-                        if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return few;
-                        return many;
-                    };
-
-                    const txt = isUA
-                        ? `${n} ${plural(n, 'відгук', 'відгуки', 'відгуків')}`
-                        : `${n} ${plural(n, 'отзыв', 'отзыва', 'отзывов')}`;
-
-                    reviewsLink.textContent = txt;
-                }
-
-                // Делаем видимым (на случай, если стили скрывают пустой блок)
-                reviewsLink.style.visibility = 'visible';
-                reviewsLink.style.opacity = '1';
-
-            } catch (e) { console.error('Ошибка счетчика отзывов:', e); }
+                        reviewsLink.textContent = txt;
+                        reviewsLink.style.visibility = 'visible';
+                        reviewsLink.style.opacity = '1';
+                    } else {
+                        // Если 0, можно скрыть или написать "0 отзывов"
+                        reviewsLink.textContent = isUA ? 'Відгуки' : 'Отзывы';
+                        reviewsLink.style.visibility = 'visible';
+                        reviewsLink.style.opacity = '1';
+                    }
+                })
+                .catch(e => console.error('Ошибка загрузки счетчика:', e));
         }
 
         // 2. === ГРАФИК РАБОТЫ (MODAL) ===

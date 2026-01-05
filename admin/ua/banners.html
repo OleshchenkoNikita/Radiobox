@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Банери — RadioBox Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+
+    <style>
+        body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background: #0d2b4e; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .nav-links { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+        .nav-links li a { display: block; padding: 12px 20px; color: #cbd5e1; text-decoration: none; font-weight: 600; transition:0.2s; border-left: 4px solid transparent; }
+        .nav-links li a:hover, .nav-links li a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #189BFF; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-logout { color: #fca5a5; text-decoration: none; font-size: 14px; font-weight: 600; }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .btn-primary { background: #189BFF; color: white; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; }
+
+        .banners-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .banner-card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative; border: 1px solid #e2e8f0; }
+        .banner-preview { width: 100%; height: 120px; object-fit: cover; background: #000; display: block; }
+        .banner-video-preview { width: 100%; height: 120px; object-fit: cover; background: #000; display: block; }
+
+        .banner-footer { padding: 10px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .drag-handle { cursor: grab; color: #94a3b8; font-size: 20px; padding: 0 10px; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+        .badge-vis { background: #dcfce7; color: #166534; }
+        .badge-hid { background: #f1f5f9; color: #94a3b8; }
+
+        .btn-icon { width: 30px; height: 30px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #64748b; }
+        .btn-icon:hover { color: #0f172a; border-color: #cbd5e1; }
+        .btn-icon.red:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+        .sortable-ghost { opacity: 0.5; background: #eff6ff; border: 1px dashed #189BFF; }
+        .admin-lang { font-size:14px; font-weight:600; margin-right: 20px; }
+        .admin-lang a { text-decoration:none; color:#94a3b8; margin-left:8px; }
+        .admin-lang a.active { color:#0f172a; text-decoration:underline; }
+
+        /* Модальное окно для Кропа */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; }
+        .crop-container { flex: 1; background: #333; overflow: hidden; max-height: 60vh; }
+        .crop-container img { max-width: 100%; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">RadioBox Seller</div>
+        <ul class="nav-links">
+            <li><a href="/admin/ua/dashboard">Замовлення</a></li>
+            <li><a href="/admin/ua/products">Товари</a></li>
+            <li><a href="/admin/ua/reviews">Відгуки</a></li>
+            <li><a href="/admin/ua/showcase.html">Вітрина (Сортування)</a></li>
+            <li><a href="/admin/ua/banners" class="active">Банери</a></li>
+            <li><a href="#" onclick="alert('Скоро: налаштування')">Налаштування</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="btn-logout">Вийти</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1 style="margin:0; font-size:24px;">Управління банерами</h1>
+            <div style="display:flex; align-items:center;">
+                <div class="admin-lang">
+                    <a href="/admin/ru/banners">RU</a>
+                    <a href="/admin/ua/banners" class="active">UA</a>
+                </div>
+
+                <input type="file" id="bannerUpload" style="display:none" accept="image/*,video/mp4,video/webm" onchange="AdminBanners.handleFileSelect(this)">
+
+                <button class="btn-primary" onclick="document.getElementById('bannerUpload').click()">+ Завантажити</button>
+            </div>
+        </div>
+
+        <p style="color:#64748b; font-size:14px; margin-top:-10px; margin-bottom:20px;">
+            Перетягуйте банери, щоб змінити їх порядок на головній. Завантажуйте зображення (з можливістю обрізки) або коротке відео.
+        </p>
+
+        <div id="bannersGrid" class="banners-grid">
+            <div style="grid-column:1/-1; text-align:center; padding:20px;">Завантаження...</div>
+        </div>
+    </main>
+
+    <div id="cropModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-top:0">Обрізка / Вибір області</h2>
+
+            <div class="crop-container">
+                <img id="cropImage" src="" style="max-width: 100%;">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="AdminBanners.closeCropModal()">Скасувати</button>
+                <button type="button" class="btn-primary" onclick="AdminBanners.confirmCrop()">ОК, Застосувати</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminBanners.init();
+        });
+    </script>
+</body>
+</html>
