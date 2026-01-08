@@ -893,7 +893,7 @@ def admin_update_status():
 
 # === НАСТРОЙКИ ЗАГРУЗКИ ===
 UPLOAD_FOLDER = 'assets/products'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi', 'mkv'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 

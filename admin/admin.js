@@ -249,6 +249,13 @@ const AdminProducts = {
 
     categories: {},
 
+    // Проверка, является ли файл видео (по расширению)
+    isVideo: function(path) {
+        if(!path) return false;
+        const ext = path.split('.').pop().toLowerCase();
+        return ['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext);
+    },
+
     init: function() {
         this.lang = document.documentElement.lang === 'uk' ? 'ua' : 'ru';
         if(window.location.pathname.includes('products')) {
@@ -455,6 +462,14 @@ const AdminProducts = {
     },
 
     render: function(list) {
+        const counterEl = document.getElementById('productsCounter');
+        if(counterEl) {
+            // Пишем просто число или "Активно: N"
+            const isUA = this.lang === 'ua';
+            const text = isUA ? `(Всього: ${list.length})` : `(Всего: ${list.length})`;
+            counterEl.textContent = text;
+        }
+
         const tbody = document.getElementById('productsTableBody');
         if (!tbody) return;
 
@@ -678,17 +693,33 @@ const AdminProducts = {
             document.getElementById('p_seo_desc').value = product.seo_description || '';
 
             // --- ЗАГРУЗКА ФОТО ---
+            // --- ЗАГРУЗКА ФОТО/ВИДЕО (ОБНОВЛЕНО) ---
             if(product.images && product.images.length > 0) {
-                 // 1. Главное фото (первое в массиве)
                  const mainImg = product.images[0];
+
                  if(mainImg) {
+                     // Устанавливаем путь в скрытое поле
                      document.getElementById('path_main').value = mainImg;
-                     document.getElementById('preview_main').src = mainImg;
-                     document.getElementById('preview_main').style.display = 'block';
-                     document.getElementById('placeholder_main').style.display = 'none';
+
+                     // Находим контейнер превью (квадратик)
+                     const previewImg = document.getElementById('preview_main');
+                     const container = previewImg.parentElement;
+
+                     // Генерируем HTML в зависимости от типа файла
+                     let mediaHtml = '';
+                     if (this.isVideo(mainImg)) {
+                         // Если видео — тег video с контролами
+                         mediaHtml = `<video id="preview_main" src="${mainImg}" style="width:100%; height:100%; object-fit:contain; display:block;" controls muted></video>`;
+                     } else {
+                         // Если фото — тег img
+                         mediaHtml = `<img id="preview_main" src="${mainImg}" style="width:100%; height:100%; object-fit:contain; display:block;">`;
+                     }
+
+                     // Переписываем содержимое квадратика: Медиа + Скрытая надпись "Нет фото"
+                     container.innerHTML = mediaHtml + `<span id="placeholder_main" style="display:none; font-size:11px; color:#94a3b8; text-align:center;">Нет фото</span>`;
                  }
 
-                 // 2. Галерея (все остальные, начиная со 2-го)
+                 // Загружаем остальные файлы в галерею
                  for(let i = 1; i < product.images.length; i++) {
                      this.addGalleryItem(product.images[i]);
                  }
@@ -752,11 +783,30 @@ const AdminProducts = {
             const data = await res.json();
             if(data.success) {
                 document.getElementById('path_main').value = data.path;
-                document.getElementById('preview_main').src = data.path;
-                document.getElementById('preview_main').style.display = 'block';
-                document.getElementById('placeholder_main').style.display = 'none';
+
+                // Логика отображения (Видео или Фото)
+                const container = document.getElementById('placeholder_main').parentElement;
+                // Ищем или создаем элемент
+                const isVid = this.isVideo(data.path);
+
+                // Очищаем контейнер (там был img#preview_main и span#placeholder)
+                // Но нам нужно сохранить структуру для чистоты, или просто перезаписать
+
+                let html = '';
+                if(isVid) {
+                    html = `<video src="${data.path}" style="width:100%; height:100%; object-fit:contain;" controls autoplay muted></video>`;
+                } else {
+                    html = `<img id="preview_main" src="${data.path}" style="width:100%; height:100%; object-fit:contain;">`;
+                }
+
+                // Добавляем плейсхолдер (скрытый), чтобы структура не ломалась при следующем открытии
+                html += `<span id="placeholder_main" style="display:none; font-size:11px; color:#94a3b8; text-align:center;">Нет фото</span>`;
+
+                container.innerHTML = html;
+
             } else { alert('Ошибка: ' + data.error); }
         } catch(e) { console.error(e); }
+        input.value = ''; // Сброс, чтобы можно было перезалить тот же файл
     },
 
     // === 4. ЗАГРУЗКА ГАЛЕРЕИ ===
@@ -778,16 +828,29 @@ const AdminProducts = {
         input.value = '';
     },
 
-    // Вспомогательная: рисует квадратик фото в галерее
+    // Вспомогательная: рисует квадратик фото или видео в галерее
     addGalleryItem: function(path) {
         const container = document.getElementById('gallery_container');
         const div = document.createElement('div');
-        div.style.cssText = 'position:relative; width:60px; height:60px; border:1px solid #ddd; border-radius:4px;';
+        div.style.cssText = 'position:relative; width:60px; height:60px; border:1px solid #ddd; border-radius:4px; background:#f8fafc; overflow:hidden;';
+
+        let mediaHtml = '';
+        if (this.isVideo(path)) {
+            // Если видео — показываем тег video
+            mediaHtml = `<video src="${path}" style="width:100%; height:100%; object-fit:cover;" muted></video>
+                         <div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                            <span style="color:white; font-size:20px; text-shadow:0 0 5px black;">▶</span>
+                         </div>`;
+        } else {
+            // Если фото
+            mediaHtml = `<img src="${path}" style="width:100%; height:100%; object-fit:cover;">`;
+        }
+
         div.innerHTML = `
-            <img src="${path}" style="width:100%; height:100%; object-fit:cover; border-radius:4px;">
+            ${mediaHtml}
             <input type="hidden" class="gallery-item-path" value="${path}">
             <button type="button" onclick="this.parentElement.remove()"
-                    style="position:absolute; top:-5px; right:-5px; background:red; color:white; border:none; border-radius:50%; width:16px; height:16px; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
+                    style="position:absolute; top:0px; right:0px; background:rgba(239, 68, 68, 0.9); color:white; border:none; width:18px; height:18px; font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
         `;
         container.appendChild(div);
     },

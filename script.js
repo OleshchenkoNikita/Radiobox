@@ -528,6 +528,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('reviewForm');
     const btnCancel = document.getElementById('rfCancel');
 
+    const txtArea = document.getElementById('rfComment');
+    const cntSpan = document.getElementById('rfCnt');
+
+    if (txtArea && cntSpan) {
+        txtArea.addEventListener('input', () => {
+            cntSpan.textContent = txtArea.value.length;
+        });
+    }
+
     addBtn?.addEventListener('click', (e) => { e.preventDefault(); form.hidden = false; addBtn.closest('.reviews-actions').classList.add('is-hidden'); });
     btnCancel?.addEventListener('click', (e) => { e.preventDefault(); form.hidden = true; addBtn.closest('.reviews-actions').classList.remove('is-hidden'); });
 
