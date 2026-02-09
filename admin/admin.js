@@ -529,6 +529,8 @@ const AdminProducts = {
 
             const displayTitle = isUA ? (p.title_ua || p.title_ru) : p.title_ru;
 
+            const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
+
             let actionsHtml = '';
             if (this.currentTab === 'deleted') {
                  actionsHtml = `<button class="btn-icon" title="Восстановить" onclick="AdminProducts.restore(${p.id})">♻️</button>`;
@@ -577,6 +579,7 @@ const AdminProducts = {
                 </td>
                 <td style="padding:10px; font-size:13px; color:#64748b;">${catMap[p.category] || this.categories[p.category] || p.category}</td>
                 <td style="padding:10px; font-weight:700;">${parseFloat(p.price).toFixed(2)} ₴</td>
+                <td style="padding:10px;"><b>${p.qty_stock || 0}</b> ${unitLabel}</td>
                 <td style="padding:10px;">${stockBadge}</td>
                 <td style="padding:10px; font-size:13px; color:#64748b;">${p.created_at ? p.created_at.split(' ')[0] : '-'}</td>
 
@@ -628,6 +631,49 @@ const AdminProducts = {
 
         // Открываем модалку с этими данными
         this.openModal(copyData);
+    },
+
+    // === СИНХРОНИЗАЦИЯ С KEEPINCRM ===
+    syncCrm: async function() {
+        const isUA = this.lang === 'ua';
+        const msg = isUA
+            ? 'Синхронізувати ціни та залишки з KeepinCRM?\nЦе оновить товари за збігом Артикулу (SKU).'
+            : 'Синхронизировать цены и остатки из KeepinCRM?\nЭто обновит товары по совпадению Артикула (SKU).';
+
+        if(!confirm(msg)) return;
+
+        // Ищем кнопку, чтобы показать анимацию загрузки
+        const btn = document.querySelector('button[onclick="AdminProducts.syncCrm()"]');
+        const oldText = btn ? btn.textContent : '';
+
+        if(btn) {
+            btn.textContent = '⏳...';
+            btn.disabled = true;
+        }
+
+        try {
+            const res = await fetch('/api/admin/sync_keepincrm', { method: 'POST' });
+            const data = await res.json();
+
+            if(btn) {
+                btn.textContent = oldText;
+                btn.disabled = false;
+            }
+
+            if(data.success) {
+                alert(data.message); // Покажет, сколько товаров обновлено
+                this.load(); // Перезагружаем таблицу, чтобы увидеть новые цены/остатки
+            } else {
+                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Ошибка сети / Server Error');
+            if(btn) {
+                btn.textContent = oldText;
+                btn.disabled = false;
+            }
+        }
     },
 
     // === НОВАЯ ФУНКЦИЯ ГАЛОЧКИ ВИТРИНЫ ===
@@ -682,6 +728,8 @@ const AdminProducts = {
             document.getElementById('p_title_ua').value = product.title_ua || product.title_ru;
             document.getElementById('p_sku').value = product.sku;
             document.getElementById('p_price').value = product.price;
+            document.getElementById('p_qty_stock').value = product.qty_stock || 0;
+            document.getElementById('p_unit').value = product.unit_type || 'pcs';
             document.getElementById('p_category').value = product.category;
             document.getElementById('p_stock').value = product.in_stock;
             document.getElementById('p_desc_ru').value = product.description_ru || '';
@@ -749,6 +797,8 @@ const AdminProducts = {
             title_ua: document.getElementById('p_title_ua').value,
             sku: document.getElementById('p_sku').value,
             price: document.getElementById('p_price').value,
+            qty_stock: document.getElementById('p_qty_stock').value,
+            unit_type: document.getElementById('p_unit').value,
             category: document.getElementById('p_category').value,
             in_stock: document.getElementById('p_stock').value,
             description_ru: document.getElementById('p_desc_ru').value,
@@ -967,6 +1017,7 @@ const AdminShowcase = {
         container.innerHTML = this.items.map((p, index) => {
             const img = (p.images && p.images[0]) ? p.images[0] : '';
             const title = isUA ? (p.title_ua || p.title_ru) : p.title_ru;
+            const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
 
             return `
             <div class="showcase-item" data-id="${p.id}">
@@ -1239,6 +1290,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Ставим это в конец, без проверок if, так как сайдбар есть везде.
     if (typeof AdminSidebar !== 'undefined') {
         AdminSidebar.init();
+    }
+    if (document.getElementById('s_site_url')) {
+        AdminSettings.init();
     }
 });
 
@@ -1741,5 +1795,104 @@ const AdminSidebar = {
         } catch (e) {
             console.error('Ошибка проверки уведомлений:', e);
         }
+    }
+};
+
+// === НАСТРОЙКИ И БЭКАПЫ ===
+const AdminSettings = {
+    init: function() {
+        if (!document.getElementById('s_site_url')) return;
+        this.load();
+        this.loadBackups();
+    },
+
+    openTab: function(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        // Находим кнопку, на которую нажали (по тексту или onclick, но проще перебором)
+        // В данном простом варианте подсветим нужную кнопку по индексу или просто логикой в HTML
+        // Упростим:
+        const btns = document.querySelectorAll('.tab-btn');
+        if(tabName === 'seo') btns[0].classList.add('active');
+        if(tabName === 'backups') btns[1].classList.add('active');
+        if(tabName === 'crm') btns[2].classList.add('active');
+    },
+
+    load: async function() {
+        try {
+            const res = await fetch('/api/admin/settings');
+            const data = await res.json();
+            if (data.success) {
+                const s = data.settings;
+                if(document.getElementById('s_site_url')) document.getElementById('s_site_url').value = s.site_url || '';
+                if(document.getElementById('s_google_ver')) document.getElementById('s_google_ver').value = s.google_verification || '';
+                if(document.getElementById('s_robots')) document.getElementById('s_robots').value = s.robots_txt || '';
+                if(document.getElementById('s_crm_key')) document.getElementById('s_crm_key').value = s.crm_api_key || '';
+            }
+        } catch(e) { console.error(e); }
+    },
+
+    save: async function() {
+        const data = {
+            site_url: document.getElementById('s_site_url').value,
+            google_verification: document.getElementById('s_google_ver').value,
+            robots_txt: document.getElementById('s_robots').value,
+            crm_api_key: document.getElementById('s_crm_key').value
+        };
+
+        try {
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const ans = await res.json();
+            if(ans.success) alert('Настройки сохранены!');
+            else alert('Ошибка');
+        } catch(e) { alert('Ошибка сети'); }
+    },
+
+    loadBackups: async function() {
+        const list = document.getElementById('backupsContainer');
+        if(!list) return;
+
+        try {
+            const res = await fetch('/api/admin/backups');
+            const data = await res.json();
+
+            if(data.success && data.backups.length > 0) {
+                list.innerHTML = data.backups.map(file => `
+                    <li class="backup-item">
+                        <div>
+                            <strong>${file}</strong>
+                        </div>
+                        <button class="btn-restore" onclick="AdminSettings.restore('${file}')">Восстановить</button>
+                    </li>
+                `).join('');
+            } else {
+                list.innerHTML = '<li style="padding:10px;">Бэкапов нет</li>';
+            }
+        } catch(e) { console.error(e); }
+    },
+
+    restore: async function(filename) {
+        if(!confirm(`ВНИМАНИЕ! \nВсе текущие изменения в базе (заказы, товары) будут потеряны и заменены версией от ${filename}.\n\nВы уверены?`)) return;
+
+        try {
+            const res = await fetch('/api/admin/backup/restore', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ filename })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('База восстановлена! Страница будет перезагружена.');
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        } catch(e) { alert('Ошибка сети'); }
     }
 };

@@ -133,18 +133,51 @@
 
     <!-- ===== ЛОГИКА ТОВАРА ===== -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const pid = params.get('id');
-            const LS_KEY = 'rb_catalog_v1_ua'; // !!! UA БАЗА
+            const LS_KEY = 'rb_catalog_v1_ua'; // UA КЛЮЧ
 
-            // Ссылка RU теперь должна сохранять ID
+            // Определяем язык текущей страницы
+            const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
+            // 1. Ссылки переключения языков
             const ruLink = document.getElementById('langRU');
-            if(ruLink && pid) ruLink.href = `../ru/product.html?id=${pid}`;
+            if (ruLink && pid) ruLink.href = `../product.html?id=${pid}`;
 
-            let items = [];
-            try { items = JSON.parse(localStorage.getItem(LS_KEY)).items || []; } catch {}
+            const uaLink = document.getElementById('langUA');
+            if (uaLink && pid) uaLink.href = `../ua/product.html?id=${pid}`;
 
+            // === 2. ФУНКЦИЯ ПОЛУЧЕНИЯ ДАННЫХ (Скачать, если нет в памяти) ===
+            async function getProductsData() {
+                // А. Пробуем LocalStorage
+                try {
+                    const cached = JSON.parse(localStorage.getItem(LS_KEY));
+                    if (cached && cached.items && cached.items.length > 0) {
+                        return cached.items;
+                    }
+                } catch (e) { console.error("Cache miss", e); }
+
+                // Б. Если пусто — качаем с сервера
+                console.log("Завантаження даних з сервера...");
+                try {
+                    const res = await fetch('/api/products');
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    const data = await res.json();
+                    if (data && data.items) {
+                        localStorage.setItem(LS_KEY, JSON.stringify(data));
+                        return data.items;
+                    }
+                } catch (err) {
+                    console.error("Error loading products:", err);
+                }
+                return [];
+            }
+
+            // Получаем товары (ждем загрузку)
+            let items = await getProductsData();
+
+            // Ищем текущий товар
             const product = items.find(p => p.id == pid);
             if (!product) {
                 document.getElementById('productContainer').style.display = 'none';
@@ -152,20 +185,36 @@
                 return;
             }
 
-            if (window.addToViewed) window.addToViewed(product.id);
+            // Запись в историю просмотров
+            if (window.addToViewedProducts) window.addToViewedProducts(product.id);
 
-            document.title = `RadioBox — ${product.title}`;
-            document.getElementById('crumbTitle').textContent = product.title;
-            document.getElementById('pTitle').textContent = product.title;
-            document.getElementById('pSku').textContent = product.sku;
-            document.getElementById('pPrice').textContent = product.price;
+            // === 3. ЗАПОЛНЕНИЕ ДАННЫХ ===
+
+            // Функция безопасного названия
+            function getSafeTitle(p) {
+                // Пытаемся найти хоть какое-то название
+                return p.title_ua || p.title || p.title_ru || 'Товар без назви';
+            }
+
+            const finalTitle = getSafeTitle(product);
+            document.title = finalTitle + " — RadioBox";
+            document.getElementById('crumbTitle').textContent = finalTitle;
+            document.getElementById('pTitle').textContent = finalTitle;
+            document.getElementById('pSku').textContent = product.sku || '-';
+            document.getElementById('pPrice').textContent = product.price || '0';
 
             // ФОТО
             const mainImg = document.getElementById('pImage');
             const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EФото%3C/text%3E%3C/svg%3E";
-            let imagesList = (product.images && product.images.length) ? product.images : (product.image ? [product.image] : [defaultImg]);
+
+            let imagesList = [];
+            if (product.images && product.images.length > 0) imagesList = product.images;
+            else if (product.image) imagesList = [product.image];
+            else imagesList = [defaultImg];
+
             mainImg.src = imagesList[0];
 
+            // Глобальная функция для клика по миниатюрам
             window.changeMainImage = (el, src) => {
                 document.getElementById('pImage').src = src;
                 document.querySelectorAll('.pp-thumb').forEach(t => t.classList.remove('is-active'));
@@ -175,7 +224,7 @@
             const track = document.getElementById('thTrack');
             track.innerHTML = imagesList.map((src, i) => `
                 <div class="pp-thumb ${i===0?'is-active':''}" onclick="changeMainImage(this, '${src}')">
-                    <img src="${src}" alt="">
+                    <img src="${src}" alt="Thumb">
                 </div>
             `).join('');
 
@@ -199,13 +248,33 @@
                 updateThSlider();
             }
 
-            // Статус
+            // Статус и Кнопка
             const stEl = document.getElementById('pStatus');
             const buyBtn = document.getElementById('pBuyBtn');
+
             if (product.in_stock) {
-                stEl.textContent = "Готовий до відправки";
+                const statusText = 'Готовий до відправки';
+                const leftText = 'На складі:';
+
+                // === ЗАМЕНИТЬ ЭТУ ЧАСТЬ ===
+                const uType = product.unit_type || 'pcs';
+                const unitText = (uType === 'set') ? 'комплект.' : 'шт.';
+
+                stEl.innerHTML = `${statusText} <span style="font-weight:400; color:#555; margin-left:8px;">(${leftText} <b>${product.qty_stock}</b> ${unitText})</span>`;
+                // ==========================
+
+                stEl.innerHTML = `${statusText} <span style="font-weight:400; color:#555; margin-left:8px;">(${leftText} <b>${product.qty_stock}</b> ${unitText})</span>`;
                 stEl.className = "pp-status is-instock";
-                buyBtn.onclick = () => { document.querySelector('[data-cart-open]').click(); };
+
+                // === ИСПРАВЛЕННАЯ ЛОГИКА КНОПКИ (С ЗАКРЫВАЮЩЕЙ СКОБКОЙ) ===
+                buyBtn.onclick = (e) => {
+                    if (e) e.stopPropagation();
+                    if(window.rbAddToCart) {
+                        window.rbAddToCart(product.id);
+                    } else {
+                        document.querySelector('[data-cart-open]').click();
+                    }
+                }; // <--- ВОТ ЭТА СКОБКА БЫЛА ПРОПУЩЕНА
             } else {
                 stEl.textContent = "Немає в наявності";
                 stEl.className = "pp-status is-out";
@@ -213,7 +282,7 @@
                 buyBtn.textContent = "Немає в наявності";
             }
 
-            document.getElementById('pDesc').innerHTML = product.description || "Опис відсутній.";
+            document.getElementById('pDesc').innerHTML = product.description_ua || product.description || "Опис відсутній.";
 
             // Категории (UA)
             const CATS = {
@@ -222,7 +291,7 @@
                 'consum': 'Витратні матеріали',
                 'osc': 'Осцилографи',
                 'prog': 'Програматори',
-                'meas': 'Вимірювальні прилади (мультиметри, тестери, щупи)',
+                'meas': 'Вимірювальні прилади',
                 'rmods': 'Радіомодулі',
                 'rparts': 'Радіодеталі',
                 'cables': 'Кабелі, розʼєми, штекери',
@@ -235,7 +304,7 @@
                 link.href = `type_of_product.html?cat=${product.category}`;
             }
 
-            // Сопутствующие
+            // Сопутствующие товары
             const related = items.filter(i => i.category === product.category && i.id != product.id).slice(0, 5);
             const relContainer = document.getElementById('relGrid');
             if (related.length) {
@@ -244,61 +313,25 @@
                 relContainer.innerHTML = '<div style="color:#999; font-size:13px; grid-column:1/-1;">Немає товарів</div>';
             }
 
-            // Просмотренные
-            if (window.getViewedProducts) {
-                const viewedIds = window.getViewedProducts();
-                const viewedItems = viewedIds.map(vid => items.find(i => i.id == vid)).filter(Boolean);
-                if (viewedItems.length > 0) {
-                    document.getElementById('viewedSection').hidden = false;
-                    initSlider('viewedTrack', 'vPrev', 'vNext', viewedItems);
-                }
-            }
+            // Виджет "Вы просматривали" (Скрываем, потому что он рисуется глобальным скриптом)
+            // Но если глобальный отключен, можно раскомментировать локальный рендер.
+            // Пока оставим пустым, так как script.js сделает это сам.
 
+            // Вспомогательная функция карточки
             function makeCardHTML(p) {
-                const img = p.image || defaultImg;
+                const img = (p.images && p.images[0]) ? p.images[0] : (p.image || '../assets/no-image.png');
+                const pTitle = getSafeTitle(p);
+                const qtyInfo = p.in_stock ? `<div style="font-size:11px; color:#888;">На складі: ${p.qty_stock}</div>` : '';
+
                 return `
-                <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
+                <div class="product-card is-clickable slider-item" style="padding:10px; width:160px; flex-shrink:0;" onclick="location.href='product.html?id=${p.id}'">
                     <div class="product-card__img" style="margin-bottom:8px;">
-                        <img src="${img}" style="max-height:100px;">
+                        <img src="${img}" style="max-height:100px; object-fit:contain; margin:0 auto; display:block;" loading="lazy">
                     </div>
-                    <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${p.title}</div>
-                    <div class="product-card__price" style="font-size:14px;">${p.price} ₴</div>
+                    <div class="product-card__title" style="font-size:13px; margin-bottom:4px; height: 36px; overflow: hidden;">${pTitle}</div>
+                    <div class="product-card__price" style="font-size:14px; font-weight:bold;">${p.price} ₴</div>
+                    ${qtyInfo}
                 </div>`;
-            }
-
-            function initSlider(trackId, prevBtnId, nextBtnId, itemsList) {
-                const track = document.getElementById(trackId);
-                const prev = document.getElementById(prevBtnId);
-                const next = document.getElementById(nextBtnId);
-
-                track.innerHTML = itemsList.map(p => makeCardHTML(p)).join('');
-
-                let currentIdx = 0;
-                const total = itemsList.length;
-                const visible = 3;
-
-                const updateSlider = () => {
-                    const firstItem = track.firstElementChild;
-                    if(!firstItem) return;
-                    const itemW = firstItem.offsetWidth;
-                    const gap = 16;
-                    const shift = (itemW + gap) * currentIdx;
-                    track.style.transform = `translateX(-${shift}px)`;
-
-                    prev.disabled = currentIdx === 0;
-                    next.disabled = currentIdx >= total - visible;
-                };
-
-                if (total <= visible) {
-                    prev.style.display = 'none';
-                    next.style.display = 'none';
-                }
-
-                prev.addEventListener('click', () => { if(currentIdx > 0) { currentIdx--; updateSlider(); } });
-                next.addEventListener('click', () => { if(currentIdx < total - visible) { currentIdx++; updateSlider(); } });
-
-                window.addEventListener('resize', updateSlider);
-                requestAnimationFrame(updateSlider);
             }
         });
     </script>
@@ -324,28 +357,6 @@
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
         });
     </script>
-
-    <!-- 1. График работы -->
-    <div id="modal-hours" class="hours-modal" aria-hidden="true">
-        <div class="hours-modal__backdrop"></div>
-        <section class="hours-modal__panel">
-            <header class="hours-modal__header"><h2 class="hours-modal__title">Графік роботи</h2><button class="hours-modal__close">×</button></header>
-            <div class="hours-modal__body">
-                <table class="hours-table">
-                    <thead><tr><th>День</th><th>Час роботи</th></tr></thead>
-                    <tbody>
-                        <tr><th>Понеділок</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Вівторок</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Середа</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Четвер</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>П’ятниця</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Субота</th><td>10:00 – 18:00</td></tr>
-                        <tr><th>Неділя</th><td>10:00 – 15:00</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </div>
 
     <!-- 2. Условия оплаты и доставки (UA) -->
     <div id="modal-delivery" class="hours-modal" aria-hidden="true">

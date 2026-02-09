@@ -1086,32 +1086,85 @@
         });
         if(textArea) textArea.addEventListener('input', () => { charCount.textContent = 254 - textArea.value.length; });
 
-        function loadCartData() {
-            let cart = []; try { cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || []; } catch(e){}
-            let catalog = []; try { catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru')).items || []; } catch(e){}
+        async function loadCartData() {
+            // 1. Берем корзину
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || []; } catch(e){}
+
             const sidebarList = document.getElementById('coItemsList');
             const drawerList = document.getElementById('odItemsList');
-            const sidebarTitle = document.getElementById('coTotalTitle');
-            const drawerCountTitle = document.getElementById('odTotalCount');
-            const elsPrice = ['coSumGoods', 'coFinalSum', 'odSumGoods', 'odFinalSum'];
 
+            // Если пусто
             if (cart.length === 0) {
                 if(sidebarList) sidebarList.innerHTML = '<div style="padding:10px; color:#888;">Кошик порожній</div>';
+                updateTotals(0, 0);
                 return;
             }
 
+            // 2. Пытаемся достать каталог (Сначала UA, потом RU)
+            let catalogItems = [];
+            try {
+                // Пробуем UA
+                let catRaw = localStorage.getItem('rb_catalog_v1_ua');
+                // Если нет, пробуем RU
+                if(!catRaw) catRaw = localStorage.getItem('rb_catalog_v1_ru');
+
+                if (catRaw) {
+                    catalogItems = JSON.parse(catRaw).items || [];
+                }
+            } catch(e) {}
+
+            // ВАЖНО: Если каталог пуст (например, перегрузили страницу), грузим его с сервера
+            if (catalogItems.length === 0) {
+                try {
+                    // Используем ваш API как в script.js
+                    const r = await fetch('/api/products');
+                    const data = await r.json();
+                    if(data.success) {
+                        catalogItems = data.items || [];
+                        // Сохраним
+                        localStorage.setItem('rb_catalog_v1_ua', JSON.stringify({items: catalogItems}));
+                    }
+                } catch (e) {
+                    console.error("Помилка завантаження каталогу:", e);
+                }
+            }
+
+            // 3. Собираем HTML
             let total = 0, totalQty = 0, html = '', dHtml = '';
+
             cart.forEach(item => {
-                const prod = catalog.find(p => p.id == item.id);
+                // Ищем товар (нестрогое сравнение ==)
+                const prod = catalogItems.find(p => p.id == item.id);
+
                 if(prod) {
-                    const sum = prod.price * item.qty; total += sum; totalQty += item.qty;
-                    const img = prod.image || '';
-                    html += `<div class="co-item"><div class="co-item__img"><img src="${img}"></div><div class="co-item__info"><div class="co-item__title">${prod.title}</div><div class="co-item__meta">${item.qty} шт.</div><div class="co-item__price">${prod.price} ₴/шт.</div></div></div>`;
+                    const sum = prod.price * item.qty;
+                    total += sum;
+                    totalQty += item.qty;
+
+                    // Ищем название: Сначала UA, потом RU, потом общие
+                    const title = prod.title_ua || prod.title_ru || prod.title || prod.name || 'Назва не вказана';
+
+                    // Картинка: массив или строка
+                    let img = 'placeholder.jpg';
+                    if(prod.images && prod.images.length > 0) img = prod.images[0];
+                    else if(prod.image) img = prod.image;
+
+                    html += `
+                    <div class="co-item">
+                        <div class="co-item__img"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>
+                        <div class="co-item__info">
+                            <div class="co-item__title">${title}</div>
+                            <div class="co-item__meta">${item.qty} шт.</div>
+                            <div class="co-item__price">${prod.price} ₴/шт.</div>
+                        </div>
+                    </div>`;
+
                     dHtml += `
                     <div class="od-item">
-                        <div class="od-item__img"><img src="${img}"></div>
+                        <div class="od-item__img"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>
                         <div class="od-item__info">
-                            <div class="od-item__title">${prod.title}</div>
+                            <div class="od-item__title">${title}</div>
                             <div class="od-item__status">В наявності</div>
                             <div style="font-size:13px; color:#666; margin-top:4px;">${item.qty} шт. × ${prod.price} ₴</div>
                             <div class="od-item__price">${sum} ₴</div>
@@ -1122,9 +1175,22 @@
 
             if(sidebarList) sidebarList.innerHTML = html;
             if(drawerList) drawerList.innerHTML = dHtml;
-            elsPrice.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = total + ' ₴'; });
+
+            updateTotals(total, totalQty);
+        }
+
+        function updateTotals(sum, qty) {
+            const elsPrice = ['coSumGoods', 'coFinalSum', 'odSumGoods', 'odFinalSum'];
+            elsPrice.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.textContent = sum + ' ₴';
+            });
+
+            const sidebarTitle = document.getElementById('coTotalTitle');
+            const drawerCountTitle = document.getElementById('odTotalCount');
+
             if(sidebarTitle) sidebarTitle.textContent = `Замовлення`;
-            if(drawerCountTitle) drawerCountTitle.textContent = `У замовленні ${totalQty} од. товару`;
+            if(drawerCountTitle) drawerCountTitle.textContent = `У замовленні ${qty} од. товару`;
         }
 
         // Логика "Получатель средств"

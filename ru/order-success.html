@@ -291,110 +291,122 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- НОВОЕ: Пытаемся найти номер заказа в ссылке (?order_id=...) ---
-            const params = new URLSearchParams(window.location.search);
-            const serverOrderId = params.get('order_id');
-            // -------------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. ОПРЕДЕЛЯЕМ ЯЗЫК И ID ЗАКАЗА
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+        const params = new URLSearchParams(window.location.search);
+        const serverOrderId = params.get('order_id');
 
-            const orderRaw = localStorage.getItem('rb_last_order_details');
+        // 2. БЕЗОПАСНО ЧИТАЕМ ЗАКАЗ ИЗ ПАМЯТИ
+        let order = {
+            id: serverOrderId || '???',
+            contact: { name: '...', surname: '', phone: '' },
+            delivery: { method: '...', address: '' },
+            payment: { type: 'cod', label: '...', status: 'unpaid' },
+            total: '0 ₴',
+            comment: ''
+        };
 
-            let order = orderRaw ? JSON.parse(orderRaw) : {
-                // Если данных нет, создаем "рыбу", но ID берем реальный (если есть)
-                id: serverOrderId || Math.floor(100000000 + Math.random() * 900000000),
-                contact: { name: 'Гость', surname: '', phone: '' },
-                delivery: { method: 'Не указано', address: '' },
-                payment: { type: 'seller_privat', label: 'seller_privat' },
-                total: '0 ₴',
-                comment: ''
-            };
+        try {
+            const raw = localStorage.getItem('rb_last_order_details');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                // Объединяем дефолтные данные с полученными (чтобы не было undefined)
+                order = { ...order, ...parsed };
+            }
+            // Если ID пришел от сервера, он главнее
+            if (serverOrderId) order.id = serverOrderId;
+        } catch (err) {
+            console.error("Ошибка чтения заказа:", err);
+        }
 
-            // ВАЖНО: Если сервер передал ID, принудительно используем его,
-            // даже если в localStorage лежал старый номер
-            if (serverOrderId) {
-                order.id = serverOrderId;
+        // 3. ЗАПОЛНЯЕМ ПОЛЯ (с проверкой на существование элементов)
+        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+
+        safeSet('orderNum', order.id);
+        safeSet('fopOrderNum', '#' + order.id);
+        safeSet('osCustomerName', `${order.contact.surname} ${order.contact.name}`);
+        safeSet('osCustomerPhone', order.contact.phone);
+        safeSet('osDeliveryMethod', order.delivery.method);
+        safeSet('osDeliveryAddress', order.delivery.address);
+        safeSet('osTotalPrice', order.total);
+
+        if (order.comment && document.getElementById('osCommentBlock')) {
+            document.getElementById('osCommentBlock').hidden = false;
+            safeSet('osCommentText', order.comment);
+        }
+
+        // Оплата (перевод названий)
+        const payMethodEl = document.getElementById('osPaymentMethod');
+        if (payMethodEl) {
+            const t = order.payment.type;
+            let label = order.payment.label; // По умолчанию берем то, что сохранил чекаут
+
+            // Если вдруг метки нет или нужно переопределить (для красоты)
+            if (t === 'cod') {
+                label = isUA ? 'Післяплата' : 'Наложенный платеж';
+            } else if (t === 'card_online') {
+                // --- ВОТ ТУТ БЫЛО "Картой Online", СТАВИМ КРАСИВО ---
+                label = isUA ? 'Оплата карткою Visa / Mastercard' : 'Оплата картой Visa / Mastercard';
+            } else if (t === 'seller_privat') {
+                label = isUA ? 'Оплата на рахунок ФОП' : 'Оплата на счет ФОП';
+            } else if (t === 'seller_cashless') {
+                label = isUA ? 'Безготівковий розрахунок' : 'Безналичный расчет';
             }
 
-            // Заполнение полей
-            document.getElementById('orderNum').textContent = order.id;
-            document.getElementById('fopOrderNum').textContent = '#' + order.id;
+            payMethodEl.textContent = label;
+        }
 
-            document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
-            document.getElementById('osCustomerPhone').textContent = order.contact.phone;
-            document.getElementById('osDeliveryMethod').textContent = order.delivery.method;
-            document.getElementById('osDeliveryAddress').textContent = order.delivery.address;
-            document.getElementById('osTotalPrice').textContent = order.total;
+        // Баннер и кнопка оплаты
+        const bannerTitle = document.getElementById('osBannerTitle');
+        const bannerText = document.getElementById('osBannerText');
+        const payBtn = document.getElementById('payNowBtn');
 
-            // === ВАЖНО: ЗАМЕНА НАЗВАНИЯ МЕТОДА ОПЛАТЫ ===
-            const payMethodEl = document.getElementById('osPaymentMethod');
-            if (order.payment.type === 'seller_privat') {
-                payMethodEl.textContent = 'Оплата на счёт ФОП';
+        if (bannerTitle) bannerTitle.textContent = isUA ? 'Замовлення прийнято!' : 'Заказ принят!';
+
+        if (bannerText) {
+            if (order.payment.type === 'card_online' && order.payment.status !== 'paid') {
+                bannerText.innerHTML = isUA ? "Очікуйте підтвердження. Ви можете сплатити замовлення зараз." : "Ожидайте подтверждения. Вы можете оплатить заказ сейчас.";
+                if(payBtn) payBtn.style.display = 'inline-block';
             } else {
-                payMethodEl.textContent = order.payment.label;
+                bannerText.innerHTML = isUA ? "Дякуємо! Наш менеджер зв'яжеться з вами." : "Спасибо! Наш менеджер свяжется с вами.";
+                if(payBtn) payBtn.style.display = 'none';
             }
+        }
 
-            if (order.comment && order.comment.length > 0) {
-                document.getElementById('osCommentBlock').hidden = false;
-                document.getElementById('osCommentText').textContent = order.comment;
-            }
+        // 4. ТОВАРЫ (Объединение каталогов + защита от сбоя)
+        try {
+            const cart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
 
-            // === БАННЕР, ТЕКСТЫ И КНОПКА ===
-            const banner = document.getElementById('osBanner');
-            const badge = document.getElementById('osBadge');
-            const title = document.getElementById('osBannerTitle');
-            const text = document.getElementById('osBannerText');
-            const payBtn = document.getElementById('payNowBtn');
+            let catalog = [];
+            try {
+                const cRu = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{"items":[]}').items || [];
+                const cUa = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{"items":[]}').items || [];
+                catalog = [...cRu, ...cUa];
+            } catch(e) {}
 
-            payBtn.style.display = 'none';
-            banner.className = 'os-banner type-info';
-            badge.textContent = 'Новый заказ';
-            title.textContent = 'Заказ принят!';
-            text.style.display = 'block';
-
-            const pType = order.payment.type;
-            const pStatus = order.payment.status; // 'paid' или 'unpaid'
-
-            // 1. Наложенный платеж
-            if (pType === 'cod') {
-                text.innerHTML = "Заказ принят!<br>Спасибо, что вы с нами! Наш менеджер свяжется с вами для подтверждения заказа.<br>Пожалуйста, оставайтесь на связи!";
-            }
-            // 2. Безналичный расчет
-            else if (pType === 'seller_cashless') {
-                text.innerHTML = "Заказ принят!<br>Наш менеджер свяжется с вами для подтверждения заказа.<br>Пожалуйста, оставайтесь на связи!";
-            }
-            // 3. Оплата на ФОП
-            else if (pType === 'seller_privat') {
-                text.innerHTML = "Заказ принят!<br>Спасибо, что вы с нами! Наш менеджер свяжется с вами для подтверждения заказа.<br>Пожалуйста, оставайтесь на связи!";
-            }
-            // 4. Оплата картой
-            else if (pType === 'card_online') {
-                text.innerHTML = "Заказ принят!<br>Спасибо, что вы с нами! Ожидайте сообщение с номером накладной.";
-            }
-            // Прочие варианты (на всякий случай)
-            else {
-                text.innerHTML = "Заказ принят!<br>Спасибо, что вы с нами!";
-            }
-
-            // Товары
-            const cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || [];
-            const catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru'))?.items || [];
             const listEl = document.getElementById('osItemsList');
-
-            if (cart.length > 0) {
+            if (listEl && cart.length > 0) {
                 listEl.innerHTML = cart.map(item => {
-                    const p = catalog.find(x => x.id == item.id) || { title: 'Товар', price: 0 };
+                    const p = catalog.find(x => x.id == item.id) || {};
+                    let title = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
+                    if(!title) title = `Товар ID ${item.id}`;
+
                     return `
                     <div class="os-item">
                         <div>
-                            <div class="os-item-name">${p.title}</div>
+                            <div class="os-item-name">${title}</div>
                             <div class="os-item-meta">${item.qty} шт.</div>
                         </div>
-                        <div class="os-item-price">${p.price * item.qty} ₴</div>
+                        <div class="os-item-price">${(p.price || 0) * item.qty} ₴</div>
                     </div>`;
                 }).join('');
             }
+            // Очистка корзины (только если все прошло успешно)
             localStorage.removeItem('rb_cart_v1');
-
+        } catch (err) {
+            console.error("Ошибка отображения товаров:", err);
+        }
 
             // === ЛОГИКА ШТОРКИ ===
             const sidebar = document.getElementById('paymentSidebar');
@@ -489,7 +501,7 @@
 
         async function cancelOrder() {
             // Определяем язык страницы для правильного текста
-            const isUA = document.documentElement.lang === 'uk';
+            const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
             const confirmText = isUA ? "Ви дійсно хочете скасувати замовлення?" : "Вы действительно хотите отменить заказ?";
             const alertText = isUA ? "Замовлення скасовано." : "Заказ отменен.";
 

@@ -135,39 +135,107 @@
 
     <!-- ===== ЛОГИКА ТОВАРА ===== -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        // Добавляем 'async', чтобы можно было ждать загрузку данных
+        document.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const pid = params.get('id');
-            const LS_KEY = 'rb_catalog_v1_ru';
 
-            // !!! ИСПРАВЛЕНИЕ: Делаем ссылку на UA динамической !!!
+            // Определяем язык (перенес объявление наверх, чтобы не дублировать)
+            const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+            const LS_KEY = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+
+            // === 1. ФУНКЦИЯ ПОЛУЧЕНИЯ ДАННЫХ (FIX) ===
+            // Пытаемся взять из памяти, если нет — качаем с сервера
+            async function getProductsData() {
+                // А. Пробуем LocalStorage
+                try {
+                    const cached = JSON.parse(localStorage.getItem(LS_KEY));
+                    if (cached && cached.items && cached.items.length > 0) {
+                        return cached.items;
+                    }
+                } catch (e) { console.error("Ошибка чтения LocalStorage", e); }
+
+                // Б. Если пусто — качаем с сервера
+                console.log("Данных нет в памяти, загружаем с сервера...");
+                try {
+                    const res = await fetch('/api/products');
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    const data = await res.json();
+                    if (data && data.items) {
+                        // Сохраняем, чтобы потом открывалось мгновенно
+                        localStorage.setItem(LS_KEY, JSON.stringify(data));
+                        return data.items;
+                    }
+                } catch (err) {
+                    console.error("Ошибка загрузки товаров:", err);
+                }
+                return [];
+            }
+
+            // Получаем список товаров
+            let items = await getProductsData();
+
+            // === 2. ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ НАЗВАНИЯ ===
+            function getSafeTitle(p) {
+                if (!p) return 'Товар';
+                // Проверяем все возможные варианты, чтобы не было undefined
+                let t;
+                if (isUA) {
+                    t = p.title_ua || p.title_ru || p.title || p.name;
+                } else {
+                    t = p.title_ru || p.title_ua || p.title || p.name;
+                }
+                // Если совсем ничего не нашли — возвращаем заглушку
+                return t ? t : 'Товар без названия';
+            }
+
+            // Динамическая ссылка на укр. версию (Безопасная проверка)
             const uaLink = document.getElementById('langUA');
-            if(uaLink && pid) uaLink.href = `../ua/product.html?id=${pid}`;
+            if (uaLink && pid) {
+                uaLink.href = `../ua/product.html?id=${pid}`;
+            }
+            // Добавляем поддержку обратной ссылки (если мы на UA и хотим на RU)
+            const ruLink = document.getElementById('langRU');
+            if (ruLink && pid) {
+                ruLink.href = `../product.html?id=${pid}`;
+            }
 
-            let items = [];
-            try { items = JSON.parse(localStorage.getItem(LS_KEY)).items || []; } catch {}
-
+            // Ищем товар
             const product = items.find(p => p.id == pid);
+
+            // Если товара нет — показываем ошибку
             if (!product) {
                 document.getElementById('productContainer').style.display = 'none';
                 document.getElementById('productError').style.display = 'block';
-                return;
+                return; // Останавливаем выполнение
             }
 
-            if (window.addToViewed) window.addToViewed(product.id);
+            const finalTitle = getSafeTitle(product);
 
-            document.title = `RadioBox — ${product.title}`;
-            document.getElementById('crumbTitle').textContent = product.title;
-            document.getElementById('pTitle').textContent = product.title;
-            document.getElementById('pSku').textContent = product.sku;
-            document.getElementById('pPrice').textContent = product.price;
+            // === 3. ЗАПОЛНЕНИЕ СТРАНИЦЫ ===
+            document.getElementById('pTitle').textContent = finalTitle;
+            document.getElementById('crumbTitle').textContent = finalTitle;
+            document.title = finalTitle + (isUA ? " — RadioBox" : " — RadioBox");
+            document.getElementById('pSku').textContent = product.sku || '-';
+            document.getElementById('pPrice').textContent = product.price || '0';
 
             // ФОТО
             const mainImg = document.getElementById('pImage');
             const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EФото%3C/text%3E%3C/svg%3E";
-            let imagesList = (product.images && product.images.length) ? product.images : (product.image ? [product.image] : [defaultImg]);
+
+            // Логика картинок: массив images > поле image > заглушка
+            let imagesList = [];
+            if (product.images && product.images.length > 0) {
+                imagesList = product.images;
+            } else if (product.image) {
+                imagesList = [product.image];
+            } else {
+                imagesList = [defaultImg];
+            }
+
             mainImg.src = imagesList[0];
 
+            // Функция смены фото (глобальная, чтобы работала в onclick)
             window.changeMainImage = (el, src) => {
                 document.getElementById('pImage').src = src;
                 document.querySelectorAll('.pp-thumb').forEach(t => t.classList.remove('is-active'));
@@ -177,7 +245,7 @@
             const track = document.getElementById('thTrack');
             track.innerHTML = imagesList.map((src, i) => `
                 <div class="pp-thumb ${i===0?'is-active':''}" onclick="changeMainImage(this, '${src}')">
-                    <img src="${src}" alt="">
+                    <img src="${src}" alt="Thumb">
                 </div>
             `).join('');
 
@@ -191,7 +259,7 @@
                 const visibleTh = 4;
                 const thCount = imagesList.length;
                 const updateThSlider = () => {
-                    const shift = thIdx * 90;
+                    const shift = thIdx * 90; // Ширина миниатюры + отступ
                     track.style.transform = `translateX(-${shift}px)`;
                     tPrev.disabled = thIdx === 0;
                     tNext.disabled = thIdx >= thCount - visibleTh;
@@ -201,22 +269,39 @@
                 updateThSlider();
             }
 
-            // Статус
+            // Статус наличия
             const stEl = document.getElementById('pStatus');
             const buyBtn = document.getElementById('pBuyBtn');
+
             if (product.in_stock) {
-                stEl.textContent = "Готово к отправке";
+                const statusText = isUA ? 'Готовий до відправки' : 'Готово к отправке';
+                const leftText = isUA ? 'На складі:' : 'На складе:';
+
+                // Определяем тип (шт. или компл.)
+                const uType = product.unit_type || 'pcs';
+                const unitText = (uType === 'set') ? (isUA ? 'комплект.' : 'комплект.') : (isUA ? 'шт.' : 'шт.');
+
+                stEl.innerHTML = `${statusText} <span style="font-weight:400; color:#555; margin-left:8px;">(${leftText} <b>${product.qty_stock}</b> ${unitText})</span>`;
                 stEl.className = "pp-status is-instock";
-                buyBtn.onclick = () => { document.querySelector('[data-cart-open]').click(); };
+
+                buyBtn.onclick = (e) => {
+                    if (e) e.stopPropagation();
+                    if(window.rbAddToCart) {
+                        window.rbAddToCart(product.id);
+                    } else {
+                        document.querySelector('[data-cart-open]').click();
+                    }
+                };
             } else {
-                stEl.textContent = "Нет в наличии";
+                stEl.textContent = isUA ? "Немає в наявності" : "Нет в наличии";
                 stEl.className = "pp-status is-out";
                 buyBtn.disabled = true;
-                buyBtn.textContent = "Нет в наличии";
+                buyBtn.textContent = isUA ? "Немає в наявності" : "Нет в наличии";
             }
 
-            document.getElementById('pDesc').innerHTML = product.description || "Описание отсутствует.";
+            document.getElementById('pDesc').innerHTML = product.description || (isUA ? "Опис відсутній." : "Описание отсутствует.");
 
+            // Хлебные крошки (Категория)
             const CATS = {
                 'solder': 'Паяльное оборудование',
                 'repair': 'Всё для ремонта, тестеры, инструменты',
@@ -229,77 +314,130 @@
                 'cables': 'Кабели, разъёмы, штекеры',
                 'psu': 'Источники питания'
             };
+
             if (product.category) {
-                document.getElementById('crumbCatWrapper').hidden = false;
+                const catWrapper = document.getElementById('crumbCatWrapper');
+                if(catWrapper) catWrapper.hidden = false;
+
                 const link = document.getElementById('crumbCatLink');
-                link.textContent = CATS[product.category] || 'Каталог';
-                link.href = `type_of_product.html?cat=${product.category}`;
+                if(link) {
+                    link.textContent = CATS[product.category] || 'Каталог';
+                    link.href = `type_of_product.html?cat=${product.category}`;
+                }
             }
 
-            // Сопутствующие
+            // === 4. СОПУТСТВУЮЩИЕ ТОВАРЫ ===
             const related = items.filter(i => i.category === product.category && i.id != product.id).slice(0, 5);
             const relContainer = document.getElementById('relGrid');
             if (related.length) {
                 relContainer.innerHTML = related.map(p => makeCardHTML(p)).join('');
             } else {
-                relContainer.innerHTML = '<div style="color:#999; font-size:13px; grid-column:1/-1;">Нет товаров</div>';
+                relContainer.innerHTML = '<div style="color:#999; font-size:13px; grid-column:1/-1;">Нет похожих товаров</div>';
             }
 
-            // Просмотренные
+            // === 5. ПРОСМОТРЕННЫЕ ТОВАРЫ (Логика) ===
+            // Сначала сохраняем ТЕКУЩИЙ товар в просмотренные
+            if (window.addToViewedProducts) {
+                window.addToViewedProducts(product.id);
+            }
+
+            // Потом отображаем виджет
             if (window.getViewedProducts) {
                 const viewedIds = window.getViewedProducts();
-                const viewedItems = viewedIds.map(vid => items.find(i => i.id == vid)).filter(Boolean);
+                // Исключаем текущий товар из слайдера "Просмотренные", чтобы не дублировать
+                const viewedItems = viewedIds
+                    .filter(vid => vid != product.id)
+                    .map(vid => items.find(i => i.id == vid))
+                    .filter(Boolean);
+
                 if (viewedItems.length > 0) {
-                    document.getElementById('viewedSection').hidden = false;
+                    const viewedWidget = document.getElementById('viewed-widget');
+                    // Генерируем HTML для слайдера
+                    viewedWidget.innerHTML = `
+                        <div class="prod-slider-wrap">
+                            <div class="prod-slider-title">Вы просматривали</div>
+                            <div class="pp-thumbs-slider" style="margin:0;">
+                                <button class="thumb-nav-btn prev" id="vPrev">‹</button>
+                                <div class="pp-thumbs-viewport" style="height:auto;">
+                                    <div class="pp-thumbs-track" id="viewedTrack" style="display:flex; gap:16px; transition: transform 0.3s;">
+                                        </div>
+                                </div>
+                                <button class="thumb-nav-btn next" id="vNext">›</button>
+                            </div>
+                        </div>
+                    `;
                     initSlider('viewedTrack', 'vPrev', 'vNext', viewedItems);
                 }
             }
 
+            // Вспомогательная функция отрисовки карточки
             function makeCardHTML(p) {
-                const img = p.image || defaultImg;
+                if (!p) return ''; // Защита от битых объектов
+
+                const img = (p.images && p.images[0]) ? p.images[0] : (p.image || '../assets/no-image.png');
+
+                // Используем надежную функцию названия
+                const pTitle = getSafeTitle(p);
+
+                const stockLabel = isUA ? 'На складі:' : 'На складе:';
+                const qtyInfo = p.in_stock
+                    ? `<div style="font-size:11px; color:#888;">${stockLabel} ${p.qty_stock}</div>`
+                    : '';
+
                 return `
-                <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
+                <div class="product-card is-clickable slider-item" style="padding:10px; width:160px; flex-shrink:0;" onclick="location.href='product.html?id=${p.id}'">
                     <div class="product-card__img" style="margin-bottom:8px;">
-                        <img src="${img}" style="max-height:100px;">
+                        <img src="${img}" style="max-height:100px; object-fit:contain; margin:0 auto; display:block;" loading="lazy">
                     </div>
-                    <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${p.title}</div>
-                    <div class="product-card__price" style="font-size:14px;">${p.price} ₴</div>
+                    <div class="product-card__title" style="font-size:13px; margin-bottom:4px; height: 36px; overflow: hidden;">${pTitle}</div>
+                    <div class="product-card__price" style="font-size:14px; font-weight:bold;">${p.price} ₴</div>
+                    ${qtyInfo}
                 </div>`;
             }
 
+            // Функция инициализации слайдера (общая для сопутствующих и просмотренных)
             function initSlider(trackId, prevBtnId, nextBtnId, itemsList) {
                 const track = document.getElementById(trackId);
                 const prev = document.getElementById(prevBtnId);
                 const next = document.getElementById(nextBtnId);
 
+                if(!track || !prev || !next) return;
+
                 track.innerHTML = itemsList.map(p => makeCardHTML(p)).join('');
 
                 let currentIdx = 0;
                 const total = itemsList.length;
-                const visible = 3;
+
+                // Сколько карточек видно (зависит от ширины, но упрощенно возьмем 3-4 или посчитаем)
+                // Для простоты шаг - одна карточка
+                const cardWidth = 176; // 160 width + 16 gap
 
                 const updateSlider = () => {
-                    const firstItem = track.firstElementChild;
-                    if(!firstItem) return;
-                    const itemW = firstItem.offsetWidth;
-                    const gap = 16;
-                    const shift = (itemW + gap) * currentIdx;
+                    // Рассчитываем, сколько влазит
+                    const viewportWidth = track.parentElement.offsetWidth;
+                    const visibleCount = Math.floor(viewportWidth / cardWidth);
+                    const maxIdx = Math.max(0, total - visibleCount);
+
+                    if (currentIdx > maxIdx) currentIdx = maxIdx;
+
+                    const shift = currentIdx * cardWidth;
                     track.style.transform = `translateX(-${shift}px)`;
 
                     prev.disabled = currentIdx === 0;
-                    next.disabled = currentIdx >= total - visible;
+                    next.disabled = currentIdx >= maxIdx;
                 };
 
-                if (total <= visible) {
+                if (total === 0) {
                     prev.style.display = 'none';
                     next.style.display = 'none';
                 }
 
                 prev.addEventListener('click', () => { if(currentIdx > 0) { currentIdx--; updateSlider(); } });
-                next.addEventListener('click', () => { if(currentIdx < total - visible) { currentIdx++; updateSlider(); } });
+                next.addEventListener('click', () => { currentIdx++; updateSlider(); });
 
                 window.addEventListener('resize', updateSlider);
-                requestAnimationFrame(updateSlider);
+                // Ждем пока отрисуется
+                setTimeout(updateSlider, 100);
             }
         });
     </script>
@@ -325,28 +463,6 @@
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
         });
     </script>
-
-    <!-- 1. График работы -->
-    <div id="modal-hours" class="hours-modal" aria-hidden="true">
-        <div class="hours-modal__backdrop"></div>
-        <section class="hours-modal__panel">
-            <header class="hours-modal__header"><h2 class="hours-modal__title">График работы</h2><button class="hours-modal__close">×</button></header>
-            <div class="hours-modal__body">
-                <table class="hours-table">
-                    <thead><tr><th>День</th><th>Время работы</th></tr></thead>
-                    <tbody>
-                        <tr><th>Понедельник</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Вторник</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Среда</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Четверг</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Пятница</th><td>08:00 – 20:00</td></tr>
-                        <tr><th>Суббота</th><td>10:00 – 18:00</td></tr>
-                        <tr><th>Воскресенье</th><td>10:00 – 15:00</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </div>
 
     <!-- 2. Условия оплаты и доставки (ОБНОВЛЕНО) -->
     <div id="modal-delivery" class="hours-modal" aria-hidden="true">

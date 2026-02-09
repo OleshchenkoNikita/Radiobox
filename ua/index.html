@@ -199,41 +199,6 @@
 
     <script src="../script.js" defer></script>
 
-    <!-- ===== MODAL: Графік роботи ===== -->
-    <div class="hours-modal" aria-hidden="true">
-        <div class="hours-modal__backdrop" data-hours-close></div>
-
-        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
-            <header class="hours-modal__header">
-                <h2 id="hoursTitle" class="hours-modal__title">Графік роботи</h2>
-                <button type="button" class="hours-modal__close" aria-label="Закрити" data-hours-close>×</button>
-            </header>
-
-            <div class="hours-modal__body">
-                <table class="hours-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">День</th>
-                            <th scope="col">Час роботи</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><th scope="row">Понеділок</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Вівторок</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Середа</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Четвер</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">П’ятниця</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Субота</th><td>10:00 – 18:00</td></tr>
-                        <tr><th scope="row">Неділя</th><td>10:00 – 15:00</td></tr>
-                    </tbody>
-                </table>
-
-                <p class="hours-note">* Час указано для регіону: Україна, м. Шостка</p>
-            </div>
-        </section>
-    </div>
-    <!-- ================================= -->
-
     <!-- Бокові картинки -->
     <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
     <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
@@ -248,36 +213,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === ФУНКЦИЯ ОТРИСОВКИ ===
     function renderShowcase(list) {
-        // Фильтруем (берем только те, где on_index == 1)
-        // Проверка (p.on_index == 1) сработает и для числа 1, и для строки "1"
-        let displayItems = list.filter(p => p.on_index == 1);
+        // Определяем язык
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
 
-        // Берем первые 15
+        // Фильтруем (берем только те, где on_index == 1)
+        let displayItems = list.filter(p => p.on_index == 1);
         displayItems = displayItems.slice(0, 15);
 
         if (displayItems.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста. (Нет товаров с on_index=1)</div>';
+            grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">${isUA ? 'Вітрина порожня.' : 'Витрина пуста.'}</div>`;
             return;
         }
 
         grid.innerHTML = displayItems.map(p => {
             const stClass = p.in_stock ? 'is-instock' : 'is-out';
+
             const stText = isUA
                 ? (p.in_stock ? 'Готовий до відправки' : 'Немає в наявності')
                 : (p.in_stock ? 'Готово к отправке' : 'Нет в наличии');
 
             const btnText = isUA ? 'Купити' : 'Купить';
 
-            // ЛОГИКА НАЗВАНИЯ (чтобы не было undefined)
+            // ЛОГИКА НАЗВАНИЯ
             let productTitle = p.title;
             if (!productTitle) {
                 productTitle = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
             }
 
-            // ЛОГИКА КАРТИНКИ
+            // КАРТИНКА
             let img = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='14' font-family='sans-serif'%3ENo Image%3C/text%3E%3C/svg%3E";
             if (p.image) img = p.image;
             else if (p.images && p.images.length > 0) img = p.images[0];
+
+            // КОЛИЧЕСТВО
+            const txtStock = isUA ? 'На складі:' : 'На складе:';
+            // Определяем единицу для карточки
+            const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
+
+            const qtyHtml = p.in_stock
+                ? `<div style="font-size:12px; color:#6b7280; margin-top:4px;">${txtStock} <b>${p.qty_stock}</b> ${unitLabel}</div>`
+                : '';
 
             return `
             <article class="product-card is-clickable" onclick="location.href='product.html?id=${p.id}'">
@@ -288,6 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="product-card__meta">Code: <span>${p.sku}</span></div>
                 <div class="product-card__price">${p.price} ₴</div>
                 <div class="product-card__status ${stClass}">${stText}</div>
+                ${qtyHtml}
                 <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
             </article>
             `;

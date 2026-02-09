@@ -4,6 +4,11 @@ import smtplib
 import json
 import shutil
 import os
+import csv
+import io
+import re
+import openpyxl
+import requests
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -23,6 +28,23 @@ ENG_TO_RUS_MAP = {
     "A":"Ф", "S":"Ы", "D":"В", "F":"А", "G":"П", "H":"Р", "J":"О", "K":"Л", "L":"Д", ":":"Ж", '"':"Э",
     "Z":"Я", "X":"Ч", "C":"С", "V":"М", "B":"И", "N":"Т", "M":"Ь", "<":"Б", ">":"Ю", "?":",", "~":"Ё",
     "@": "\"" # Иногда бывает полезно
+}
+
+# Словарь для расшифровки кодов оплаты
+PAYMENT_MAP = {
+    'cod': 'Наложенный платеж (Післяплата)',
+    'card_online': 'Картой на сайте (LiqPay/WayForPay)',
+    'seller_privat': 'На карту ФОП/Приват',
+    'seller_cashless': 'Безналичный расчет (Счет)'
+}
+
+# Словарь для расшифровки доставки
+DELIVERY_MAP = {
+    'np': 'Новая Почта',
+    'up': 'Укрпочта Стандарт',
+    'upe': 'Укрпочта Экспресс',
+    'meest': 'Meest Почта',
+    'self': 'Самовывоз'
 }
 
 def fix_layout(text):
@@ -140,6 +162,25 @@ def init_db():
                     )
                 ''')
 
+        # 7. НАСТРОЙКИ (Ключ-Значение)
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS settings (
+                        key TEXT PRIMARY KEY,
+                        value TEXT
+                    )
+                ''')
+
+        # Заполним дефолтными, если пусто
+        default_settings = {
+            'site_url': 'https://radiobox.in.ua',
+            'google_verification': '',
+            'robots_txt': 'User-agent: *\nDisallow: /admin\nDisallow: /cart\nDisallow: /api\nDisallow: *?search=\nAllow: /',
+            'crm_api_key': ''
+        }
+
+        for k, v in default_settings.items():
+            cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
+
         # === ВАЖНЫЕ МИГРАЦИИ ===
         # Этот блок спасет твою админку. Он добавляет колонки в старую таблицу orders.
         columns_to_add = [
@@ -168,9 +209,13 @@ def init_db():
             ("products", "subcategory", "TEXT DEFAULT ''"),
             ("products", "seo_title", "TEXT DEFAULT ''"),
             ("products", "seo_description", "TEXT DEFAULT ''"),
+            ("products", "seo_title_ua", "TEXT DEFAULT ''"),
+            ("products", "seo_description_ua", "TEXT DEFAULT ''"),
+            ("products", "unit_type", "TEXT DEFAULT 'pcs'"),
             ("products", "on_index", "INTEGER DEFAULT 0"),
             ("products", "is_visible", "INTEGER DEFAULT 1"),
             ("products", "deleted_at", "TEXT"),
+            ("products", "quantity", "INTEGER DEFAULT 0"),
             # Добавьте сюда другие, если вдруг чего-то не хватает
         ]
 
@@ -498,107 +543,147 @@ def get_user_orders():
 
     return jsonify({"success": True, "orders": orders})
 
+@app.route('/update_db_qty')
+def update_db_structure():
+    with sqlite3.connect(DB_NAME) as conn:
+        try:
+            conn.execute("ALTER TABLE products ADD COLUMN quantity INTEGER DEFAULT 0")
+            return "Колонка quantity добавлена!"
+        except:
+            return "Колонка уже есть или ошибка."
+
+
 @app.route('/create_order', methods=['POST'])
 def create_order():
-    # 1. Получаем данные
+    # 1. Получаем данные из формы
     phone = request.form.get('phone')
     name = request.form.get('name')
     surname = request.form.get('surname')
-    pay_status = request.form.get('payment_status', 'unpaid')
-    address = request.form.get('full_address')
+    address = request.form.get('full_address') or request.form.get('address')
     cart_json = request.form.get('cart_json')
-    payment_method = request.form.get('payment')
     comment = request.form.get('comment')
 
-    # 2. Генерируем 9-значный номер
+    # --- [НОВОЕ] Статус оплаты из скрытого поля ---
+    # Если JS сработал и оплата прошла, тут будет 'paid'. Иначе 'waiting' или 'unpaid'
+    pay_status_raw = request.form.get('payment_status', 'unpaid')
+
+    # Для красоты в базе переведем на человеческий
+    payment_status_human = "Оплачено" if pay_status_raw == 'paid' else "Не оплачено"
+    # -----------------------------------------------
+
+    # 2. Расшифровка кодов (mapping)
+    raw_payment = request.form.get('payment')
+    raw_delivery = request.form.get('delivery')
+
+    # Если ключ не найден, запишем "raw" значение, чтобы не потерять данные
+    payment_method = PAYMENT_MAP.get(raw_payment, raw_payment)
+    delivery_method = DELIVERY_MAP.get(raw_delivery, raw_delivery)
+
+    # Склеиваем доставку для удобства чтения в БД
+    full_delivery_info = f"{delivery_method}: {address}"
+
+    # 3. Генерируем ID
     order_id = random.randint(100000000, 999999999)
+    user_email = session.get('email', '')
 
-    # 3. Проверяем Email
-    user_email = session.get('email')
-
-    # 4. Сохраняем в БД
-    # Считаем сумму заказа из JSON (если там есть цены)
+    # 4. Считаем сумму и парсим товары
     total_sum = 0
+    items = []
     try:
         items = json.loads(cart_json)
         for item in items:
-            # Если фронтенд передал цену, используем её
             price = float(item.get('price', 0))
             qty = int(item.get('qty', 0))
             total_sum += price * qty
     except:
+        items = []
         total_sum = 0
 
+    # 5. Сохранение в БД и отправка в CRM
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-            # ОБНОВЛЕННЫЙ ЗАПРОС INSERT (Добавлено payment_status)
 
-            initial_status = "Оплаченный" if pay_status == 'paid' else "Новый"
+            # Логика начального статуса заказа
+            # Если оплата прошла успешно -> ставим статус заказа "Оплаченный" (или какой у вас есть в CRM/БД)
+            # Иначе -> "Новый"
+            initial_order_status = "Оплаченный" if pay_status_raw == 'paid' else "Новый"
 
             cursor.execute('''
-                                    INSERT INTO orders (
-                                        id, 
-                                        user_name, user_surname, user_phone, user_email,
-                                        delivery_address, payment_method, payment_status, 
-                                        comment, items_json, 
-                                        created_at, status, total_price, ttn
-                                    )
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                ''', (
+                INSERT INTO orders (
+                    id, 
+                    user_name, user_surname, user_phone, user_email,
+                    delivery_address, payment_method, payment_status, 
+                    comment, items_json, 
+                    created_at, status, total_price, ttn
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
                 order_id,
                 name, surname, phone, user_email,
-                address, payment_method, pay_status,
+                full_delivery_info,
+                payment_method,
+                payment_status_human,  # В базу пишем красиво: "Оплачено" / "Не оплачено"
                 comment, cart_json,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                initial_status,  # <--- БЫЛО "Новый", СТАЛО initial_status
+                initial_order_status,
                 total_sum,
-                ""  # ttn (пустой при создании)
+                ""
             ))
             conn.commit()
 
+            # === ИНТЕГРАЦИЯ CRM ===
+            # Небольшой лайфхак: если оплачено, допишем это в комментарий для менеджера,
+            # чтобы он сразу видел, даже если поле статуса не настроено.
+            crm_comment = comment
+            if pay_status_raw == 'paid':
+                crm_comment = f"[ОПЛАЧЕНО ONLINE] {comment}"
+
+            crm_data = {
+                'name': f"{name} {surname}",
+                'phone': phone,
+                'delivery': delivery_method,
+                'address': address,
+                'payment': payment_method,
+                'comment': crm_comment,
+                # Если KeepinCRM умеет принимать статус оплаты отдельным полем, добавьте его сюда
+                # 'payment_status': payment_status_human
+            }
+
+            # =================================================
+            # [START] ВРЕМЕННАЯ ОТЛАДКА
+            # =================================================
+            print("\n" + "█" * 60)
+            print(f"🚀 [DEBUG] ОБРАБОТКА ЗАКАЗА №{order_id}")
+            print("-" * 60)
+            print(f"1. СТАТУС ОПЛАТЫ:       '{payment_status_human}' ({pay_status_raw})")
+            print(f"2. МЕТОД ОПЛАТЫ:        '{payment_method}'")
+            print(f"3. МЕТОД ДОСТАВКИ:      '{delivery_method}'")
+            print("-" * 60)
+            print(f"4. ТОВАРЫ ({len(items)} шт.):")
+            for i, it in enumerate(items, 1):
+                print(f"   {i}. {it.get('title')} | {it.get('qty')} шт. * {it.get('price')} грн")
+            print("-" * 60)
+            print(f"5. ИТОГО СУММА:         {total_sum} грн")
+            print("█" * 60 + "\n")
+            # =================================================
+            # [END] ВРЕМЕННАЯ ОТЛАДКА
+            # =================================================
+
+            send_to_keepincrm(order_id, crm_data, items, total_sum)
+            # =======================
+
     except sqlite3.IntegrityError:
         print("Совпадение номеров, рекурсия...")
-        return create_order()
+        return create_order()  # Пробуем еще раз с новым ID
     except Exception as e:
         print(f"Ошибка БД: {e}")
         return f"Ошибка при сохранении: {e}", 500
 
-    # 5. Определяем язык и отправляем письмо (закомментировано, т.к. в СРМ есть отправка писем)
-    # Смотрим, откуда пришел пользователь (оставил для логики после отправки письма)
+    # 6. Редирект
     referer = request.referrer or ""
     is_ukrainian = '/ua/' in referer
 
-#     if user_email:
-#         if is_ukrainian:
-#             # === УКРАИНСКАЯ ВЕРСИЯ ===
-#             profile_link = "https://radiobox.in.ua/ua/profile.html"
-#             subject = "Підтвердження вашого замовлення в RadioBox"
-#             body = f"""Вітаємо, {name}!
-#
-# Замовлення прийнято! Номер замовлення: {order_id}
-# Дякуємо Вам за інтерес до товарів radiobox.in.ua.
-#
-# Деталі замовлення ви можете переглянути за посиланням:
-# {profile_link}
-# """
-#         else:
-#             # === РУССКАЯ ВЕРСИЯ ===
-#             profile_link = "https://radiobox.in.ua/ru/profile.html"
-#             subject = "Подтверждение вашего заказа в RadioBox"
-#             body = f"""Здравствуйте, {name}!
-#
-# Заказ принят! Номер заказа: {order_id}
-# Благодарим Вас за интерес к товарам radiobox.in.ua.
-#
-# Детали заказа вы можете увидеть по ссылке:
-# {profile_link}
-# """
-#
-#         # Отправляем сформированное письмо
-#         send_email_real(user_email, subject, body)
-
-    # 6. Редирект на страницу успеха (с учетом языка)
     if is_ukrainian:
         return redirect(f'/ua/order-success.html?order_id={order_id}')
     else:
@@ -891,6 +976,82 @@ def admin_update_status():
     return jsonify({"success": True})
 
 
+# === API: ПОЛУЧИТЬ НАСТРОЙКИ ===
+@app.route('/api/admin/settings', methods=['GET'])
+def admin_get_settings():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM settings").fetchall()
+        # Превращаем в объект {key: value}
+        settings = {row['key']: row['value'] for row in rows}
+    return jsonify({"success": True, "settings": settings})
+
+
+# === API: СОХРАНИТЬ НАСТРОЙКИ ===
+@app.route('/api/admin/settings', methods=['POST'])
+def admin_save_settings():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    data = request.json
+    with sqlite3.connect(DB_NAME) as conn:
+        for key, value in data.items():
+            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        conn.commit()
+    return jsonify({"success": True})
+
+
+# === API: СПИСОК БЭКАПОВ ===
+@app.route('/api/admin/backups', methods=['GET'])
+def admin_list_backups():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    if not os.path.exists('backups'):
+        return jsonify({"success": True, "backups": []})
+
+    files = sorted(os.listdir('backups'), reverse=True)  # Новые сверху
+    return jsonify({"success": True, "backups": files})
+
+
+# === API: ВОССТАНОВИТЬ БЭКАП ===
+@app.route('/api/admin/backup/restore', methods=['POST'])
+def admin_restore_backup():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    filename = request.json.get('filename')
+    backup_path = os.path.join('backups', filename)
+
+    if os.path.exists(backup_path):
+        try:
+            # Копируем бэкап поверх основной базы
+            # ВАЖНО: Это сработает, если SQLite не залочена жестко. В Flask обычно ок.
+            shutil.copy(backup_path, DB_NAME)
+            print(f"[Restore] База восстановлена из {filename}")
+            return jsonify({"success": True})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)})
+
+    return jsonify({"success": False, "error": "File not found"})
+
+
+# === РОУТ ДЛЯ robots.txt (ПУБЛИЧНЫЙ) ===
+@app.route('/robots.txt')
+def serve_robots():
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM settings WHERE key='robots_txt'")
+        row = cursor.fetchone()
+        content = row[0] if row else "User-agent: *\nDisallow: /admin"
+
+    from flask import Response
+    return Response(content, mimetype='text/plain')
+
+
+# === СТРАНИЦА НАСТРОЕК ===
+@app.route('/admin/<lang>/settings')
+def admin_settings_page(lang):
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/settings')
+    if not session.get('admin_logged_in'): return redirect(f'/admin/{lang}/login')
+    return send_from_directory(f'admin/{lang}', 'settings.html')
+
+
 # === НАСТРОЙКИ ЗАГРУЗКИ ===
 UPLOAD_FOLDER = 'assets/products'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi', 'mkv'}
@@ -1015,6 +1176,7 @@ def admin_save_product_api():
     desc_ua = data.get('description_ua', '')
     price = float(data.get('price', 0))
     in_stock = int(data.get('in_stock', 1))
+    unit_type = data.get('unit_type', 'pcs')
     category = data.get('category')
     subcategory = data.get('subcategory', '')
     images = json.dumps(data.get('images', []))
@@ -1027,15 +1189,19 @@ def admin_save_product_api():
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         if pid:
-            # ОБНОВЛЕНИЕ
+            # !!! 2. ОБНОВЛЕНИЕ (UPDATE) !!!
+            # Проверь, что у тебя в коде есть seo_title_ua и seo_description_ua
             cursor.execute('''
-                UPDATE products SET 
-                sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
-                price=?, in_stock=?, category=?, subcategory=?, images_json=?, on_index=?,
-                seo_title=?, seo_description=?
-                WHERE id=?
-            ''', (sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
-                  seo_title, seo_desc, pid))
+                            UPDATE products SET 
+                            sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
+                            price=?, in_stock=?, category=?, subcategory=?, images_json=?, on_index=?,
+                            seo_title=?, seo_description=?, seo_title_ua=?, seo_description_ua=?,
+                            unit_type=?
+                            WHERE id=?
+                        ''', (
+            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
+            seo_title, seo_desc, data.get('seo_title_ua'), data.get('seo_description_ua'),
+            unit_type, pid))
         else:
             # СОЗДАНИЕ
             cursor.execute("SELECT MAX(position) FROM products WHERE category=?", (category,))
@@ -1044,11 +1210,12 @@ def admin_save_product_api():
             pos = max_pos + 1
 
             cursor.execute('''
-                INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, subcategory, images_json, on_index, position, created_at, seo_title, seo_description)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index, pos,
-            created_at, seo_title, seo_desc))
+                            INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, subcategory, images_json, on_index, position, created_at, seo_title, seo_description, unit_type)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
+                pos,
+                created_at, seo_title, seo_desc, unit_type))
 
         conn.commit()
     return jsonify({"success": True})
@@ -1168,7 +1335,13 @@ def get_public_products():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         # Берем только видимые товары
-        cursor.execute("SELECT * FROM products WHERE is_visible = 1 AND deleted_at IS NULL ORDER BY position ASC, id DESC")
+        cursor.execute("""
+            SELECT p.*, c.title_ru as cat_title_ru, c.title_ua as cat_title_ua, c.slug as cat_slug
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.is_visible = 1 AND p.deleted_at IS NULL 
+            ORDER BY p.position ASC, p.id DESC
+        """)
         rows = cursor.fetchall()
 
         products = []
@@ -1683,6 +1856,505 @@ def admin_reviews_page_ua():
     if not session.get('admin_logged_in'):
         return redirect('/admin/ua/login')
     return send_from_directory('admin/ua', 'reviews.html')
+
+
+# Функция для получения настройки из БД
+def get_setting(key_name):
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM settings WHERE key = ?", (key_name,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        print(f"Ошибка чтения настройки {key_name}: {e}")
+        return None
+
+
+def send_to_keepincrm(order_id, crm_data, items, total_sum):
+    api_token = get_setting('crm_api_key')
+    if not api_token:
+        print("⚠️ Ошибка: Токен KeepinCRM не найден!")
+        return
+
+    headers = {'Content-Type': 'application/json', 'X-Auth-Token': api_token}
+
+    # === ⚙️ ВАЖНЫЕ НАСТРОЙКИ ===
+    # source_id ты должен взять из Настройки -> Источники (как мы обсуждали в Шаге 1)
+    MY_SOURCE_ID = 7
+
+    # status_id: ID статуса "Новый" в разделе ЗАКАЗЫ (не Сделки!)
+    # Зайди в Настройки -> Заказы -> Статусы, нажми на "Новый" и посмотри ID в URL
+    MY_STATUS_ID = 5  # <-- Поменяй на свой реальный ID статуса заказа
+
+    # === 1. ТОВАРЫ (JOBS) ===
+    jobs_list = []
+    for item in items:
+        try:
+            # Важно: передаем SKU (артикул). CRM ищет товар по нему.
+            # Если не найдет - создаст просто строку без списания.
+            sku = str(item.get('sku', ''))
+            # Если в корзине нет sku, попробуем взять id, но лучше sku
+            if not sku:
+                sku = str(item.get('id', ''))
+
+            jobs_list.append({
+                "title": item.get('title', 'Товар'),
+                "price": float(item.get('price', 0)),
+                "amount": int(item.get('qty', 1)),
+                "sku": sku,  # <-- Критически важно для складского учета
+                # "product_id": local_product_id # Можно передавать, если точно знаешь ID товара внутри CRM
+            })
+        except:
+            pass
+
+    # === 2. КЛИЕНТ ===
+    # KeepinCRM сама найдет клиента по телефону или создаст нового
+    client_attr = {
+        "first_name": crm_data.get('name', 'Клиент').split(' ')[0],  # Берем имя
+        "last_name": crm_data.get('name', '').split(' ')[1] if len(crm_data.get('name', '').split(' ')) > 1 else "",
+        "phones": [crm_data.get('phone', '')],
+        "email": session.get('email', '')  # Если есть email, тоже полезно
+    }
+
+    # === 3. КОММЕНТАРИЙ ===
+    full_comment = crm_data.get('comment', '')
+    if crm_data.get('address'):
+        full_comment += f"\n📍 Доставка: {crm_data.get('delivery')} | {crm_data.get('address')}"
+    if crm_data.get('payment'):
+        full_comment += f"\n💳 Оплата: {crm_data.get('payment')}"
+
+    # === 4. ИТОГОВЫЙ JSON ДЛЯ /orders ===
+    payload = {
+        "source_id": MY_SOURCE_ID,
+        "status_id": MY_STATUS_ID,
+        "buyer_attributes": client_attr,  # В Orders это называется buyer, а не client
+        "jobs_attributes": jobs_list,
+        "comment": full_comment
+    }
+
+    try:
+        # МЕНЯЕМ НА ORDERS
+        r = requests.post('https://api.keepincrm.com/v1/orders', json=payload, headers=headers)
+
+        if r.status_code in [200, 201]:
+            new_id = r.json().get('id')
+            print(f"✅ CRM OK: Заказ {new_id} создан успешно!")
+        else:
+            print(f"⚠️ CRM Error {r.status_code}: {r.text}")
+
+    except Exception as e:
+        print(f"❌ CRM Connect Error: {e}")
+
+@app.route('/api/admin/import_prom', methods=['POST'])
+def admin_import_prom():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "Нет файла"})
+
+    file = request.files['file']
+    if not file:
+        return jsonify({"success": False, "error": "Пустой файл"})
+
+    try:
+        # Читаем CSV (Prom.ua обычно в кодировке utf-8 или cp1251)
+        # Попробуем прочитать как текст
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.DictReader(stream)
+
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+
+            count = 0
+            for row in csv_input:
+                # Маппинг полей из CSV Прома
+                # Названия колонок должны совпадать с твоим файлом!
+                # Проверь первую строку CSV файла.
+
+                code = row.get('Код_товару') or row.get('Идентификатор_товару')
+                title = row.get('Назва_позиції')
+                price = row.get('Ціна')
+                desc = row.get('Опис')  # Тут HTML
+                image = row.get('Посилання_зображення')
+                cat_name = row.get('Назва_групи')
+                qty_str = row.get('Кількість', '0')
+
+                # Очистка цены (убрать пробелы)
+                try:
+                    price = float(price.replace(' ', '').replace(',', '.'))
+                except:
+                    price = 0
+
+                # Очистка количества
+                try:
+                    qty = int(float(qty_str.replace(' ', '').replace(',', '.')))
+                except:
+                    qty = 0
+
+                # Генерируем slug (id)
+                pid = f"p_{random.randint(10000, 99999)}"
+                if code: pid = code  # Если есть артикул, используем его как ID
+
+                # Простейшая обработка категорий (сохраняем строку,
+                # в идеале нужно создавать категорию в таблице categories)
+                category = "general"
+                # Можно дописать логику поиска category_id по названию cat_name
+
+                # Вставляем или Обновляем (UPSERT)
+                # Если товар с таким ID (code) уже есть -> обновим цену и остаток
+                cursor.execute("SELECT id FROM products WHERE id = ?", (pid,))
+                exists = cursor.fetchone()
+
+                if exists:
+                    cursor.execute("""
+                        UPDATE products SET 
+                        price=?, quantity=?, title_ru=?, description_ru=?, image=?
+                        WHERE id=?
+                    """, (price, qty, title, desc, image, pid))
+                else:
+                    cursor.execute("""
+                        INSERT INTO products (id, category, title_ru, price, image, description_ru, quantity, date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (pid, category, title, price, image, desc, qty, datetime.now()))
+
+                count += 1
+
+            conn.commit()
+
+        return jsonify({"success": True, "message": f"Обработано {count} товаров"})
+
+    except Exception as e:
+        print(f"Import Error: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+
+# Не забудь, что в начале файла должно быть: import openpyxl
+
+# Простая функция транслитерации для создания slug (ссылок)
+def simple_slugify(text):
+    if not text: return ""
+    # Словарь замен
+    translit = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
+        'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
+        'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
+        'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu',
+        'я': 'ya', 'і': 'i', 'ї': 'yi', 'є': 'ye', 'ґ': 'g', ' ': '-', '/': '-', '\\': '-'
+    }
+    text = text.lower()
+    res = []
+    for char in text:
+        if char in translit:
+            res.append(translit[char])
+        elif char.isalnum() or char == '-':
+            res.append(char)
+    # Убираем лишние дефисы
+    return re.sub(r'-+', '-', "".join(res)).strip('-')
+
+
+@app.route('/api/admin/import_keepincrm_xlsx', methods=['POST'])
+def admin_import_keepincrm_xlsx():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    if 'file' not in request.files: return jsonify({"success": False, "error": "Нет файла"})
+
+    file = request.files['file']
+    if not file: return jsonify({"success": False, "error": "Пустой файл"})
+
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+
+        # Поиск листов
+        sheet_products = None
+        sheet_groups = None
+
+        for name in wb.sheetnames:
+            lower = name.lower()
+            if any(x in lower for x in ["products", "товар", "export products"]):
+                sheet_products = wb[name]
+            if any(x in lower for x in ["groups", "груп", "export groups"]):
+                sheet_groups = wb[name]
+
+        if not sheet_products and len(wb.sheetnames) > 0: sheet_products = wb.worksheets[0]
+        if not sheet_groups and len(wb.sheetnames) > 1: sheet_groups = wb.worksheets[1]
+
+        if not sheet_products:
+            return jsonify({"success": False, "error": "Не найден лист с товарами"})
+
+        # === 1. ГРУППЫ ===
+        crm_group_map = {}
+        if sheet_groups:
+            rows_g = list(sheet_groups.iter_rows(values_only=True))
+            if rows_g and len(rows_g) > 0:
+                # replace('\ufeff', '') убирает невидимые символы в начале
+                headers_g = {str(h).replace('\ufeff', '').strip().lower(): i for i, h in enumerate(rows_g[0]) if
+                             h is not None}
+
+                def get_g(row, names):
+                    for n in names:
+                        key = n.lower()
+                        if key in headers_g: return row[headers_g[key]]
+                    return None
+
+                with sqlite3.connect(DB_NAME) as conn:
+                    cursor = conn.cursor()
+                    for row in rows_g[1:]:
+                        ext_id = get_g(row, ['Номер_групи', 'Номер_группы', 'GroupId', 'ID'])
+                        if not ext_id: continue
+                        ext_id = str(ext_id).strip()
+
+                        title = get_g(row, ['Назва_групи', 'Название_группы', 'GroupName', 'Name'])
+                        title = str(title).strip() if title else "Без названия"
+
+                        title_ua = get_g(row, ['Назва_групи_укр', 'Название_группы_укр'])
+                        title_ua = str(title_ua).strip() if title_ua else title
+
+                        parent_ext_id = get_g(row, ['Номер_батьківської_групи', 'ParentId'])
+                        parent_ext_id = str(parent_ext_id).strip() if parent_ext_id else None
+
+                        slug = get_g(row, ['Ідентифікатор_групи', 'Slug'])
+                        if not slug:
+                            slug = simple_slugify(title)
+                        else:
+                            slug = str(slug).strip()
+
+                        crm_group_map[ext_id] = slug
+
+                        cursor.execute("SELECT id FROM categories WHERE slug = ?", (slug,))
+                        if cursor.fetchone():
+                            cursor.execute("UPDATE categories SET title_ru=?, title_ua=? WHERE slug=?",
+                                           (title, title_ua, slug))
+                        else:
+                            parent_slug = crm_group_map.get(parent_ext_id)
+                            cursor.execute(
+                                "INSERT INTO categories (slug, parent_slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?, 0)",
+                                (slug, parent_slug, title, title_ua))
+                    conn.commit()
+
+        # === 2. ТОВАРЫ ===
+        rows_p = list(sheet_products.iter_rows(values_only=True))
+        if not rows_p: return jsonify({"success": False, "error": "Лист пуст"})
+
+        # Чистим заголовки от мусора
+        headers_p = {str(h).replace('\ufeff', '').strip().lower(): i for i, h in enumerate(rows_p[0]) if h is not None}
+
+        def get_p(row, names):
+            for n in names:
+                key = n.lower().strip()
+                if key in headers_p:
+                    val = row[headers_p[key]]
+                    if val is not None: return val
+            return None
+
+        updated_count = 0
+        created_count = 0
+
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+
+            for idx, row in enumerate(rows_p[1:]):
+                sku = get_p(row, ['Код_товару', 'Код товара', 'Артикул', 'Article', 'sku'])
+                if not sku: continue
+                sku = str(sku).strip()
+
+                # Названия
+                title_ru = str(get_p(row, ['Назва_позиції', 'Название_позиции', 'Title']) or "")
+                title_ua = str(get_p(row, ['Назва_позиції_укр', 'Название_позиции_укр', 'Title_ua']) or title_ru)
+
+                # Описания
+                desc_ru = str(get_p(row, ['Опис', 'Описание', 'Description']) or "")
+                desc_ua = str(get_p(row, ['Опис_укр', 'Описание_укр', 'Description_ua']) or desc_ru)
+
+                # 1. Считываем "сырые" данные из файла (ищем по всем возможным названиям)
+                raw_seo_t_ru = str(get_p(row, ['HTML_заголовок', 'SEO Title', 'html_заголовок']) or "").strip()
+                raw_seo_t_ua = str(
+                    get_p(row, ['HTML_заголовок_укр', 'SEO Title UA', 'html_заголовок_укр']) or "").strip()
+
+                raw_seo_d_ru = str(get_p(row, ['HTML_описание', 'SEO Description', 'html_описание']) or "").strip()
+                raw_seo_d_ua = str(
+                    get_p(row, ['HTML_описание_укр', 'SEO Description UA', 'html_описание_укр']) or "").strip()
+
+                # 2. ПЕРЕКРЕСТНОЕ ЗАПОЛНЕНИЕ (Если одно пустое, берем у соседа)
+                # Пример: Если нет RU заголовка, но есть UA -> копируем UA в RU
+                if not raw_seo_t_ru and raw_seo_t_ua:
+                    raw_seo_t_ru = raw_seo_t_ua
+                if not raw_seo_t_ua and raw_seo_t_ru:
+                    raw_seo_t_ua = raw_seo_t_ru
+
+                # То же самое для описания
+                if not raw_seo_d_ru and raw_seo_d_ua:
+                    raw_seo_d_ru = raw_seo_d_ua
+                if not raw_seo_d_ua and raw_seo_d_ru:
+                    raw_seo_d_ua = raw_seo_d_ru
+
+                # 3. ФИНАЛЬНАЯ ПОДСТРАХОВКА (Если всё равно пусто — берем название товара)
+                # Заполняем переменную seo_title (для базы)
+                if raw_seo_t_ru:
+                    seo_title = raw_seo_t_ru
+                else:
+                    seo_title = title_ru  # Совсем пусто -> берем имя товара
+
+                # Заполняем переменную seo_title_ua (для базы)
+                if raw_seo_t_ua:
+                    seo_title_ua = raw_seo_t_ua
+                else:
+                    # Если есть укр название - берем его, если нет - ру название
+                    seo_title_ua = title_ua if title_ua else title_ru
+
+                # Описания просто присваиваем (тут названием товара заменять не надо)
+                seo_desc = raw_seo_d_ru
+                seo_desc_ua = raw_seo_d_ua
+
+                # Цена и кол-во
+                try:
+                    price = float(str(get_p(row, ['Ціна', 'Цена', 'Price'])).replace(',', '.').replace(' ', ''))
+                except:
+                    price = 0.0
+
+                try:
+                    qty = int(float(
+                        str(get_p(row, ['Кількість', 'Количество', 'Залишок', 'Остаток'])).replace(',', '.').replace(
+                            ' ', '')))
+                except:
+                    qty = 0
+
+                stock_status = str(get_p(row, ['Наявність', 'Наличие', 'Stock']) or "").lower()
+                is_available = stock_status in ['+', '!', 'true', 'yes', 'есть', 'в наличии']
+                in_stock = 1 if (qty > 0 or is_available) else 0
+
+                # Единицы
+                unit_raw = str(get_p(row, ['Одиниця_виміру', 'Единица измерения', 'Unit']) or "").lower()
+                unit_type = 'set' if any(x in unit_raw for x in ['комплект', 'набір', 'set']) else 'pcs'
+
+                # Категория
+                cat_slug = "general"
+                group_id = str(get_p(row, ['Номер_групи', 'Номер_группы', 'GroupId']) or "").strip()
+                if group_id in crm_group_map:
+                    cat_slug = crm_group_map[group_id]
+
+                # Картинки
+                image_url = get_p(row, ['Посилання_зображення', 'Ссылка_изображения', 'Ссылка_на_изображение', 'Image'])
+                images = []
+                if image_url:
+                    images = [p.strip() for p in str(image_url).replace(';', ',').split(',') if p.strip()]
+                images_json = json.dumps(images)
+
+                cursor.execute("SELECT id FROM products WHERE sku = ?", (sku,))
+                if cursor.fetchone():
+                    cursor.execute("""
+                        UPDATE products SET 
+                        title_ru=?, title_ua=?, description_ru=?, description_ua=?,
+                        price=?, quantity=?, qty_stock=?, in_stock=?, images_json=?, category=?,
+                        unit_type=?, 
+                        seo_title=?, seo_description=?,
+                        seo_title_ua=?, seo_description_ua=?
+                        WHERE sku=?
+                    """, (
+                    title_ru, title_ua, desc_ru, desc_ua, price, qty, qty, in_stock, images_json, cat_slug, unit_type,
+                    seo_title, seo_desc, seo_title_ua, seo_desc_ua, sku))
+                    updated_count += 1
+                else:
+                    cursor.execute("""
+                        INSERT INTO products (
+                            sku, title_ru, title_ua, description_ru, description_ua, 
+                            price, quantity, qty_stock, in_stock, images_json, 
+                            category, unit_type, created_at, on_index, is_visible,
+                            seo_title, seo_description, seo_title_ua, seo_description_ua
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?)
+                    """, (sku, title_ru, title_ua, desc_ru, desc_ua, price, qty, qty, in_stock, images_json, cat_slug,
+                          unit_type, datetime.now(),
+                          seo_title, seo_desc, seo_title_ua, seo_desc_ua))
+                    created_count += 1
+
+            conn.commit()
+
+        return jsonify(
+            {"success": True, "message": f"Импорт завершен!\nОбновлено: {updated_count}\nСоздано: {created_count}"})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Ошибка: {str(e)}"})
+
+
+# === СПЕЦИАЛЬНАЯ КОМАНДА: УБРАТЬ ВСЁ С ВИТРИНЫ ===
+@app.route('/api/admin/reset_vitrine')
+def reset_vitrine_all():
+    if not session.get('admin_logged_in'): return "Нужны права админа!", 403
+
+    with sqlite3.connect(DB_NAME) as conn:
+        # Ставим 0 (выкл) для всех товаров
+        conn.execute("UPDATE products SET on_index = 0")
+        conn.commit()
+
+    return "✅ Готово! Со всех товаров снята галочка 'На витрине'. Теперь добавь вручную только нужные."
+
+@app.route('/api/admin/sync_keepincrm', methods=['POST'])
+def admin_sync_keepincrm():
+    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+
+    api_token = get_setting('crm_api_key')
+    if not api_token:
+        return jsonify({"success": False, "error": "Нет API ключа CRM"})
+
+    headers = {'Content-Type': 'application/json', 'X-Auth-Token': api_token}
+
+    updated_count = 0
+    not_found_count = 0
+
+    try:
+        # 1. Получаем все товары из CRM (нужна пагинация, если товаров > 50)
+        # Для начала берем первую страницу (по умолчанию 50 штук).
+        # Если товаров много, нужно делать цикл while.
+        r = requests.get('https://api.keepincrm.com/v1/products', headers=headers)
+        if r.status_code != 200:
+            return jsonify({"success": False, "error": f"Ошибка CRM: {r.text}"})
+
+        crm_products = r.json().get('items', [])
+
+        # Если товаров больше 50, нужно листать страницы:
+        total_pages = r.json().get('_meta', {}).get('page_count', 1)
+
+        # Собираем ВСЕ товары в один список
+        all_crm_items = crm_products
+        for page in range(2, total_pages + 1):
+            r_page = requests.get(f'https://api.keepincrm.com/v1/products?page={page}', headers=headers)
+            if r_page.status_code == 200:
+                all_crm_items.extend(r_page.json().get('items', []))
+
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+
+            for item in all_crm_items:
+                # В CRM артикул обычно лежит в поле 'article' или 'sku'
+                sku = item.get('article')
+                if not sku: continue  # Без артикула не можем связать
+
+                price = float(item.get('price', 0))
+                # Остаток: в CRM это может быть 'amount' или расчет по складам
+                # Обычно в списке товаров приходит 'leftover' (остаток)
+                qty = int(float(item.get('leftover', 0)))
+
+                # Обновляем только цену и остаток в нашей базе
+                cursor.execute("""
+                    UPDATE products 
+                    SET price = ?, quantity = ?, in_stock = ?
+                    WHERE sku = ?
+                """, (price, qty, (1 if qty > 0 else 0), sku))
+
+                if cursor.rowcount > 0:
+                    updated_count += 1
+                else:
+                    not_found_count += 1
+
+            conn.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"Обновлено: {updated_count}, Не найдено по артикулу: {not_found_count}"
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

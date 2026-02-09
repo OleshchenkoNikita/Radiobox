@@ -20,6 +20,34 @@
         </aside>
     </div>
     <!-- =================================================================== -->
+
+    <div class="hours-modal" aria-hidden="true">
+    <div class="hours-modal__backdrop" data-hours-close></div>
+    <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
+        <header class="hours-modal__header">
+            <h2 id="hoursTitle" class="hours-modal__title">Графік роботи</h2>
+            <button type="button" class="hours-modal__close" aria-label="Закрити" data-hours-close>×</button>
+        </header>
+        <div class="hours-modal__body">
+            <table class="hours-table">
+                <thead>
+                    <tr><th scope="col">День</th><th scope="col">Час роботи</th></tr>
+                </thead>
+                <tbody>
+                    <tr><th scope="row">Понеділок</th><td>08:00 – 20:00</td></tr>
+                    <tr><th scope="row">Вівторок</th><td>08:00 – 20:00</td></tr>
+                    <tr><th scope="row">Середа</th><td>08:00 – 20:00</td></tr>
+                    <tr><th scope="row">Четвер</th><td>08:00 – 20:00</td></tr>
+                    <tr><th scope="row">Пʼятниця</th><td>08:00 – 20:00</td></tr>
+                    <tr><th scope="row">Субота</th><td>10:00 – 18:00</td></tr>
+                    <tr><th scope="row">Неділя</th><td>10:00 – 15:00</td></tr>
+                </tbody>
+            </table>
+            <p class="hours-note">* Час вказано для регіону: Україна, м. Шостка</p>
+        </div>
+    </section>
+</div>
+
     <!-- ===== Верхня темна смуга ===== -->
     <div class="b-head-control-panel__container" data-qaid="header-block">
         <div class="topbar-inner">

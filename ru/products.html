@@ -311,35 +311,58 @@
 
             // ==== карточки ====
             function gridCardHTML(p) {
+                // 1. Жестко задаем язык, так как это RU файл
+                const isUA = false;
+
+                // 2. Безопасное название
+                const pTitle = p.title_ru || p.title || p.title_ua || 'Товар';
+
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
                 const stText = p.in_stock ? 'Готово к отправке' : 'Нет в наличии';
+
+                // Определяем единицу измерения: если 'set' -> комплект., иначе -> шт.
+                const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
+
+                const qtyText = p.in_stock
+                    ? `<div style="font-size:12px; color:#6b7280; margin-top:3px;">На складе: <b>${p.qty_stock}</b> ${unitLabel}</div>`
+                    : '';
+
                 return `
-                          <article class="product-card is-clickable" data-id="${p.id}" tabindex="0">
-                            <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${p.title}">` : `<img src="" alt="">`}</div>
-                            <h3 class="product-card__title">${p.title}</h3>
-                            <div class="product-card__meta">Код: <span>${p.sku}</span></div>
-                            <div class="product-card__price">${p.price} ₴</div>
-                            <div class="product-card__status ${stClass}">${stText}</div>
-                            <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
-                          </article>`;
+                <article class="product-card is-clickable" data-id="${p.id}" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${pTitle}"></div>
+                  <h3 class="product-card__title">${pTitle}</h3>
+                  <div class="product-card__meta">Код: <span>${p.sku}</span></div>
+                  <div class="product-card__price">${p.price} ₴</div>
+                  <div class="product-card__status ${stClass}">${stText}</div>
+                  ${qtyText}
+                  <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
+                </article>`;
             }
 
             function listCardHTML(p) {
+                const isUA = false;
+                const pTitle = p.title_ru || p.title || p.title_ua || 'Товар'; // Безопасное название
+
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
                 const stText = p.in_stock ? 'Готово к отправке' : 'Нет в наличии';
+                const qtyText = p.in_stock ? `<div style="font-size:13px; color:#666; margin-top:4px;">Остаток: <b>${p.qty_stock}</b> шт.</div>` : '';
+
                 return `
-                          <article class="product-card product-card--list is-clickable" data-id="${p.id}" tabindex="0">
-                            <div class="product-card__img">${p.image ? `<img src="${p.image}" alt="${p.title}">` : `<img src="" alt="">`}</div>
-                            <div class="product-info">
-                              <h3 class="product-card__title">${p.title}</h3>
-                              <div class="product-card__price">${p.price} ₴</div>
-                              <div class="product-card__status ${stClass}">${stText}</div>
-                              <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
-                            </div>
-                            <div class="product-cta">
-                              <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
-                            </div>
-                          </article>`;
+                <article class="product-card product-card--list is-clickable" data-id="${p.id}" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${pTitle}"></div>
+                  <div class="product-info">
+                    <h3 class="product-card__title">${pTitle}</h3>
+                    <div class="product-card__price">${p.price} ₴</div>
+                    <div class="product-card__status ${stClass}">
+                        ${stText}
+                        ${qtyText}
+                    </div>
+                    <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
+                  </div>
+                  <div class="product-cta">
+                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">Купить</button>
+                  </div>
+                </article>`;
             }
 
             // ==== рендер ====
@@ -361,7 +384,22 @@
                 pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
             }
 
-            window.renderCatalog = render;
+            window.renderCatalog = () => {
+                // 1. Принудительно читаем свежие данные из LocalStorage
+                const freshAllItems = loadItems();
+
+                // 2. Заново применяем фильтр категории (если он есть в URL)
+                const currentCat = (location.hash || '').replace(/^#cat-/, '');
+
+                if (currentCat && freshAllItems.some(p => p.category === currentCat)) {
+                    items = freshAllItems.filter(p => p.category === currentCat);
+                } else {
+                    items = freshAllItems;
+                }
+
+                // 3. Вызываем рендер уже с новыми переменными
+                render();
+            };
 
             // ==== события ====
             pager.addEventListener('click', (e) => {
@@ -419,32 +457,6 @@
             render();
         });
     </script>
-
-    <!-- ===== MODAL: График работы ===== -->
-    <div class="hours-modal" aria-hidden="true">
-        <div class="hours-modal__backdrop" data-hours-close></div>
-        <section class="hours-modal__panel" role="dialog" aria-modal="true" aria-labelledby="hoursTitle">
-            <header class="hours-modal__header">
-                <h2 id="hoursTitle" class="hours-modal__title">График работы</h2>
-                <button type="button" class="hours-modal__close" aria-label="Закрыть" data-hours-close>×</button>
-            </header>
-            <div class="hours-modal__body">
-                <table class="hours-table">
-                    <thead><tr><th scope="col">День</th><th scope="col">Время работы</th></tr></thead>
-                    <tbody>
-                        <tr><th scope="row">Понедельник</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Вторник</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Среда</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Четверг</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Пятница</th><td>08:00 – 20:00</td></tr>
-                        <tr><th scope="row">Суббота</th><td>10:00 – 18:00</td></tr>
-                        <tr><th scope="row">Воскресенье</th><td>10:00 – 15:00</td></tr>
-                    </tbody>
-                </table>
-                <p class="hours-note">* Время указано для региона: Украина, г. Шостка</p>
-            </div>
-        </section>
-    </div>
 
     <!-- Боковые картинки -->
     <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>

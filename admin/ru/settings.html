@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Настройки — RadioBox Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 250px; background: #0d2b4e; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .nav-links { list-style: none; padding: 0; margin: 20px 0; flex: 1; }
+        .nav-links li a { display: block; padding: 12px 20px; color: #cbd5e1; text-decoration: none; font-weight: 600; border-left: 4px solid transparent; transition:0.2s; }
+        .nav-links li a:hover, .nav-links li a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #189BFF; }
+        .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .btn-logout { color: #fca5a5; text-decoration: none; font-size: 14px; font-weight: 600; }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; }
+        .page-header { margin-bottom: 24px; }
+        .page-header h1 { margin: 0; font-size: 24px; color: #0f172a; }
+
+        .settings-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 20px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 700; color: #334155; font-size: 14px; }
+        .form-group small { display: block; margin-top: 4px; color: #64748b; font-size: 12px; }
+        .form-input, .form-textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; }
+        .form-textarea { min-height: 120px; resize: vertical; font-family: monospace; }
+
+        .btn-save { background: #189BFF; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 15px; }
+        .btn-save:hover { filter: brightness(1.1); }
+
+        .backup-list { list-style: none; padding: 0; margin: 0; }
+        .backup-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .backup-item:last-child { border-bottom: none; }
+        .btn-restore { background: #fff; border: 1px solid #e2e8f0; color: #0f172a; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+        .btn-restore:hover { background: #fee2e2; color: #ef4444; border-color: #fca5a5; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+        .tab-btn { background: none; border: none; padding: 10px 15px; cursor: pointer; font-weight: 600; color: #64748b; font-size: 15px; border-radius: 6px; }
+        .tab-btn.active { background: #e0f2fe; color: #0284c7; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+    <script src="/admin/admin.js" defer></script>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">RadioBox Seller</div>
+        <ul class="nav-links">
+            <li><a href="/admin/ru/dashboard">Заказы</a></li>
+            <li><a href="/admin/ru/products">Товары</a></li>
+            <li><a href="/admin/ru/reviews">Отзывы</a></li>
+            <li><a href="/admin/ru/showcase.html">Витрина (Сортировка)</a></li>
+            <li><a href="/admin/ru/banners">Баннеры</a></li>
+            <li><a href="/admin/ru/settings" class="active">Настройки</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <a href="/admin/logout" class="btn-logout">Выйти</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Настройки магазина</h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="AdminSettings.openTab('seo')">SEO и Главное</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('backups')">Бэкапы и База</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('crm')">Интеграции (CRM)</button>
+        </div>
+
+        <div id="tab-seo" class="tab-content active">
+            <div class="settings-card">
+                <div class="form-group">
+                    <label>URL Сайта (Домен)</label>
+                    <input type="text" id="s_site_url" class="form-input" placeholder="https://radiobox.in.ua">
+                    <small>Используется для генерации sitemap.xml и ссылок в письмах.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Google Search Console (Код верификации)</label>
+                    <input type="text" id="s_google_ver" class="form-input" placeholder='<meta name="google-site-verification" content="..." />'>
+                    <small>Вставьте сюда мета-тег целиком, который дал Google.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Файл robots.txt</label>
+                    <textarea id="s_robots" class="form-textarea"></textarea>
+                    <small>Инструкция для поисковых роботов. Осторожно!</small>
+                </div>
+
+                <button class="btn-save" onclick="AdminSettings.save()">Сохранить настройки</button>
+            </div>
+        </div>
+
+        <div id="tab-backups" class="tab-content">
+            <div class="settings-card">
+                <h3>Резервные копии базы данных</h3>
+                <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Бэкапы создаются автоматически раз в сутки при первом заходе. Здесь можно восстановить состояние магазина на прошлую дату.</p>
+
+                <ul class="backup-list" id="backupsContainer">
+                    <li style="padding:10px; color:#999;">Загрузка...</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="tab-crm" class="tab-content">
+            <div class="settings-card">
+                <div class="form-group">
+                    <label>CRM API Key</label>
+                    <input type="password" id="s_crm_key" class="form-input" placeholder="Введите ключ API">
+                    <small>Ключ для связи с CRM системой (KeyCRM, SalesDrive и т.д.). Сама интеграция прописывается в коде.</small>
+                </div>
+                 <button class="btn-save" onclick="AdminSettings.save()">Сохранить настройки</button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // Небольшой скрипт для инициализации, остальное в admin.js
+        document.addEventListener('DOMContentLoaded', () => {
+            if(window.AdminSettings) AdminSettings.init();
+        });
+    </script>
+</body>
+</html>

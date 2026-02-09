@@ -118,6 +118,7 @@
     <div class="checkout-container">
         <form id="checkoutForm" class="co-grid" action="/create_order" method="POST">
             <input type="hidden" name="full_address" id="hiddenAddress">
+            <input type="hidden" name="cart_json" id="hiddenCart">
             <input type="hidden" name="payment_status" id="hiddenPayStatus" value="unpaid">
 
             <div class="co-left">
@@ -1095,46 +1096,110 @@
         });
         if(textArea) textArea.addEventListener('input', () => { charCount.textContent = 254 - textArea.value.length; });
 
-        function loadCartData() {
-            let cart = []; try { cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || []; } catch(e){}
-            let catalog = []; try { catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru')).items || []; } catch(e){}
+        async function loadCartData() {
+            // 1. Берем корзину (IDs)
+            let cart = [];
+            try { cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || []; } catch(e){}
+
+            // Если корзина пуста - сразу выход
             const sidebarList = document.getElementById('coItemsList');
             const drawerList = document.getElementById('odItemsList');
-            const sidebarTitle = document.getElementById('coTotalTitle');
-            const drawerCountTitle = document.getElementById('odTotalCount');
-            const elsPrice = ['coSumGoods', 'coFinalSum', 'odSumGoods', 'odFinalSum'];
 
             if (cart.length === 0) {
                 if(sidebarList) sidebarList.innerHTML = '<div style="padding:10px; color:#888;">Корзина пуста</div>';
+                updateTotals(0, 0);
                 return;
             }
 
+            // 2. Пытаемся достать каталог. Если его нет — загружаем с сервера!
+            let catalogItems = [];
+            try {
+                const catRaw = localStorage.getItem('rb_catalog_v1_ru');
+                if (catRaw) {
+                    catalogItems = JSON.parse(catRaw).items || [];
+                }
+            } catch(e) {}
+
+            // ВАЖНО: Если каталог пуст (например, юзер пришел по прямой ссылке), грузим его
+            if (catalogItems.length === 0) {
+                try {
+                    // Укажите правильный путь к вашему JSON файлу с товарами
+                    const r = await fetch('products.json');
+                    const data = await r.json();
+                    catalogItems = data.items || data; // Подстраховка структуры
+                    // Сохраним, чтобы в следующий раз было быстрее
+                    localStorage.setItem('rb_catalog_v1_ru', JSON.stringify({items: catalogItems}));
+                } catch (e) {
+                    console.error("Не удалось загрузить каталог товаров:", e);
+                    if(sidebarList) sidebarList.innerHTML = '<div style="color:red">Ошибка загрузки данных о товарах. Обновите страницу.</div>';
+                    return;
+                }
+            }
+
+            // 3. Собираем HTML
             let total = 0, totalQty = 0, html = '', dHtml = '';
+
             cart.forEach(item => {
-                const prod = catalog.find(p => p.id == item.id);
+                // Ищем товар (сравниваем нестрого ==, чтобы строка "5" нашла число 5)
+                const prod = catalogItems.find(p => p.id == item.id);
+
                 if(prod) {
-                    const sum = prod.price * item.qty; total += sum; totalQty += item.qty;
-                    const img = prod.image || '';
-                    html += `<div class="co-item"><div class="co-item__img"><img src="${img}"></div><div class="co-item__info"><div class="co-item__title">${prod.title}</div><div class="co-item__meta">${item.qty} шт.</div><div class="co-item__price">${prod.price} ₴/шт.</div></div></div>`;
+                    const sum = prod.price * item.qty;
+                    total += sum;
+                    totalQty += item.qty;
+
+                    // ЗАЩИТА ОТ UNDEFINED: проверяем наличие полей
+                    const title = prod.title_ru || prod.title || prod.name || prod.model || 'Название не указано';
+                    const img = prod.image || 'placeholder.jpg'; // Заглушка, если нет картинки
+
+                    html += `
+                    <div class="co-item">
+                        <div class="co-item__img"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>
+                        <div class="co-item__info">
+                            <div class="co-item__title">${title}</div>
+                            <div class="co-item__meta">${item.qty} шт.</div>
+                            <div class="co-item__price">${prod.price} ₴/шт.</div>
+                        </div>
+                    </div>`;
+
                     dHtml += `
                     <div class="od-item">
-                        <div class="od-item__img"><img src="${img}"></div>
+                        <div class="od-item__img"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>
                         <div class="od-item__info">
-                            <div class="od-item__title">${prod.title}</div>
+                            <div class="od-item__title">${title}</div>
                             <div class="od-item__status">В наличии</div>
                             <div style="font-size:13px; color:#666; margin-top:4px;">${item.qty} шт. × ${prod.price} ₴</div>
                             <div class="od-item__price">${sum} ₴</div>
                         </div>
                     </div>`;
+                } else {
+                    // Товар есть в корзине, но его нет в каталоге (удален или глюк ID)
+                    console.warn(`Товар с ID ${item.id} не найден в каталоге.`);
                 }
             });
 
             if(sidebarList) sidebarList.innerHTML = html;
             if(drawerList) drawerList.innerHTML = dHtml;
-            elsPrice.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = total + ' ₴'; });
-            if(sidebarTitle) sidebarTitle.textContent = `Заказ`;
-            if(drawerCountTitle) drawerCountTitle.textContent = `В заказе ${totalQty} ед. товара`;
+
+            updateTotals(total, totalQty);
         }
+
+        function updateTotals(sum, qty) {
+            const elsPrice = ['coSumGoods', 'coFinalSum', 'odSumGoods', 'odFinalSum'];
+            elsPrice.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.textContent = sum + ' ₴';
+            });
+
+            const sidebarTitle = document.getElementById('coTotalTitle');
+            const drawerCountTitle = document.getElementById('odTotalCount');
+
+            if(sidebarTitle) sidebarTitle.textContent = `Заказ`;
+            if(drawerCountTitle) drawerCountTitle.textContent = `В заказе ${qty} ед. товара`;
+        }
+
+        // Вызываем загрузку
+        loadCartData();
 
         // Логика "Получатель средств"
         const recipToggle = document.getElementById('recipToggle');
@@ -1367,166 +1432,161 @@
         // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
         if (form) {
             form.addEventListener('submit', (e) => {
-                e.preventDefault();
+                e.preventDefault(); // Стоп, сначала готовим данные
 
-                const formData = new FormData(form);
-                const deliveryType = formData.get('delivery');
-                const paymentType = formData.get('payment');
-
-                // --- ПРОВЕРКИ (ВАЛИДАЦИЯ) ---
-                if(!document.getElementById('coPhone').value) return showError('Введите номер телефона', 'coPhone');
-                if(!document.getElementById('coSurname').value) return showError('Введите фамилию', 'coSurname');
-                if(!document.getElementById('coName').value) return showError('Введите имя', 'coName');
-
-                if (!deliveryType) {
-                    alert('Пожалуйста, выберите способ доставки!');
-                    const sect = document.getElementById('optNP')?.closest('.co-section');
-                    if(sect) sect.scrollIntoView({ behavior: 'smooth' });
-                    return;
-                }
-
-                // Валидация адресов доставки
-                if (deliveryType === 'np') {
-                    if (!document.getElementById('npCitySearch').value.trim()) return showError('Укажите город', 'npCitySearch');
-                    const subType = document.querySelector('input[name="np_type"]:checked').value;
-                    if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Выберите отделение', 'npBranchSearch');
-                    if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Выберите почтомат', 'npPostomatSearch');
-                    if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Укажите улицу и дом', 'npStreetSearch');
-                }
-                else if (deliveryType === 'up') {
-                    if (!document.getElementById('upCitySearch').value.trim()) return showError('Укажите город', 'upCitySearch');
-                    const subType = document.querySelector('input[name="up_type"]:checked').value;
-                    if (subType === 'branch') {
-                        const val = formData.get('up_branch_text');
-                        if (!val) return showError('Заполните индекс и адрес', 'up_branch_text');
-                        if (!validateUpAddr(val, 'up_branch_text')) return;
-                    }
-                    else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Укажите улицу и дом', 'upStreetSearch');
-                }
-                else if (deliveryType === 'upe') {
-                    if (!document.getElementById('upeCitySearch').value.trim()) return showError('Укажите город', 'upeCitySearch');
-                    const subType = document.querySelector('input[name="upe_type"]:checked').value;
-                    if (subType === 'branch') {
-                        const val = formData.get('upe_branch_text');
-                        if (!val) return showError('Заполните индекс и адрес', 'upe_branch_text');
-                        if (!validateUpAddr(val, 'upe_branch_text')) return;
-                    }
-                    else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').value.trim())) return showError('Укажите улицу и дом', 'upeStreetSearch');
-                }
-                else if (deliveryType === 'meest') {
-                    if (!document.getElementById('meestCitySearch').value.trim()) return showError('Укажите город', 'meestCitySearch');
-                    const subType = document.querySelector('input[name="meest_type"]:checked').value;
-                    if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Укажите отделение', 'meest_branch_text');
-                    if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Укажите почтомат', 'meest_post_text');
-                    if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Укажите улицу и дом', 'meestStreetSearch');
-                }
-
-                // Проверка оплаты
-                const paySection = document.getElementById('payCod')?.closest('.co-section');
-                if (deliveryType !== 'self' && (!paymentType || paymentType === '')) {
-                    alert('Пожалуйста, выберите способ оплаты!');
-                    if(paySection) paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-
-                // --- СБОР ДАННЫХ ---
-                let deliveryLabel = '';
-                let addressText = '';
-
-                if (deliveryType === 'np') {
-                    deliveryLabel = 'Новая Почта';
-                    const city = document.getElementById('npCitySearch').value;
-                    const type = document.querySelector('input[name="np_type"]:checked').value;
-                    if (type === 'branch') addressText = `г. ${city}, ` + document.getElementById('npBranchSearch').value;
-                    else if (type === 'postomat') addressText = `г. ${city}, ` + document.getElementById('npPostomatSearch').value;
-                    else addressText = `г. ${city}, ` + document.getElementById('npStreetSearch').value + ', д. ' + formData.get('np_house');
-                }
-                else if (deliveryType === 'up') {
-                    deliveryLabel = 'Укрпочта Стандарт';
-                    const city = document.getElementById('upCitySearch').value;
-                    const type = document.querySelector('input[name="up_type"]:checked').value;
-                    if (type === 'branch') addressText = formatFullAddress(city, formData.get('up_branch_text'));
-                    else addressText = `г. ${city}, ` + document.getElementById('upStreetSearch').value + ', д. ' + formData.get('up_house');
-                }
-                else if (deliveryType === 'upe') {
-                    deliveryLabel = 'Укрпочта Экспресс';
-                    const city = document.getElementById('upeCitySearch').value;
-                    const type = document.querySelector('input[name="upe_type"]:checked').value;
-                    if (type === 'branch') addressText = formatFullAddress(city, formData.get('upe_branch_text'));
-                    else addressText = `г. ${city}, ` + document.getElementById('upeStreetSearch').value + ', д. ' + formData.get('upe_house');
-                }
-                else if (deliveryType === 'meest') {
-                    deliveryLabel = 'Meest ПОШТА';
-                    const city = document.getElementById('meestCitySearch').value;
-                    const type = document.querySelector('input[name="meest_type"]:checked').value;
-                    if(type === 'branch') addressText = `г. ${city}, ` + formData.get('meest_branch_text');
-                    else if(type === 'postomat') addressText = `г. ${city}, ` + formData.get('meest_post_text');
-                    else addressText = `г. ${city}, ` + document.getElementById('meestStreetSearch').value;
-                }
-                else if (deliveryType === 'self') {
-                    deliveryLabel = 'Самовывоз';
-                    addressText = 'г. Шостка, ул. Свободы, 24';
-                }
-
-                // Метки оплаты
-                let paymentLabel = '';
-                if (paymentType === 'cod') paymentLabel = 'Наложенный платеж';
-                else if (paymentType === 'seller_cashless') paymentLabel = 'Безналичный расчет';
-                else if (paymentType === 'seller_privat') paymentLabel = 'Оплата на счёт ФОП';
-                else if (paymentType === 'card_online') paymentLabel = 'Оплата картой Visa/Mastercard';
-
-                // --- НОВАЯ ЛОГИКА ОТПРАВКИ НА СЕРВЕР ---
-
-                // 1. Записываем собранный адрес в скрытое поле, чтобы Python его увидел
-                // (переменная addressText уже собрана выше в твоем коде, строки 920-946)
-                document.getElementById('hiddenAddress').value = addressText || 'Адрес не указан';
-
-                // 2. Если корзина хранится только в localStorage, сервер её не увидит.
-                // Добавим её в скрытое поле (создаем его на лету)
-                let cartInput = document.createElement('input');
-                cartInput.type = 'hidden';
-                cartInput.name = 'cart_json'; // В Python получишь через request.form['cart_json']
-                // --- НАЧАЛО ВСТАВКИ ---
-                const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
-
-                // Грузим каталог, чтобы узнать цены
-                let catalogItems = [];
-                try {
-                    catalogItems = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{"items":[]}').items;
-                } catch (e) { console.log('Ошибка каталога'); }
-
-                // Собираем полную корзину с ценами
-                const enrichedCart = rawCart.map(item => {
-                    const product = catalogItems.find(p => p.id == item.id);
-                    return {
-                        id: item.id,
-                        qty: item.qty,
-                        title: product ? product.title : 'Товар #' + item.id,
-                        price: product ? product.price : 0
-                    };
-                });
-
-                // Кладем готовый результат в форму
-                cartInput.value = JSON.stringify(enrichedCart);
-                // --- КОНЕЦ ВСТАВКИ ---
-                form.appendChild(cartInput);
-
-                // 3. Визуальный эффект нажатия
                 const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
-                if(btn) {
-                    btn.textContent = 'Оформляем...';
-                    btn.disabled = true;
+                const originalBtnText = btn ? btn.textContent : 'Оформить';
+
+                try {
+                    const formData = new FormData(form);
+                    const deliveryType = formData.get('delivery');
+                    const paymentType = formData.get('payment');
+
+                    // --- 1. ВАЛИДАЦИЯ (Проверки) ---
+                    if(!document.getElementById('coPhone').value) return showError('Введите телефон', 'coPhone');
+                    if(!document.getElementById('coSurname').value) return showError('Введите фамилию', 'coSurname');
+                    if(!document.getElementById('coName').value) return showError('Введите имя', 'coName');
+
+                    if (!deliveryType) {
+                        alert('Выберите способ доставки!');
+                        const sect = document.getElementById('optNP')?.closest('.co-section');
+                        if(sect) sect.scrollIntoView({ behavior: 'smooth' });
+                        return;
+                    }
+
+                    // Проверка полей доставки
+                    if (deliveryType === 'np' && !document.getElementById('npCitySearch').value) return showError('Укажите город', 'npCitySearch');
+                    if (deliveryType.startsWith('up') && !document.getElementById(deliveryType + 'CitySearch').value) return showError('Укажите город', 'upCitySearch');
+                    if (deliveryType === 'meest' && !document.getElementById('meestCitySearch').value) return showError('Укажите город', 'meestCitySearch');
+
+                    if (deliveryType !== 'self' && !paymentType) {
+                        alert('Выберите способ оплаты!');
+                        const paySection = document.getElementById('payCod')?.closest('.co-section');
+                        if(paySection) paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+
+                    // --- 2. СБОР АДРЕСА И НАЗВАНИЯ ДОСТАВКИ ---
+                    let addressText = '';
+                    let deliveryLabel = ''; // Исправляем баг с "Самовывозом"
+
+                    const cityInput = document.getElementById(deliveryType + 'CitySearch');
+                    const city = cityInput ? cityInput.value : '';
+
+                    if (deliveryType === 'self') {
+                        deliveryLabel = 'Самовывоз';
+                        addressText = 'г. Шостка, ул. Свободы, 24';
+                    } else if (deliveryType === 'np') {
+                        deliveryLabel = 'Новая Почта';
+                        const type = document.querySelector('input[name="np_type"]:checked').value;
+                        if (type === 'branch') addressText = `г. ${city}, ` + document.getElementById('npBranchSearch').value;
+                        else if (type === 'postomat') addressText = `г. ${city}, ` + document.getElementById('npPostomatSearch').value;
+                        else addressText = `г. ${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
+                    } else if (deliveryType === 'up') {
+                        deliveryLabel = 'Укрпочта Стандарт';
+                        addressText = `г. ${city}, ` + (formData.get('up_branch_text') || 'Адрес не указан');
+                    } else if (deliveryType === 'upe') {
+                        deliveryLabel = 'Укрпочта Экспресс';
+                        addressText = `г. ${city}, ` + (formData.get('upe_branch_text') || 'Адрес не указан');
+                    } else if (deliveryType === 'meest') {
+                        deliveryLabel = 'Meest Почта';
+                        addressText = `г. ${city}, ` + (formData.get('meest_branch_text') || 'Адрес не указан');
+                    }
+
+                    document.getElementById('hiddenAddress').value = addressText;
+
+                    // --- 3. СБОР КОРЗИНЫ (JSON) ---
+                    const oldInput = form.querySelector('input[name="cart_json"]');
+                    if (oldInput) oldInput.remove();
+
+                    let cartInput = document.createElement('input');
+                    cartInput.type = 'hidden';
+                    cartInput.name = 'cart_json';
+
+                    let finalJson = '[]';
+                    try {
+                        const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
+
+                        // Пытаемся найти каталог хоть где-нибудь
+                        let catalog = [];
+                        try {
+                            const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
+                            const c2 = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{}').items || [];
+                            catalog = [...c1, ...c2]; // Объединяем, чтобы наверняка найти товар
+                        } catch(e){}
+
+                        const enriched = rawCart.map(item => {
+                            // Ищем товар по ID (число или строка)
+                            const product = catalog.find(p => p.id == item.id) || {};
+                            // Берем хоть какое-то название
+                            const t = product.title_ru || product.title_ua || product.title || `Товар ID ${item.id}`;
+                            return {
+                                id: item.id,
+                                qty: item.qty,
+                                title: t,
+                                price: product.price || 0
+                            };
+                        });
+                        finalJson = JSON.stringify(enriched);
+                    } catch (e) {
+                        console.error("Ошибка сборки JSON", e);
+                        finalJson = '[]';
+                    }
+                    cartInput.value = finalJson;
+                    form.appendChild(cartInput);
+
+                    // --- 4. СТАТУС ОПЛАТЫ ---
+                    const payStatusInput = document.getElementById('hiddenPayStatus');
+                    if (paymentType === 'card_online' && typeof isOrderPaid !== 'undefined' && isOrderPaid) {
+                        payStatusInput.value = 'paid';
+                    } else {
+                        payStatusInput.value = 'waiting';
+                    }
+
+                    // --- 5. СОХРАНЕНИЕ ДЛЯ ORDER-SUCCESS ---
+                    // Генерируем ID для красоты (сервер может перезаписать)
+                    const orderId = generateUniqueOrderId();
+
+                    // Красивое название оплаты
+                    let paymentLabel = 'Оплата';
+                    if(paymentType === 'cod') paymentLabel = 'Наложенный платеж';
+                    if(paymentType === 'card_online') paymentLabel = 'Картой Online';
+                    if(paymentType === 'seller_privat') paymentLabel = 'На карту ФОП';
+                    if(paymentType === 'seller_cashless') paymentLabel = 'Безналичный расчет';
+
+                    localStorage.setItem('rb_last_order_details', JSON.stringify({
+                        id: orderId,
+                        contact: {
+                            name: document.getElementById('coName').value,
+                            surname: document.getElementById('coSurname').value,
+                            phone: document.getElementById('coPhone').value
+                        },
+                        delivery: {
+                            method: deliveryLabel, // <--- ТЕПЕРЬ ТУТ БУДЕТ ПРАВИЛЬНО (не всегда Самовывоз)
+                            address: addressText
+                        },
+                        payment: {
+                            type: paymentType,
+                            label: paymentLabel,
+                            status: payStatusInput.value
+                        },
+                        total: document.getElementById('coFinalSum').textContent,
+                        comment: document.getElementById('orderComment').value
+                    }));
+
+                    // Отправка
+                    if(btn) { btn.textContent = 'Оформляем...'; btn.disabled = true; }
+
+                    console.log("Отправляем форму...");
+                    form.action = "/create_order";
+                    form.method = "POST";
+                    form.submit();
+
+                } catch (err) {
+                    alert("Ошибка: " + err.message);
+                    console.error(err);
+                    if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
                 }
-
-                let finalPayStatus = 'unpaid';
-                if (paymentType === 'card_online' && isOrderPaid) {
-                    finalPayStatus = 'paid';
-                }
-
-                document.getElementById('hiddenPayStatus').value = finalPayStatus;
-
-                // 4. Реальная отправка формы на сервер
-                form.submit();
             });
         }
     });

@@ -100,6 +100,15 @@
                 </div>
                 <button class="btn-primary" style="background:#0d2b4e;" onclick="AdminCats.openManager()">📁 Розділи</button>
                 <button class="btn-primary" onclick="AdminProducts.openModal()">+ Додати товар</button>
+                <button class="btn-primary" style="background:#8b5cf6; margin-left:10px;" onclick="AdminProducts.syncCrm()">
+                    🔄 CRM Sync
+                </button>
+                <button class="btn-primary" style="background:#2563eb; margin-left:10px;" onclick="document.getElementById('importKeepinInput').click()">
+                    📥 Import KeepinCRM CSV
+                </button>
+                <button class="btn-primary" style="background:#16a34a; margin-left:10px;" onclick="document.getElementById('importInput').click()">
+                    Импорт Prom (.csv)
+                </button>
             </div>
         </div>
 
@@ -143,6 +152,7 @@
                         <th onclick="AdminProducts.sortBy('name')" data-sort="name">Назва / SKU</th>
                         <th onclick="AdminProducts.sortBy('def')" data-sort="def">Категорія</th>
                         <th onclick="AdminProducts.sortBy('price')" data-sort="price">Ціна</th>
+                        <th onclick="AdminProducts.sortBy('qty')" data-sort="qty" style="width: 80px;">На складі</th>
                         <th onclick="AdminProducts.sortBy('stock')" data-sort="stock">Наявність</th>
                         <th onclick="AdminProducts.sortBy('date')" data-sort="date">Дата додавання</th>
                         <th style="text-align:center; cursor:default;">Вітрина</th>
@@ -187,6 +197,20 @@
                         <label>Ціна (грн)</label>
                         <input type="number" id="p_price" class="form-input" required step="0.01">
                     </div>
+
+                    <div class="form-group">
+                        <label>Кількість</label>
+                        <input type="number" id="p_qty_stock" class="form-input" placeholder="0" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Одиниця виміру</label>
+                        <select id="p_unit" class="form-select">
+                            <option value="pcs">Штука (шт.)</option>
+                            <option value="set">Комплект (комплект.)</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
                         <label>Склад</label>
                         <select id="p_stock" class="form-select">
@@ -322,6 +346,46 @@
             </form>
         </div>
     </div>
+
+<script>
+async function uploadKeepinCsv(input) {
+    if(!input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    if(!confirm("Загрузить файл экспорта из KeepinCRM?")) return;
+
+    // Блокируем интерфейс, чтобы показать работу
+    const btn = document.querySelector('button[onclick*="importKeepinInput"]');
+    const oldText = btn.textContent;
+    btn.textContent = "⏳ Импорт...";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/admin/import_keepincrm_csv', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        btn.textContent = oldText;
+        btn.disabled = false;
+        input.value = ''; // Сброс
+
+        if(data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert("Ошибка: " + data.error);
+        }
+    } catch(e) {
+        alert("Ошибка сети");
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }
+}
+</script>
 
 </body>
 </html>

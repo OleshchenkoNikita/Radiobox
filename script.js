@@ -313,57 +313,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-// ===== MODAL "График работы" =====
-(function () {
-    const trigger = document.querySelector('.worktime a'); // ссылка "График работы"
-    const modal = document.querySelector('.hours-modal');
-    if (!trigger || !modal) return;
-
-    const panel = modal.querySelector('.hours-modal__panel');
-    const closers = modal.querySelectorAll('[data-hours-close]');
-    let lastFocus = null;
-
-    function openModal() {
-        lastFocus = document.activeElement;
-        modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('is-hours-open');
-        // фокус на кнопку закрытия
-        const btn = modal.querySelector('.hours-modal__close');
-        btn && btn.focus();
-    }
-
-    function closeModal() {
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('is-hours-open');
-        // вернуть фокус инициатору
-        lastFocus && lastFocus.focus();
-    }
-
-    trigger.addEventListener('click', (e) => {
-        e.preventDefault();
-        openModal();
-    });
-
-    closers.forEach(el => {
-        el.addEventListener('click', (e) => {
-            e.preventDefault();
-            closeModal();
-        });
-    });
-
-    // Закрытие по клику на подложку или вне панели
-    modal.addEventListener('click', (e) => {
-        if (!panel.contains(e.target)) closeModal();
-    });
-
-    // Esc закрывает
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
-    });
-})();
-
 // Делает активный язык серым и некликабельным по html[lang]
 (() => {
     const sw = document.querySelector('.lang-switch');
@@ -667,91 +616,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let idCounter = 1700000000;
     const N = (p) => ({id: ++idCounter, ...p});
 
-    const BI_ITEMS = [
-    // ===== solder
-    N({sku:'00001', title_ua:'Паяльна станція XY-1000', title_ru:'Паяльная станция XY-1000', price:2450, in_stock:true, category:'solder', images: mockImages(4), on_index: true }),
-    N({sku:'00002', title_ua:'Паяльник 60Вт з регулюванням', title_ru:'Паяльник 60Вт с регулировкой', price:350, in_stock:false, category:'solder', images: mockImages(4), on_index: true }),
-    N({sku:'00003', title_ua:'Набір жал T12 (5 шт.)', title_ru:'Набор жал T12 (5 шт.)', price:390, in_stock:true, category:'solder', images: mockImages(4), on_index: true }),
-
-    // ===== repair
-    N({sku:'00004', title_ua:'Набір інструментів для ремонту 25в1', title_ru:'Набор инструментов для ремонта 25в1', price:520, in_stock:true, category:'repair', images: mockImages(4), on_index: true }),
-    N({sku:'00005', title_ua:'Антистатичний браслет', title_ru:'Антистатический браслет', price:60, in_stock:true, category:'repair', images: mockImages(4), on_index: false }),
-    N({sku:'00006', title_ua:'Пінцет антистатичний ESD-15', title_ru:'Пинцет антистатический ESD-15', price:90, in_stock:true, category:'repair', images: mockImages(4), on_index: true }),
-
-    // ===== consum
-    N({sku:'00007', title_ua:'Припій Sn60Pb40 0.8мм (100г)', title_ru:'Припой Sn60Pb40 0.8мм (100г)', price:190, in_stock:true, category:'consum', images: mockImages(4), on_index: true }),
-    N({sku:'UA-CNSM-002', title_ua:'Флюс паяльний F-223', title_ru:'Флюс паяльный F-223', price:95, in_stock:true, category:'consum', images: mockImages(4), on_index: true }),
-
-    // ===== osc
-    N({sku:'00009', title_ua:'Осцилограф портативний HDS272', title_ru:'Осциллограф портативный HDS272', price:6990, in_stock:true, category:'osc', images: mockImages(4), on_index: true }),
-    N({sku:'00010', title_ua:'USB осцилограф 20MHz', title_ru:'USB осциллограф 20 МГц', price:3650, in_stock:true, category:'osc', images: mockImages(4), on_index: false }),
-
-    // ===== prog
-    N({sku:'00011', title_ua:'Програматор CH341A', title_ru:'Программатор CH341A', price:360, in_stock:false, category:'prog', images: mockImages(4), on_index: true }),
-    N({sku:'00012', title_ua:'USBasp програматор AVR', title_ru:'USBasp программатор AVR', price:270, in_stock:true, category:'prog', images: mockImages(4), on_index: false }),
-
-    // ===== meas
-    N({sku:'00013', title_ua:'Мультиметр DT-9205A', title_ru:'Мультиметр DT-9205A', price:780, in_stock:true, category:'meas', images: mockImages(4), on_index: true }),
-    N({sku:'00014', title_ua:'Щупи для мультиметра 20A', title_ru:'Щупы для мультиметра 20A', price:120, in_stock:true, category:'meas', images: mockImages(4), on_index: true }),
-    N({sku:'00015', title_ua:'Тестер LCR-TC1', title_ru:'Тестер LCR-TC1', price:950, in_stock:true, category:'meas', images: mockImages(4), on_index: true }),
-
-    // ===== rmods
-    N({sku:'00016', title_ua:'DC-DC понижуючий модуль LM2596', title_ru:'DC-DC понижающий модуль LM2596', price:85, in_stock:true, category:'rmods', subcategory:'dcconv', images: mockImages(4), on_index: true }),
-    N({sku:'00017', title_ua:'DC-DC підвищуючий модуль XL6009', title_ru:'DC-DC повышающий модуль XL6009', price:120, in_stock:true, category:'rmods', subcategory:'dcconv', images: mockImages(4), on_index: true }),
-    N({sku:'00018', title_ua:'DC-DC SEPIC модуль', title_ru:'DC-DC SEPIC модуль', price:210, in_stock:true, category:'rmods', subcategory:'dcconv', images: mockImages(4), on_index: false }),
-
-    // ===== rparts
-    N({sku:'00019', title_ua:'Набір резисторів 1/4W (600шт)', title_ru:'Набор резисторов 1/4W (600 шт.)', price:210, in_stock:true, category:'rparts', subcategory:'resistors', images: mockImages(10), on_index: false }),
-    N({sku:'00020', title_ua:'Набір конденсаторів електролітичних (120шт)', title_ru:'Набор электролитических конденсаторов (120 шт.)', price:230, in_stock:true, category:'rparts', subcategory:'capacitors', images: mockImages(4), on_index: false }),
-    N({sku:'00021', title_ua:'Світлодіод 5мм червоний (100шт)', title_ru:'Светодиод 5 мм красный (100 шт.)', price:95, in_stock:true, category:'rparts', subcategory:'leds', images: mockImages(4), on_index: true }),
-    N({sku:'00022', title_ua:'Діод 1N4148 (100шт)', title_ru:'Диод 1N4148 (100 шт.)', price:80, in_stock:true, category:'rparts', subcategory:'diodes', images: mockImages(4), on_index: false }),
-    N({sku:'00023', title_ua:'Транзистор 2N3904 (20шт)', title_ru:'Транзистор 2N3904 (20 шт.)', price:70, in_stock:true, category:'rparts', subcategory:'transistors', images: mockImages(4), on_index: false }),
-    N({sku:'00024', title_ua:'ОП LM358 (10шт)', title_ru:'Операционный усилитель LM358 (10 шт.)', price:65, in_stock:true, category:'rparts', subcategory:'ics', images: mockImages(4), on_index: false }),
-
-    // ===== cables
-    N({sku:'00025', title_ua:'USB-кабель Type-C 1м', title_ru:'USB-кабель Type-C 1 м', price:110, in_stock:true, category:'cables', images: mockImages(4), on_index: true }),
-    N({sku:'00026', title_ua:'Гніздо живлення 5.5×2.1мм', title_ru:'Гнездо питания 5.5×2.1 мм', price:25, in_stock:true, category:'cables', images: mockImages(4), on_index: false }),
-
-    // ===== psu
-    N({sku:'00027', title_ua:'Блок живлення 12В 5А', title_ru:'Блок питания 12В 5А', price:420, in_stock:true, category:'psu', images: mockImages(4), on_index: true }),
-    N({sku:'00028', title_ua:'Адаптер живлення 9В 2А', title_ru:'Адаптер питания 9В 2А', price:260, in_stock:true, category:'psu', images: mockImages(4), on_index: false })
-    ];
-
-// --- 3. УМНАЯ ПРОВЕРКА: Если данных нет ИЛИ они битые (undefined) ---
-    try {
-        const raw = localStorage.getItem(CURRENT_KEY);
-        let needReset = !raw; // Если пусто, точно надо заполнять
-
-        if (raw) {
-            const data = JSON.parse(raw);
-            // Если массив пустой или первый элемент имеет undefined в названии - это плохие данные
-            if (!data.items || data.items.length === 0 || !data.items[0].title || data.items[0].title === 'undefined') {
-                needReset = true;
-            }
-        }
-
-        if (needReset) {
-            console.log("[Seed] Обнаружены пустые или битые данные. Перезаписываем заглушками.");
-            const initialItems = BI_ITEMS.map(it => ({
-                id: it.id,
-                sku: it.sku,
-                // Формируем правильный title сразу
-                title: IS_UA ? (it.title_ua || it.title) : (it.title_ru || it.title),
-                price: it.price,
-                in_stock: it.in_stock,
-                qty_stock: 10,
-                category: it.category,
-                subcategory: it.subcategory,
-                images: it.images,
-                image: it.images[0],
-                description: '...'
-            }));
-            saveToLS(CURRENT_KEY, initialItems);
-            // Сразу перерисовываем, если функция доступна (благодаря Шагу 1)
-            if (window.renderCatalog) window.renderCatalog();
-        }
-    } catch (e) { console.error(e); }
-
     // --- 4. Запрос к серверу за свежими данными ---
     fetch('/api/products')
         .then(r => r.json())
@@ -766,6 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     price: it.price,
                     in_stock: it.in_stock,
                     qty_stock: it.qty_stock || 100,
+                    unit_type: it.unit_type,
                     category: it.category,
                     subcategory: it.subcategory,
                     images: it.images,
@@ -795,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 
 // === ИСТОРИЯ ПРОСМОТРОВ (Логика) ===
-window.addToViewed = function(id) {
+window.addToViewedProducts = function(id) {
     if(!id) return;
     const KEY = 'rb_viewed_products';
     let viewed = [];
@@ -856,14 +721,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="slider-viewport">
                     <div class="slider-track viewed-track">
                         ${items.map(p => {
-                            const img = p.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EPhoto%3C/text%3E%3C/svg%3E";
+                            // Логика картинки
+                            const img = (p.image || (p.images && p.images[0]))
+                                ? (p.image || p.images[0])
+                                : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EPhoto%3C/text%3E%3C/svg%3E";
+
+                            // Логика языка
+                            const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                            const stockLabel = isUA ? 'На складі:' : 'На складе:';
+
+                            // !!! ФИКС НАЗВАНИЯ (чтобы не было undefined) !!!
+                            let displayTitle = p.title;
+                            if (!displayTitle) {
+                                displayTitle = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
+                            }
+                            if (!displayTitle) displayTitle = "Товар";
+
+                            // Единица измерения
+                            const unitLabel = (p.unit_type === 'set') ? (isUA ? 'комплект.' : 'комплект.') : (isUA ? 'шт.' : 'шт.');
+
                             return `
                             <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
                                 <div class="product-card__img" style="margin-bottom:8px;">
                                     <img src="${img}" style="max-height:100px;">
                                 </div>
-                                <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${p.title}</div>
+                                <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${displayTitle}</div>
                                 <div class="product-card__price" style="font-size:14px;">${p.price} ₴</div>
+                                <div style="font-size:11px; color:#888; margin-top:4px;">
+                                    ${stockLabel} ${p.qty_stock || 0} ${unitLabel}
+                                </div>
                             </div>`;
                         }).join('')}
                     </div>
@@ -1014,12 +900,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 3. Рендер интерфейса ---
-    const drawerBody = document.querySelector('.cart-drawer__body');
-    const badgeDesktop = document.querySelector('.white-cart__text'); // "Корзина" текст
-    // Если есть счетчик в мобильной шапке (опционально)
-    // const badgeMobile = ...
 
     const renderCart = () => {
+        const drawerBody = document.querySelector('.cart-drawer__body');
+        const badgeDesktop = document.querySelector('.white-cart__text'); // "Корзина" текст
         if (!drawerBody) return;
 
         const cart = getCart();
@@ -1057,12 +941,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Картинка или заглушка
             const img = product.image || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='70' height='70'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3C/svg%3E";
 
+            const displayTitle = IS_UA
+                ? (product.title_ua || product.title_ru || product.title)
+                : (product.title_ru || product.title);
+
             listHtml += `
             <div class="cart-item">
-                <img src="${img}" class="cart-item__img" alt="${product.title}" onclick="window.location.href='product.html?id=${product.id}'" style="cursor: pointer;">
+                <img src="${img}" class="cart-item__img" alt="${displayTitle}" onclick="window.location.href='product.html?id=${product.id}'" style="cursor: pointer;">
 
                 <div class="cart-item__info">
-                    <a href="product.html?id=${product.id}" class="cart-item__title">${product.title}</a>
+                    <a href="product.html?id=${product.id}" class="cart-item__title">${displayTitle}</a>
                     <div class="cart-item__status in-stock">${TEXT.inStock}</div>
                     <div class="cart-item__controls">
                         <button class="qty-btn" onclick="event.stopPropagation(); window.rbCartChange(${product.id}, -1)">−</button>
@@ -1093,8 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 4. Открытие/Закрытие шторки ---
-    const drawer = document.querySelector('.cart-drawer');
     const openDrawer = () => {
+        const drawer = document.querySelector('.cart-drawer');
         if(!drawer) return;
         drawer.classList.add('is-open');
         document.body.classList.add('is-cart-open');
@@ -1109,6 +997,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. Глобальный перехват кликов "КУПИТЬ" ---
     document.body.addEventListener('click', (e) => {
+
+        if (window.location.pathname.includes('product.html')) return;
         // Нас интересует ТОЛЬКО кнопка на странице самого товара (большая синяя)
         // Кнопки в каталоге теперь имеют свой onclick и обрабатываются отдельно
         const btn = e.target.closest('.pp-buy-btn');
@@ -2125,22 +2015,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. === ГРАФИК РАБОТЫ (MODAL) ===
-        const workBtn = document.querySelector('.worktime a');
-        const workModal = document.querySelector('.hours-modal');
-        if (workBtn && workModal) {
-            workBtn.addEventListener('click', (e) => {
+        // === НОВЫЙ БЛОК: УПРАВЛЕНИЕ ГРАФИКОМ (ВМЕСТО СТАРОГО ПУНКТА 2) ===
+        document.addEventListener('click', (e) => {
+            // Открытие окна
+            const openTrigger = e.target.closest('.worktime a');
+            if (openTrigger) {
                 e.preventDefault();
-                workModal.classList.add('is-open');
-                document.body.classList.add('is-hours-open');
-            });
-            // Дублируем закрытие для надежности
-            workModal.querySelectorAll('[data-hours-close]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    workModal.classList.remove('is-open');
+                const modal = document.querySelector('.hours-modal');
+                if (modal) {
+                    modal.classList.add('is-open');
+                    modal.setAttribute('aria-hidden', 'false');
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('is-hours-open');
+                }
+                return;
+            }
+
+            // Закрытие окна (крестик или фон)
+            const isCloseTrigger = e.target.closest('[data-hours-close]') || e.target.classList.contains('hours-modal__backdrop');
+            if (isCloseTrigger) {
+                const modal = document.querySelector('.hours-modal.is-open');
+                if (modal) {
+                    modal.classList.remove('is-open');
+                    modal.setAttribute('aria-hidden', 'true');
+                    document.body.style.overflow = '';
                     document.body.classList.remove('is-hours-open');
-                });
-            });
-        }
+                }
+            }
+        });
 
         // 3. === ИМЯ ПОЛЬЗОВАТЕЛЯ (АВТОРИЗАЦИЯ) ===
         const reviewsBlock = document.querySelector('.topbar-inner .reviews');
