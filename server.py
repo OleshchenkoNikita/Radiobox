@@ -52,7 +52,6 @@ def fix_layout(text):
     return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
 
 
-
 def cleanup_deleted_products():
     """Удаляет товары из корзины старше 30 дней"""
     try:
