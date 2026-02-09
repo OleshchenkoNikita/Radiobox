@@ -51,17 +51,7 @@ def fix_layout(text):
     """Меняет английские буквы на русские/украинские по раскладке"""
     return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
 
-# ==================================================
-# НАСТРОЙКИ ПОЧТЫ (ЗАПОЛНИ ЗАНОВО!)
-# ==================================================
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_SENDER = "oleshchenko.nikita@gmail.com"
-EMAIL_PASSWORD = "test"
-# ==================================================
 
-DB_NAME = "radiobox.db"
-app.secret_key = 'super_secret_key_radiobox_123'
 
 def cleanup_deleted_products():
     """Удаляет товары из корзины старше 30 дней"""
