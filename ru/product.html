@@ -302,26 +302,18 @@
             document.getElementById('pDesc').innerHTML = product.description || (isUA ? "Опис відсутній." : "Описание отсутствует.");
 
             // Хлебные крошки (Категория)
-            const CATS = {
-                'solder': 'Паяльное оборудование',
-                'repair': 'Всё для ремонта, тестеры, инструменты',
-                'consum': 'Расходные материалы',
-                'osc': 'Осциллографы',
-                'prog': 'Программаторы',
-                'meas': 'Измерительные приборы (мультиметры, тестеры, щупы)',
-                'rmods': 'Радиомодули',
-                'rparts': 'Радиодетали',
-                'cables': 'Кабели, разъёмы, штекеры',
-                'psu': 'Источники питания'
-            };
-
             if (product.category) {
                 const catWrapper = document.getElementById('crumbCatWrapper');
-                if(catWrapper) catWrapper.hidden = false;
+                if (catWrapper) catWrapper.hidden = false;
 
                 const link = document.getElementById('crumbCatLink');
-                if(link) {
-                    link.textContent = CATS[product.category] || 'Каталог';
+                if (link) {
+                    // Берем название из полей, которые мы добавили в server.py
+                    const displayCatName = isUA
+                        ? (product.cat_title_ua || 'Каталог')
+                        : (product.cat_title_ru || 'Каталог');
+
+                    link.textContent = displayCatName;
                     link.href = `type_of_product.html?cat=${product.category}`;
                 }
             }
@@ -386,8 +378,8 @@
 
                 return `
                 <div class="product-card is-clickable slider-item" style="padding:10px; width:160px; flex-shrink:0;" onclick="location.href='product.html?id=${p.id}'">
-                    <div class="product-card__img" style="margin-bottom:8px;">
-                        <img src="${img}" style="max-height:100px; object-fit:contain; margin:0 auto; display:block;" loading="lazy">
+                    <div class="product-card__img">
+                        <img src="${img}" alt="${pTitle}" loading="lazy">
                     </div>
                     <div class="product-card__title" style="font-size:13px; margin-bottom:4px; height: 36px; overflow: hidden;">${pTitle}</div>
                     <div class="product-card__price" style="font-size:14px; font-weight:bold;">${p.price} ₴</div>
@@ -463,6 +455,28 @@
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
         });
     </script>
+
+    <!-- 1. График работы -->
+    <div id="modal-hours" class="hours-modal" aria-hidden="true">
+        <div class="hours-modal__backdrop"></div>
+        <section class="hours-modal__panel">
+            <header class="hours-modal__header"><h2 class="hours-modal__title">График работы</h2><button class="hours-modal__close">×</button></header>
+            <div class="hours-modal__body">
+                <table class="hours-table">
+                    <thead><tr><th>День</th><th>Время работы</th></tr></thead>
+                    <tbody>
+                        <tr><th>Понедельник</th><td>08:00 – 20:00</td></tr>
+                        <tr><th>Вторник</th><td>08:00 – 20:00</td></tr>
+                        <tr><th>Среда</th><td>08:00 – 20:00</td></tr>
+                        <tr><th>Четверг</th><td>08:00 – 20:00</td></tr>
+                        <tr><th>Пятница</th><td>08:00 – 20:00</td></tr>
+                        <tr><th>Суббота</th><td>10:00 – 18:00</td></tr>
+                        <tr><th>Воскресенье</th><td>10:00 – 15:00</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
 
     <!-- 2. Условия оплаты и доставки (ОБНОВЛЕНО) -->
     <div id="modal-delivery" class="hours-modal" aria-hidden="true">

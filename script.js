@@ -313,6 +313,57 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// ===== MODAL "График работы" =====
+(function () {
+    const trigger = document.querySelector('.worktime a'); // ссылка "График работы"
+    const modal = document.querySelector('.hours-modal');
+    if (!trigger || !modal) return;
+
+    const panel = modal.querySelector('.hours-modal__panel');
+    const closers = modal.querySelectorAll('[data-hours-close]');
+    let lastFocus = null;
+
+    function openModal() {
+        lastFocus = document.activeElement;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('is-hours-open');
+        // фокус на кнопку закрытия
+        const btn = modal.querySelector('.hours-modal__close');
+        btn && btn.focus();
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('is-hours-open');
+        // вернуть фокус инициатору
+        lastFocus && lastFocus.focus();
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        openModal();
+    });
+
+    closers.forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeModal();
+        });
+    });
+
+    // Закрытие по клику на подложку или вне панели
+    modal.addEventListener('click', (e) => {
+        if (!panel.contains(e.target)) closeModal();
+    });
+
+    // Esc закрывает
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+})();
+
 // Делает активный язык серым и некликабельным по html[lang]
 (() => {
     const sw = document.querySelector('.lang-switch');
@@ -742,8 +793,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             return `
                             <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
-                                <div class="product-card__img" style="margin-bottom:8px;">
-                                    <img src="${img}" style="max-height:100px;">
+                                <div class="product-card__img">
+                                    <img src="${img}" alt="${displayTitle}" loading="lazy">
                                 </div>
                                 <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${displayTitle}</div>
                                 <div class="product-card__price" style="font-size:14px;">${p.price} ₴</div>
@@ -2015,34 +2066,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. === ГРАФИК РАБОТЫ (MODAL) ===
-        // === НОВЫЙ БЛОК: УПРАВЛЕНИЕ ГРАФИКОМ (ВМЕСТО СТАРОГО ПУНКТА 2) ===
-        document.addEventListener('click', (e) => {
-            // Открытие окна
-            const openTrigger = e.target.closest('.worktime a');
-            if (openTrigger) {
+        const workBtn = document.querySelector('.worktime a');
+        const workModal = document.querySelector('.hours-modal');
+        if (workBtn && workModal) {
+            workBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const modal = document.querySelector('.hours-modal');
-                if (modal) {
-                    modal.classList.add('is-open');
-                    modal.setAttribute('aria-hidden', 'false');
-                    document.body.style.overflow = 'hidden';
-                    document.body.classList.add('is-hours-open');
-                }
-                return;
-            }
-
-            // Закрытие окна (крестик или фон)
-            const isCloseTrigger = e.target.closest('[data-hours-close]') || e.target.classList.contains('hours-modal__backdrop');
-            if (isCloseTrigger) {
-                const modal = document.querySelector('.hours-modal.is-open');
-                if (modal) {
-                    modal.classList.remove('is-open');
-                    modal.setAttribute('aria-hidden', 'true');
-                    document.body.style.overflow = '';
+                workModal.classList.add('is-open');
+                document.body.classList.add('is-hours-open');
+            });
+            // Дублируем закрытие для надежности
+            workModal.querySelectorAll('[data-hours-close]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    workModal.classList.remove('is-open');
                     document.body.classList.remove('is-hours-open');
-                }
-            }
-        });
+                });
+            });
+        }
 
         // 3. === ИМЯ ПОЛЬЗОВАТЕЛЯ (АВТОРИЗАЦИЯ) ===
         const reviewsBlock = document.querySelector('.topbar-inner .reviews');

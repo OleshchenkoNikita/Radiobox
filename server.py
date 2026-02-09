@@ -51,6 +51,17 @@ def fix_layout(text):
     """Меняет английские буквы на русские/украинские по раскладке"""
     return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
 
+# ==================================================
+# НАСТРОЙКИ ПОЧТЫ (ЗАПОЛНИ ЗАНОВО!)
+# ==================================================
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_SENDER = "oleshchenko.nikita@gmail.com"
+EMAIL_PASSWORD = "test"
+# ==================================================
+
+DB_NAME = "radiobox.db"
+app.secret_key = 'super_secret_key_radiobox_123'
 
 def cleanup_deleted_products():
     """Удаляет товары из корзины старше 30 дней"""
@@ -1317,17 +1328,21 @@ def admin_product_visibility():
 
     return jsonify({"success": True})
 
+
 # === API: ПУБЛИЧНЫЙ СПИСОК ТОВАРОВ (ДЛЯ МАГАЗИНА) ===
 @app.route('/api/products', methods=['GET'])
 def get_public_products():
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        # Берем только видимые товары
+
+        # Мы добавляем LEFT JOIN, чтобы подтянуть названия категорий прямо из таблицы categories
+        # Мы связываем их по полю p.category (где лежит 'solder', 'consum' и т.д.)
+        # и полю c.slug в таблице категорий.
         cursor.execute("""
-            SELECT p.*, c.title_ru as cat_title_ru, c.title_ua as cat_title_ua, c.slug as cat_slug
+            SELECT p.*, c.title_ru as cat_title_ru, c.title_ua as cat_title_ua
             FROM products p
-            LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN categories c ON p.category = c.slug
             WHERE p.is_visible = 1 AND p.deleted_at IS NULL 
             ORDER BY p.position ASC, p.id DESC
         """)
@@ -1337,19 +1352,15 @@ def get_public_products():
         for row in rows:
             p = dict(row)
             try:
-                # Распаковываем картинки
                 p['images'] = json.loads(row['images_json'])
-                # Берем первую картинку как главную
                 p['image'] = p['images'][0] if p['images'] else ''
             except:
                 p['images'] = []
                 p['image'] = ''
 
-            # Удаляем технические поля, если нужно, или оставляем как есть
             products.append(p)
 
     return jsonify({"success": True, "items": products})
-
 
 # Мягкое удаление (в корзину)
 @app.route('/api/admin/product/delete', methods=['POST'])
