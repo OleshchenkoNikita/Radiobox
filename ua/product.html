@@ -284,17 +284,32 @@
 
             document.getElementById('pDesc').innerHTML = product.description_ua || product.description || "Опис відсутній.";
 
-            // Хлебные крошки (Категория)
+            let categoriesMap = [];
+            try {
+                const catRes = await fetch('/api/categories');
+                const catData = await catRes.json();
+                if (catData.success) categoriesMap = catData.categories;
+            } catch (e) { console.error("Ошибка загрузки категорий для крошек", e); }
+
+            // Функция для получения красивого названия
+            function getNiceCategoryName(slug) {
+                const found = categoriesMap.find(c => c.slug === slug);
+                if (found) {
+                    return isUA ? (found.title_ua || found.title_ru) : found.title_ru;
+                }
+                // Если в карте нет, пробуем поля из объекта товара (если сервер их прислал)
+                return isUA ? (product.cat_title_ua || product.cat_title_ru) : (product.cat_title_ru || product.cat_title_ua);
+            }
+
+            // Хлебные крошки (Категория) - ИСПРАВЛЕННЫЙ БЛОК
             if (product.category) {
                 const catWrapper = document.getElementById('crumbCatWrapper');
                 if (catWrapper) catWrapper.hidden = false;
 
                 const link = document.getElementById('crumbCatLink');
                 if (link) {
-                    // Берем название из полей, которые мы добавили в server.py
-                    const displayCatName = isUA
-                        ? (product.cat_title_ua || 'Каталог')
-                        : (product.cat_title_ru || 'Каталог');
+                    // Теперь мы сначала ищем в карте категорий, и только если там совсем глухо - пишем "Каталог"
+                    const displayCatName = getNiceCategoryName(product.category) || (isUA ? 'Каталог' : 'Каталог');
 
                     link.textContent = displayCatName;
                     link.href = `type_of_product.html?cat=${product.category}`;
