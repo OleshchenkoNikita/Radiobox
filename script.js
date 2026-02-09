@@ -2521,3 +2521,83 @@ window.fixKeyboardLayout = function(str) {
         return replacer[x] || replacer[x.toLowerCase()] || x;
     });
 };
+
+// Вставь это в самый конец script.js
+
+(function() {
+    // Функция 1: Синхронизация названий на ГЛАВНОЙ (index.html)
+    async function syncHomeCategories() {
+        const grid = document.querySelector('.groups__grid');
+        // Если это страница с id "all-categories-grid", значит мы в продуктах, выходим
+        if (!grid || document.getElementById('all-categories-grid')) return;
+
+        try {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+            const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+            document.querySelectorAll('.group-card').forEach(card => {
+                const urlString = card.getAttribute('href');
+                if (!urlString) return;
+
+                const match = urlString.match(/cat=([^&]+)/);
+                if (!match) return;
+                const catSlug = match[1];
+
+                const categoryData = data.categories.find(c => c.slug === catSlug);
+                if (categoryData) {
+                    const titleEl = card.querySelector('.group-card__title');
+                    if (titleEl) {
+                        const newTitle = isUA ? (categoryData.title_ua || categoryData.title_ru) : categoryData.title_ru;
+                        titleEl.textContent = newTitle.toUpperCase();
+                    }
+                }
+            });
+        } catch (e) { console.error("Ошибка синхронизации:", e); }
+    }
+
+    // Функция 2: Динамическая отрисовка на странице ПРОДУКТОВ (products.html)
+    async function renderAllCategories() {
+        const grid = document.getElementById('all-categories-grid');
+        if (!grid) return;
+
+        try {
+            const res = await fetch('/api/categories');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+            const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+
+            const roots = data.categories.filter(c => !c.parent_slug);
+
+            grid.innerHTML = roots.map(cat => {
+            const title = isUA ? (cat.title_ua || cat.title_ru) : cat.title_ru;
+
+            // ПРОВЕРКА: Если в базе есть image_url — берем его.
+            // Если нет — берем нейтральную иконку компании, а не паяльник.
+            const imgSrc = (cat.image_url && cat.image_url.trim() !== '')
+            ? cat.image_url
+            : `../assets/icons/company.png`;
+
+            return `
+                <a class="group-card" href="type_of_product.html?cat=${cat.slug}">
+                    <div class="group-card__img">
+                        <img src="${imgSrc}" alt="${title}">
+                    </div>
+                    <div class="group-card__title">${title.toUpperCase()}</div>
+                </a>
+            `;
+        }).join('');
+        } catch (e) { console.error("Ошибка рендера:", e); }
+    }
+
+    // Запуск обеих функций при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+        syncHomeCategories();
+        renderAllCategories();
+    });
+})();
