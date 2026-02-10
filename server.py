@@ -284,26 +284,6 @@ def init_db():
                 cursor.execute("UPDATE products SET position = id")
                 conn.commit()
 
-            # 5. ЗАПОЛНЕНИЕ КАТЕГОРИЙ (Только если таблица пустая)
-            cursor.execute("SELECT count(*) FROM categories")
-            if cursor.fetchone()[0] == 0:
-                print("📦 База категорий пуста. Загружаем стандартные...")
-                default_cats = [
-                    ('solder', 'Паяльное оборудование', 'Паяльне обладнання'),
-                    ('meas', 'Измерительные приборы', 'Вимірювальні прилади'),
-                    ('osc', 'Осциллографы', 'Осцилографи'),
-                    ('prog', 'Программаторы', 'Програматори'),
-                    ('repair', 'Инструменты', 'Інструменти'),
-                    ('consum', 'Расходные материалы', 'Витратні матеріали'),
-                    ('rmods', 'Модули', 'Модулі'),
-                    ('rparts', 'Радиодетали', 'Радіодеталі'),
-                    ('psu', 'Источники питания', 'Джерела живлення'),
-                    ('cables', 'Кабели', 'Кабелі')
-                ]
-                for idx, (slug, ru, ua) in enumerate(default_cats):
-                    cursor.execute("INSERT INTO categories (slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?)",
-                                   (slug, ru, ua, idx))
-
         cleanup_deleted_products()  # Запуск очистки при старте
         conn.commit()
 
@@ -1103,11 +1083,26 @@ def admin_get_products_api():
         query += "deleted_at IS NULL"
 
     if cat_filter:
-        # Ищем совпадение ИЛИ в основной категории, ИЛИ в подкатегории
-        query += " AND (category = ? OR subcategory = ?)"
+        # 1. Получаем список всех дочерних категорий (включая саму выбранную)
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            all_cats = cursor.execute("SELECT slug, parent_slug FROM categories").fetchall()
 
-        # Используем extend, чтобы добавить два значения в общий список
-        params.extend([cat_filter, cat_filter])
+            # Рекурсивная функция для поиска всех "потомков"
+            def get_all_descendants(target_slug):
+                descendants = [target_slug]
+                for cat in all_cats:
+                    if cat['parent_slug'] == target_slug:
+                        descendants.extend(get_all_descendants(cat['slug']))
+                return list(set(descendants))  # Убираем дубликаты
+
+            relevant_slugs = get_all_descendants(cat_filter)
+
+        # 2. Формируем запрос с оператором IN
+        placeholders = ', '.join(['?'] * len(relevant_slugs))
+        query += f" AND category IN ({placeholders})"
+        params.extend(relevant_slugs)
 
     if date_from:
         query += " AND created_at >= ?"
@@ -1502,28 +1497,29 @@ def save_category_api():
     if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
 
-    cat_id = data.get('id')  # Если есть ID - редактируем, нет - создаем
+    cat_id = data.get('id')
     slug = data.get('slug')
-    parent = data.get('parent_slug') or None  # Может быть None
+    parent = data.get('parent_slug') or None
     ru = data.get('title_ru')
     ua = data.get('title_ua')
+    image_url = data.get('image_url', '')
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-
         if cat_id:
-            cursor.execute("UPDATE categories SET slug=?, parent_slug=?, title_ru=?, title_ua=? WHERE id=?",
-                           (slug, parent, ru, ua, cat_id))
+            cursor.execute("""
+                UPDATE categories 
+                SET slug=?, parent_slug=?, title_ru=?, title_ua=?, image_url=? 
+                WHERE id=?
+            """, (slug, parent, ru, ua, image_url, cat_id)) #
         else:
-            # Новая - ставим в конец
             cursor.execute("SELECT MAX(position) FROM categories WHERE parent_slug IS ?", (parent,))
             res = cursor.fetchone()
             pos = (res[0] + 1) if (res and res[0] is not None) else 0
-
-            cursor.execute(
-                "INSERT INTO categories (slug, parent_slug, title_ru, title_ua, position) VALUES (?, ?, ?, ?, ?)",
-                (slug, parent, ru, ua, pos))
-
+            cursor.execute("""
+                INSERT INTO categories (slug, parent_slug, title_ru, title_ua, image_url, position) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (slug, parent, ru, ua, image_url, pos)) #
         conn.commit()
     return jsonify({"success": True})
 

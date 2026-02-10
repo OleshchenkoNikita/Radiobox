@@ -339,6 +339,19 @@
                     <small style="color:#64748b;">Тільки англ. літери, без пробілів</small>
                 </div>
 
+                <div class="form-group">
+                    <label>Зображення категорії</label>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                        <div id="cat_img_preview_container" style="width:60px; height:60px; border:1px solid #ddd; border-radius:4px; overflow:hidden; background:#f8fafc; display:flex; align-items:center; justify-content:center;">
+                            <img id="c_img_preview" src="" style="width:100%; height:100%; object-fit:contain; display:none;">
+                            <span id="c_img_placeholder" style="font-size:10px; color:#94a3b8;">Нема фото</span>
+                        </div>
+                        <input type="hidden" id="c_image_url">
+                        <input type="file" id="cat_file_input" style="display:none" accept="image/*" onchange="AdminCats.uploadImage(this)">
+                        <button type="button" class="btn-primary" style="font-size:12px; padding:5px 10px;" onclick="document.getElementById('cat_file_input').click()">Завантажити</button>
+                    </div>
+                </div>
+
                 <div class="modal-footer">
                     <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="document.getElementById('catEditModal').classList.remove('active')">Скасувати</button>
                     <button type="submit" class="btn-primary">Зберегти</button>

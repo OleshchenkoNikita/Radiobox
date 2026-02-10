@@ -2601,3 +2601,35 @@ window.fixKeyboardLayout = function(str) {
         renderAllCategories();
     });
 })();
+
+async function loadHomeCategories() {
+    const container = document.getElementById('categoriesContainer'); // Убедитесь, что такой ID есть в index.html
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+
+        if (data.success) {
+            // Фильтруем только корневые категории (у которых нет parent_slug)
+            const rootCats = data.categories.filter(c => !c.parent_slug);
+            const isUA = document.documentElement.lang === 'uk';
+
+            container.innerHTML = rootCats.map(c => {
+                const title = isUA ? (c.title_ua || c.title_ru) : c.title_ru;
+                // Используем ваше новое поле image_url
+                const img = c.image_url || '/assets/no-photo.png';
+
+                return `
+                <div class="category-card">
+                    <a href="/${isUA ? 'ua' : 'ru'}/products.html?category=${c.slug}">
+                        <img src="${img}" alt="${title}">
+                        <h3>${title}</h3>
+                    </a>
+                </div>`;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки категорий:", e);
+    }
+}

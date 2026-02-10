@@ -502,13 +502,22 @@ const AdminProducts = {
         list.forEach(p => {
             // Рисуем заголовок категории (сворачиваемый)
             if (isGrouped && p.category !== lastCategory) {
-                const catName = catMap[p.category] || this.categories[p.category] || p.category;
+                const categoryData = (typeof AdminCats !== 'undefined' && AdminCats.allCats)
+                    ? AdminCats.allCats.find(c => c.slug === p.category)
+                    : null;
 
-                // ДОБАВЛЕН data-cat="${p.category}"
+                const catName = categoryData
+                    ? (isUA ? (categoryData.title_ua || categoryData.title_ru) : categoryData.title_ru)
+                    : p.category;
+
+                const catImg = (categoryData && categoryData.image_url)
+                    ? `<img src="${categoryData.image_url}" style="width:24px; height:24px; object-fit:contain; margin-right:8px; vertical-align:middle; background:#fff; border-radius:3px;">`
+                    : '';
+
                 html += `
                 <tr class="tr-category" data-cat="${p.category}" style="cursor:pointer; background:#e2e8f0;" onclick="AdminProducts.toggleCategory('${p.category}')" id="btn-cat-${p.category}">
                     <td colspan="9" style="padding:10px 15px; font-weight:800; color:#0f172a; text-transform:uppercase;">
-                        <span class="cat-arrow" style="display:inline-block; transition:transform 0.2s; margin-right:8px;">▼</span> ${catName}
+                        <span class="cat-arrow" style="display:inline-block; transition:transform 0.2s; margin-right:8px;">▼</span> ${catImg} ${catName}
                     </td>
                 </tr>`;
                 lastCategory = p.category;
@@ -1080,27 +1089,23 @@ const AdminCats = {
         const container = document.getElementById('catsList');
         if (!container) return;
 
-        const isUA = document.documentElement.lang === 'uk';
-        // Отделяем родителей и детей
+        const isUA = this.lang === 'ua';
+        // 1. Корневые категории
         const roots = this.allCats.filter(c => !c.parent_slug);
-        const childs = this.allCats.filter(c => c.parent_slug);
 
         let html = '';
-
         roots.forEach(root => {
             const rootName = isUA ? (root.title_ua || root.title_ru) : root.title_ru;
+            // 2. Подкатегории (уровень 2)
+            const childs = this.allCats.filter(c => c.parent_slug === root.slug);
 
-            // Ищем детей этой группы
-            const myChilds = childs.filter(c => c.parent_slug === root.slug);
-
-            // Рендер родителя
             html += `
             <div class="cat-item-row" data-id="${root.id}" style="border:1px solid #e2e8f0; background:#fff; margin-bottom:10px; border-radius:6px; overflow:hidden;">
                 <div style="padding:10px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <span class="drag-handle-cat" style="cursor:grab; color:#94a3b8;">:::</span>
                         <strong style="font-size:15px;">${rootName}</strong>
-                        <span style="font-size:12px; color:#64748b; background:#e2e8f0; padding:2px 6px; border-radius:4px;">${root.slug}</span>
+                        <span style="font-size:11px; color:#94a3b8;">${root.slug}</span>
                     </div>
                     <div class="action-group">
                         <button class="btn-icon" onclick="AdminCats.openEditModal(${root.id})">✎</button>
@@ -1108,94 +1113,115 @@ const AdminCats = {
                     </div>
                 </div>
 
-                <div class="subcat-container" data-parent="${root.id}" style="padding:5px 10px 10px 40px;">
-                    ${myChilds.map(sub => {
+                <div class="subcat-container" style="padding:5px 10px 10px 40px;">
+                    ${childs.map(sub => {
                         const subName = isUA ? (sub.title_ua || sub.title_ru) : sub.title_ru;
+                        // 3. Подподкатегории (уровень 3)
+                        const subChilds = this.allCats.filter(c => c.parent_slug === sub.slug);
+
                         return `
-                        <div class="subcat-row" data-id="${sub.id}" style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px dashed #eee;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span class="drag-handle-cat" style="cursor:grab; color:#ccc; font-size:12px;">::</span>
-                                <span>${subName}</span>
-                                <span style="font-size:11px; color:#94a3b8;">${sub.slug}</span>
+                        <div style="margin-bottom:10px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">
+                            <div class="subcat-row" data-id="${sub.id}" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="drag-handle-cat" style="cursor:grab; color:#ccc; font-size:12px;">::</span>
+                                    <span style="font-weight:600;">${subName}</span>
+                                </div>
+                                <div class="action-group" style="scale:0.8;">
+                                    <button class="btn-icon" onclick="AdminCats.openEditModal(${sub.id})">✎</button>
+                                    <button class="btn-icon red" onclick="AdminCats.delete(${sub.id})">🗑</button>
+                                </div>
                             </div>
-                            <div class="action-group" style="scale:0.8;">
-                                <button class="btn-icon" onclick="AdminCats.openEditModal(${sub.id})">✎</button>
-                                <button class="btn-icon red" onclick="AdminCats.delete(${sub.id})">🗑</button>
+
+                            <div style="padding-left:25px; margin-top:5px;">
+                                ${subChilds.map(ss => {
+                                    const ssName = isUA ? (ss.title_ua || ss.title_ru) : ss.title_ru;
+                                    return `
+                                    <div style="display:flex; justify-content:space-between; font-size:13px; padding:2px 0;">
+                                        <span>└ ${ssName} <small style="color:#94a3b8">${ss.slug}</small></span>
+                                        <div class="action-group" style="scale:0.7;">
+                                            <button class="btn-icon" onclick="AdminCats.openEditModal(${ss.id})">✎</button>
+                                            <button class="btn-icon red" onclick="AdminCats.delete(${ss.id})">🗑</button>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                                <button onclick="AdminCats.openEditModal(null, '${sub.slug}')" style="background:none; border:none; color:#189BFF; font-size:11px; cursor:pointer; padding:0;">+ подподкатегория</button>
                             </div>
                         </div>`;
                     }).join('')}
-
                     <button onclick="AdminCats.openEditModal(null, '${root.slug}')" style="margin-top:5px; background:none; border:1px dashed #cbd5e1; color:#64748b; font-size:12px; padding:4px 10px; border-radius:4px; cursor:pointer;">+ Подкатегория</button>
                 </div>
             </div>`;
         });
+        container.innerHTML = html || 'Категории не созданы';
 
-        container.innerHTML = html;
-
-        // Включаем сортировку (только для родителей пока, чтобы не усложнять)
+        // 1. Сортировка РОДИТЕЛЕЙ (Уровень 1)
         new Sortable(container, {
             handle: '.drag-handle-cat',
             animation: 150,
             onEnd: () => AdminCats.saveOrder(container)
         });
+
+        // 2. Сортировка ПОДКАТЕГОРИЙ (Уровень 2 внутри каждого родителя)
+        document.querySelectorAll('.subcat-container').forEach(subContainer => {
+            new Sortable(subContainer, {
+                handle: '.drag-handle-cat',
+                animation: 150,
+                // Фильтруем, чтобы не захватывать кнопки и под-под-контейнеры при перетаскивании
+                draggable: '.subcat-group, .subcat-row',
+                onEnd: () => AdminCats.saveOrder(container) // Сохраняем общий порядок
+            });
+        });
+
+        // 3. Сортировка ПОДПОДКАТЕГОРИЙ (Уровень 3)
+        document.querySelectorAll('.sub-subcat-container').forEach(ssContainer => {
+            new Sortable(ssContainer, {
+                handle: '.drag-handle-cat',
+                animation: 150,
+                draggable: '.sub-subcat-row',
+                onEnd: () => AdminCats.saveOrder(container)
+            });
+        });
     },
 
     // Обновляем <select> во всех формах (фильтры, создание товара)
     updateSelects: function() {
-        // 1. Фильтр в таблице товаров
         const filterSel = document.getElementById('f_category');
-        // 2. Выбор категории в модальном окне товара
         const productSel = document.getElementById('p_category');
-        // 3. Выбор родителя в модальном окне категорий
         const parentSel = document.getElementById('c_parent');
+        const isUA = this.lang === 'ua';
 
-        const isUA = document.documentElement.lang === 'uk';
-        const roots = this.allCats.filter(c => !c.parent_slug);
+        let htmlOpts = `<option value="">${isUA ? '-- Оберіть --' : '-- Выберите --'}</option>`;
+        let parentOpts = `<option value="">${isUA ? '-- Немає (Коренева) --' : '-- Нет (Корневая) --'}</option>`;
 
-        // Генерируем опции для селектов
-        let htmlOpts = `<option value="">${isUA?'-- Оберіть --':'-- Выберите --'}</option>`;
-        let parentOpts = `<option value="">${isUA?'-- Немає (Коренева) --':'-- Нет (Корневая) --'}</option>`;
-
-        roots.forEach(root => {
+        this.allCats.filter(c => !c.parent_slug).forEach(root => {
             const rootName = isUA ? (root.title_ua || root.title_ru) : root.title_ru;
-
-            // Группа
             htmlOpts += `<option value="${root.slug}" style="font-weight:bold;">${rootName}</option>`;
             parentOpts += `<option value="${root.slug}">${rootName}</option>`;
 
-            // Подгруппы
-            const childs = this.allCats.filter(c => c.parent_slug === root.slug);
-            childs.forEach(sub => {
+            this.allCats.filter(c => c.parent_slug === root.slug).forEach(sub => {
                 const subName = isUA ? (sub.title_ua || sub.title_ru) : sub.title_ru;
-                // Для товара значение будет "parent_slug", а подкатегорию сохраним в отдельное поле
-                // НО! В вашей системе проще хранить slug подкатегории как category,
-                // или нам нужно менять логику.
-                // Давайте пока сделаем так: значение = slug подкатегории.
-                htmlOpts += `<option value="${sub.slug}">&nbsp;&nbsp;&nbsp;↳ ${subName}</option>`;
+                htmlOpts += `<option value="${sub.slug}">&nbsp;&nbsp;↳ ${subName}</option>`;
+                parentOpts += `<option value="${sub.slug}">&nbsp;&nbsp;↳ ${subName}</option>`;
+
+                // ТРЕТИЙ УРОВЕНЬ
+                this.allCats.filter(c => c.parent_slug === sub.slug).forEach(ss => {
+                    const ssName = isUA ? (ss.title_ua || ss.title_ru) : ss.title_ru;
+                    htmlOpts += `<option value="${ss.slug}">&nbsp;&nbsp;&nbsp;&nbsp;↳ ${ssName}</option>`;
+                    parentOpts += `<option value="${ss.slug}">&nbsp;&nbsp;&nbsp;&nbsp;↳ ${ssName}</option>`;
+                });
             });
         });
 
-        if(filterSel) {
-            const oldVal = filterSel.value;
-            filterSel.innerHTML = `<option value="">${isUA?'Всі категорії':'Все категории'}</option>` + htmlOpts;
-            filterSel.value = oldVal;
-        }
-        if(productSel) {
-            const oldVal = productSel.value;
-            productSel.innerHTML = htmlOpts;
-            productSel.value = oldVal;
-        }
-        if(parentSel) {
-            parentSel.innerHTML = parentOpts;
-        }
+        if(filterSel) filterSel.innerHTML = `<option value="">${isUA ? 'Всі категорії' : 'Все категории'}</option>` + htmlOpts;
+        if(productSel) productSel.innerHTML = htmlOpts;
+        if(parentSel) parentSel.innerHTML = parentOpts;
 
-        // Обновляем словарь названий в AdminProducts (чтобы в таблице были красивые имена)
+        // Обновляем словарь для таблицы
         if (typeof AdminProducts !== 'undefined') {
-            AdminProducts.categories = {}; // Очищаем старый словарь
+            AdminProducts.categories = {};
             this.allCats.forEach(c => {
                 AdminProducts.categories[c.slug] = isUA ? (c.title_ua || c.title_ru) : c.title_ru;
             });
-            // Перерисовываем таблицу товаров, если она есть, чтобы обновились названия
             if(document.getElementById('productsTableBody')) AdminProducts.renderLocal();
         }
     },
@@ -1216,6 +1242,10 @@ const AdminCats = {
         const form = modal.querySelector('form');
         form.reset();
 
+        document.getElementById('c_img_preview').style.display = 'none';
+        document.getElementById('c_img_placeholder').style.display = 'block';
+        document.getElementById('c_image_url').value = '';
+
         if (id) {
             const cat = this.allCats.find(c => c.id === id);
             document.getElementById('c_id').value = cat.id;
@@ -1223,6 +1253,13 @@ const AdminCats = {
             document.getElementById('c_title_ua').value = cat.title_ua;
             document.getElementById('c_slug').value = cat.slug;
             document.getElementById('c_parent').value = cat.parent_slug || '';
+            document.getElementById('c_image_url').value = cat.image_url || '';
+            if(cat.image_url) {
+                const img = document.getElementById('c_img_preview');
+                img.src = cat.image_url;
+                img.style.display = 'block';
+                document.getElementById('c_img_placeholder').style.display = 'none';
+            }
             document.getElementById('catModalTitle').textContent = 'Редактирование';
         } else {
             document.getElementById('c_id').value = '';
@@ -1232,13 +1269,31 @@ const AdminCats = {
         modal.classList.add('active');
     },
 
+    uploadImage: async function(input) {
+        if (!input.files || !input.files[0]) return;
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+        try {
+            const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('c_image_url').value = data.path;
+                const img = document.getElementById('c_img_preview');
+                img.src = data.path;
+                img.style.display = 'block';
+                document.getElementById('c_img_placeholder').style.display = 'none';
+            }
+        } catch(e) { console.error(e); }
+    },
+
     save: async function() {
         const data = {
             id: document.getElementById('c_id').value || null,
             slug: document.getElementById('c_slug').value.trim(),
             parent_slug: document.getElementById('c_parent').value || null,
             title_ru: document.getElementById('c_title_ru').value,
-            title_ua: document.getElementById('c_title_ua').value
+            title_ua: document.getElementById('c_title_ua').value,
+            image_url: document.getElementById('c_image_url').value
         };
 
         try {
