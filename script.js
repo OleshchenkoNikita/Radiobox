@@ -2295,7 +2295,6 @@ async function loadDynamicCategories() {
     const rootUl = document.getElementById('catalog-root');
     if (!rootUl) return;
 
-    // Определяем язык
     const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
     const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
 
@@ -2303,61 +2302,51 @@ async function loadDynamicCategories() {
         const res = await fetch('/api/categories');
         const data = await res.json();
 
-        // Если категорий нет
         if (!data.success || !data.categories.length) {
             rootUl.innerHTML = `<li style="padding:5px 20px; font-size:12px; color:#999;">${isUA ? 'Немає категорій' : 'Нет категорий'}</li>`;
             return;
         }
 
-        // Сортировка
         const cats = data.categories.sort((a, b) => a.position - b.position);
 
-        // Разделяем на Родителей и Детей
-        const roots = cats.filter(c => !c.parent_slug);
-        const children = cats.filter(c => c.parent_slug);
+        // Вспомогательная функция для сборки дерева
+        function buildTree(parentSlug = null) {
+            const currentLevel = cats.filter(c => (c.parent_slug || null) === parentSlug);
+            let html = '';
 
-        let html = '';
+            currentLevel.forEach(cat => {
+                const title = isUA ? (cat.title_ua || cat.title_ru) : cat.title_ru;
+                const hasChildren = cats.some(child => child.parent_slug === cat.slug);
 
-        roots.forEach(root => {
-            // Выбираем название на нужном языке
-            const title = isUA ? (root.title_ua || root.title_ru) : root.title_ru;
+                if (hasChildren) {
+                    // Если есть дети, рисуем аккордеон
+                    html += `
+                    <li class="has-accordion">
+                        <div class="menu-row">
+                            <button type="button" class="menu-toggle" aria-expanded="false" aria-label="${isUA ? 'Розгорнути' : 'Развернуть'}"></button>
+                            <a href="type_of_product.html?cat=${cat.slug}" class="submenu-link">${title}</a>
+                        </div>
+                        <div class="submenu" hidden>
+                            <ul class="submenu-list">
+                                ${buildTree(cat.slug)}
+                            </ul>
+                        </div>
+                    </li>`;
+                } else {
+                    // Если детей нет, просто ссылка
+                    // Если это под-подкатегория, добавим в ссылку и родителя для корректной фильтрации
+                    const parentParam = cat.parent_slug ? `&sub=${cat.slug}` : '';
+                    const url = cat.parent_slug
+                        ? `type_of_product.html?cat=${cat.parent_slug}${parentParam}`
+                        : `type_of_product.html?cat=${cat.slug}`;
 
-            // Ссылка на категорию
-            const catLink = `type_of_product.html?cat=${root.slug}`;
+                    html += `<li><a href="${url}" class="submenu-link">${title}</a></li>`;
+                }
+            });
+            return html;
+        }
 
-            // Ищем подкатегории (детей)
-            const myKids = children.filter(c => c.parent_slug === root.slug);
-
-            if (myKids.length > 0) {
-                // ЕСТЬ ПОДКАТЕГОРИИ -> Рисуем выпадающий список
-                myKids.sort((a, b) => a.position - b.position);
-
-                const subItems = myKids.map(kid => {
-                    const kidTitle = isUA ? (kid.title_ua || kid.title_ru) : kid.title_ru;
-                    return `<li><a href="type_of_product.html?cat=${root.slug}&sub=${kid.slug}" class="submenu-link">${kidTitle}</a></li>`;
-                }).join('');
-
-                // Я УБРАЛ style="font-weight:500;" из ссылки ниже
-                html += `
-                <li class="has-accordion">
-                    <div class="menu-row">
-                        <button type="button" class="menu-toggle" aria-expanded="false" aria-label="${isUA ? 'Розгорнути' : 'Развернуть'}"></button>
-                        <a href="${catLink}" class="submenu-link">${title}</a>
-                    </div>
-                    <div class="submenu" hidden>
-                        <ul class="submenu-list">
-                            ${subItems}
-                        </ul>
-                    </div>
-                </li>`;
-
-            } else {
-                // НЕТ ПОДКАТЕГОРИЙ -> Просто ссылка
-                html += `<li><a href="${catLink}" class="submenu-link">${title}</a></li>`;
-            }
-        });
-
-        rootUl.innerHTML = html;
+        rootUl.innerHTML = buildTree(null);
 
     } catch (e) {
         console.error("Ошибка API категорий:", e);

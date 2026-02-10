@@ -2190,6 +2190,12 @@ input[type=number] {
     display: none !important;
 }
 
+.submenu .submenu {
+    padding-left: 15px; /* Сдвиг для третьего уровня */
+    border-left: 1px solid #eee;
+    margin-left: 10px;
+}
+
 /* === ЖИВОЙ ПОИСК (ВЫПАДАЮЩИЙ СПИСОК) === */
 /* ВЫПАДАЮЩИЙ СПИСОК ПОИСКА */
 .search-wide {
