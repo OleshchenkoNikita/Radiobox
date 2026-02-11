@@ -302,18 +302,46 @@
             }
 
             // Хлебные крошки (Категория) - ИСПРАВЛЕННЫЙ БЛОК
-            if (product.category) {
-                const catWrapper = document.getElementById('crumbCatWrapper');
-                if (catWrapper) catWrapper.hidden = false;
+            // === ПОЛНОЕ ВОССТАНОВЛЕНИЕ ЦЕПОЧКИ ДЛЯ ТОВАРА ===
+            const crumbWrapper = document.querySelector('.breadcrumbs');
+            if (crumbWrapper && product.category) {
+                // 1. Собираем цепочку категорий от текущей вверх к корню
+                let chain = [];
+                let tempSlug = product.subcategory || product.category; // Начинаем с самой глубокой точки
 
-                const link = document.getElementById('crumbCatLink');
-                if (link) {
-                    // Теперь мы сначала ищем в карте категорий, и только если там совсем глухо - пишем "Каталог"
-                    const displayCatName = getNiceCategoryName(product.category) || (isUA ? 'Каталог' : 'Каталог');
-
-                    link.textContent = displayCatName;
-                    link.href = `type_of_product.html?cat=${product.category}`;
+                while (tempSlug) {
+                    const found = categoriesMap.find(c => c.slug === tempSlug);
+                    if (found) {
+                        chain.unshift(found);
+                        tempSlug = found.parent_slug;
+                    } else {
+                        tempSlug = null;
+                    }
                 }
+
+                // 2. Генерируем HTML для всех родительских категорий
+                const langPrefix = isUA ? 'ua' : 'ru'; // для правильных ссылок
+                const chainHtml = chain.map(item => {
+                    const title = isUA ? (item.title_ua || item.title_ru) : item.title_ru;
+                    return `
+                        <span class="crumb-sep" aria-hidden="true">›</span>
+                        <a href="type_of_product.html?cat=${item.slug}">${title}</a>
+                    `;
+                }).join('');
+
+                // 3. Собираем всё вместе: Дом > Товары > (Цепочка) > Название товара
+                const homeHtml = `
+                    <a class="crumb-home" href="index.html" aria-label="Главная">🏠</a>
+                    <span class="crumb-sep" aria-hidden="true">›</span>
+                    <a href="products.html">${isUA ? 'Товари' : 'Товары'}</a>
+                `;
+
+                const currentTitleHtml = `
+                    <span class="crumb-sep" aria-hidden="true">›</span>
+                    <span id="crumbTitle" class="crumb-current">${finalTitle}</span>
+                `;
+
+                crumbWrapper.innerHTML = homeHtml + chainHtml + currentTitleHtml;
             }
 
             // Сопутствующие товары
