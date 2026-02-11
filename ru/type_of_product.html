@@ -405,18 +405,53 @@
                     subnav.hidden = true;
                 }
 
-                // Обновление хлебных крошек
-                const crumbCat = document.getElementById('crumbCat');
-                crumbCat.innerHTML = `<a href="?cat=${cat}">${niceTitle}</a>`;
+                // === ОБНОВЛЕННОЕ ОБНОВЛЕНИЕ ХЛЕБНЫХ КРОШЕК ===
+                function updateBreadcrumbs() {
+                    const breadcrumbsNav = document.querySelector('.breadcrumbs');
+                    if (!breadcrumbsNav) return;
 
-                if (sub) {
-                    crumbSepSub.hidden = false;
-                    crumbSub.hidden = false;
-                    crumbSub.textContent = getCatTitle(sub);
-                } else {
-                    crumbSepSub.hidden = true;
-                    crumbSub.hidden = true;
+                    // Оставляем только иконку дома и ссылку "Товары"
+                    const homeHtml = `<a class="crumb-home" href="index.html" aria-label="Главная">🏠</a>
+                                      <span class="crumb-sep" aria-hidden="true">›</span>
+                                      <a href="products.html">${isUA ? 'Товари' : 'Товары'}</a>`;
+
+                    let chain = [];
+                    let currentSlug = sub || cat;
+
+                    // Собираем цепочку родителей вверх
+                    let tempSlug = currentSlug;
+                    while (tempSlug) {
+                        const found = categoriesMap.find(c => c.slug === tempSlug);
+                        if (found) {
+                            chain.unshift(found);
+                            tempSlug = found.parent_slug;
+                        } else {
+                            tempSlug = null;
+                        }
+                    }
+
+                    // Собираем HTML цепочки
+                    const chainHtml = chain.map((item, index) => {
+                        const isLast = index === chain.length - 1;
+                        const title = isUA ? (item.title_ua || item.title_ru) : item.title_ru;
+
+                        // Если это последний элемент — он не кликабельный (текущая страница)
+                        if (isLast) {
+                            return `<span class="crumb-sep" aria-hidden="true">›</span>
+                                    <span class="crumb-current">${title}</span>`;
+                        } else {
+                            // Формируем ссылку. Если это первый элемент, это cat, если дальше — sub.
+                            // Самый надежный способ для type_of_product — передавать slug как cat
+                            return `<span class="crumb-sep" aria-hidden="true">›</span>
+                                    <a href="?cat=${item.slug}">${title}</a>`;
+                        }
+                    }).join('');
+
+                    breadcrumbsNav.innerHTML = homeHtml + chainHtml;
                 }
+
+                // Вызовите её вместо старого блока:
+                updateBreadcrumbs();
             }
 
             // === 5. РАБОТА С ДАННЫМИ (LocalStorage) ===
