@@ -2118,14 +2118,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // 4. === ЯЗЫКИ И АКТИВНОЕ МЕНЮ ===
         const currentFile = location.pathname.split('/').pop() || 'index.html';
 
-        // Языки
+        // Языки (Исправлено: сохраняем параметры ?cat= и ?sub=)
         document.querySelectorAll('.lang-link').forEach(link => {
             const lang = link.dataset.lang;
+            const currentParams = window.location.search; // Получаем ?cat=...&sub=...
+
             if (lang === 'uk') {
-                link.href = isUA ? '#' : `../ua/${currentFile}`;
+                link.href = isUA ? '#' : `../ua/${currentFile}${currentParams}`;
                 if (isUA) link.setAttribute('aria-current', 'page');
             } else {
-                link.href = isUA ? `../ru/${currentFile}` : '#';
+                link.href = isUA ? `../ru/${currentFile}${currentParams}` : '#';
                 if (!isUA) link.setAttribute('aria-current', 'page');
             }
         });
