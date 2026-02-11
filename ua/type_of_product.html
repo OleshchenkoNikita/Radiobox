@@ -306,29 +306,25 @@
                 console.error("Не удалось загрузить названия категорий", e);
             }
 
-            // Поиск названия категории по её slug
+            const isUA = location.pathname.includes('/ua/');
+
             const getCatTitle = (slug) => {
-                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
-
                 const found = categoriesMap.find(c => c.slug === slug);
-                if (!found) return slug; // Если не нашли, возвращаем сам slug (напр. 'new-cat')
-
+                if (!found) return slug;
                 return isUA ? (found.title_ua || found.title_ru) : found.title_ru;
             };
 
-            // Поиск подкатегорий для текущей категории
-            const getSubcats = (parentSlug) => {
-                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
+            // 1. Рекурсивная функция для сбора ВСЕХ вложенных ID категорий
+            const getAllChildSlugs = (parentSlug) => {
+                let childSlugs = [parentSlug];
+                // Ищем всех прямых потомков текущей категории
+                const directChildren = categoriesMap.filter(c => c.parent_slug === parentSlug);
 
-                return categoriesMap
-                    .filter(c => c.parent_slug === parentSlug)
-                    .sort((a, b) => a.position - b.position)
-                    .map(c => ({
-                        slug: c.slug,
-                        title: isUA ? (c.title_ua || c.title_ru) : c.title_ru
-                    }));
+                // Для каждого потомка вызываем функцию рекурсивно
+                directChildren.forEach(child => {
+                    childSlugs = childSlugs.concat(getAllChildSlugs(child.slug));
+                });
+                return childSlugs;
             };
 
             // === 3. ЭЛЕМЕНТЫ UI ===
@@ -369,64 +365,55 @@
             // === 4. ОБНОВЛЕНИЕ ЗАГОЛОВКОВ ===
             function refreshHead() {
                 const niceTitle = getCatTitle(cat);
-                const subCatsList = getSubcats(cat);
-
                 document.title = 'RadioBox — ' + niceTitle;
                 catTitle.textContent = niceTitle;
 
-                // Хлебные крошки
-                crumbCat.innerHTML = '';
-                if (subCatsList.length > 0 || sub) {
-                    // Если есть подкатегории или мы в подкатегории -> делаем ссылку
-                    const a = document.createElement('a');
-                    a.href = `?cat=${encodeURIComponent(cat)}`;
-                    a.textContent = niceTitle;
-                    // Исправление бага с кликом
-                    a.onclick = (e) => {
-                        e.preventDefault();
-                        sub = '';
-                        setParams({cat, sub});
-                        current = 1;
-                        render();
-                    };
-                    crumbCat.appendChild(a);
-                } else {
-                    crumbCat.textContent = niceTitle;
-                }
+                // Определяем язык страницы
+                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || location.pathname.includes('/ua/');
 
-                // Панель подкатегорий (кнопки-овалы)
-                if (subCatsList.length > 0) {
+                // Ищем подкатегории для текущего уровня (для cat или для sub, если зашли глубже)
+                const currentLevel = sub || cat;
+                const directChildren = categoriesMap.filter(c => c.parent_slug === currentLevel);
+
+                if (directChildren.length > 0) {
                     subnav.hidden = false;
-                    subnav.innerHTML = '';
-                    subCatsList.forEach(item => {
-                        const a = document.createElement('a');
-                        a.href = `?cat=${encodeURIComponent(cat)}&sub=${encodeURIComponent(item.slug)}`;
-                        a.textContent = item.title;
-                        if (sub === item.slug) a.setAttribute('aria-current', 'page');
+                    // Используем ваш класс из стилей
+                    subnav.className = "groups__grid";
 
-                        a.onclick = (e) => {
-                            e.preventDefault();
-                            sub = item.slug;
-                            setParams({cat, sub});
-                            current = 1;
-                            render();
-                        }
-                        subnav.appendChild(a);
-                    });
+                    subnav.innerHTML = directChildren.map(item => {
+                        // Текст названия в зависимости от языка
+                        const title = isUA ? (item.title_ua || item.title_ru) : item.title_ru;
+
+                        // Заглушка, если нет картинки
+                        const placeholder = `https://placehold.co/300x200/f7f8fb/0d2b4e?text=${encodeURIComponent(title)}`;
+                        const imgSrc = item.image_url || placeholder;
+
+                        // Формируем HTML с вашими новыми классами
+                        return `
+                            <a href="?cat=${cat}&sub=${item.slug}" class="group-card">
+                                <div class="group-card__img">
+                                    <img src="${imgSrc}" alt="${title}">
+                                </div>
+                                <div class="group-card__title">${title}</div>
+                            </a>
+                        `;
+                    }).join('');
                 } else {
                     subnav.hidden = true;
                 }
 
-                // Крошка подкатегории
+                // Обновление хлебных крошек
+                const crumbCat = document.getElementById('crumbCat');
+                crumbCat.innerHTML = `<a href="?cat=${cat}">${niceTitle}</a>`;
+
                 if (sub) {
-                    const subName = getCatTitle(sub); // Подкатегория тоже есть в общем списке
                     crumbSepSub.hidden = false;
                     crumbSub.hidden = false;
-                    crumbSub.textContent = subName;
+                    crumbSub.textContent = getCatTitle(sub);
                 } else {
                     crumbSepSub.hidden = true;
                     crumbSub.hidden = true;
-                    crumbSub.textContent = '';
                 }
             }
 
@@ -462,15 +449,16 @@
 
             // Фильтрация
             function filterByCatSub(all) {
-                // Главный фильтр по категории
-                let arr = all.filter(p => p.category === cat);
-
-                // Фильтр по подкатегории
                 if (sub) {
-                    arr = arr.filter(p => (p.subcategory || '') === sub);
+                    // Если выбрана конкретная (под)категория, показываем товары из неё
+                    // и из всего, что находится внутри неё (под-подкатегории)
+                    const subAllowedSlugs = getAllChildSlugs(sub);
+                    return all.filter(p => subAllowedSlugs.includes(p.subcategory) || subAllowedSlugs.includes(p.category));
+                } else {
+                    // Если выбрана только главная категория, собираем всё дерево вниз
+                    const allAllowedSlugs = getAllChildSlugs(cat);
+                    return all.filter(p => allAllowedSlugs.includes(p.category) || allAllowedSlugs.includes(p.subcategory));
                 }
-
-                return arr;
             }
 
             // Сортировка
