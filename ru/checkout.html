@@ -1505,26 +1505,29 @@
 
                     let finalJson = '[]';
                     try {
+                        // 1. Берем сырые данные из LocalStorage (там уже должны быть SKU и Image после правок в script.js)
                         const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
 
-                        // Пытаемся найти каталог хоть где-нибудь
+                        // 2. Пытаемся найти каталог для обогащения данных (на случай, если чего-то не хватает)
                         let catalog = [];
                         try {
                             const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
                             const c2 = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{}').items || [];
-                            catalog = [...c1, ...c2]; // Объединяем, чтобы наверняка найти товар
+                            catalog = [...c1, ...c2];
                         } catch(e){}
 
                         const enriched = rawCart.map(item => {
-                            // Ищем товар по ID (число или строка)
                             const product = catalog.find(p => p.id == item.id) || {};
-                            // Берем хоть какое-то название
-                            const t = product.title_ru || product.title_ua || product.title || `Товар ID ${item.id}`;
+
                             return {
                                 id: item.id,
                                 qty: item.qty,
-                                title: t,
-                                price: product.price || 0
+                                // Приоритет данным из корзины, если нет - из каталога
+                                title: item.title || product.title_ru || product.title || `Товар ID ${item.id}`,
+                                price: item.price || product.price || 0,
+                                // ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ:
+                                sku: item.sku || product.sku || "",
+                                image: item.image || (product.images ? product.images[0] : "")
                             };
                         });
                         finalJson = JSON.stringify(enriched);

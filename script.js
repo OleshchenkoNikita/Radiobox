@@ -895,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!product) return alert('Ошибка: товар не найден');
         if (!product.in_stock) return alert(IS_UA ? 'Товару немає в наявності' : 'Товара нет в наличии');
-
+        console.log("Добавляем товар:", product);
         let cart = getCart();
         const existing = cart.find(item => item.id == id);
 
@@ -911,9 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
             cart.push({
                 id: id,
                 qty: 1,
-                sku: product.sku,
-                title: product.title,
-                price: product.price
+                sku: product.sku || product.SKU || "",    // Берем из объекта product
+                title: product.title || "",
+                price: product.price || 0,
+                image: product.image || ""  // Сохраняем путь к фото
             });
         }
 

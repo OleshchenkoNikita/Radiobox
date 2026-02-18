@@ -572,12 +572,15 @@ def create_order():
     try:
         items = json.loads(cart_json)
         for item in items:
+            # Пытаемся достать артикул из всех возможных ключей
+            sku = item.get('sku') or item.get('SKU') or item.get('article') or '—'
             price = float(item.get('price', 0))
             qty = int(item.get('qty', 0))
             total_sum += price * qty
+            # Обнови этот принт для отладки
+            print(f"   [DEBUG_CART] Товар: {item.get('title')} | Артикул: {sku}")
     except:
-        items = []
-        total_sum = 0
+        pass
 
     # 5. Сохранение в БД и отправка в CRM
     try:
@@ -643,7 +646,8 @@ def create_order():
             print("-" * 60)
             print(f"4. ТОВАРЫ ({len(items)} шт.):")
             for i, it in enumerate(items, 1):
-                print(f"   {i}. {it.get('title')} | {it.get('qty')} шт. * {it.get('price')} грн")
+                # Добавьте вывод SKU в дебаг
+                print(f"   {i}. {it.get('title')} [SKU: {it.get('sku')}] | {it.get('qty')} шт. * {it.get('price')} грн")
             print("-" * 60)
             print(f"5. ИТОГО СУММА:         {total_sum} грн")
             print("█" * 60 + "\n")
@@ -1885,16 +1889,26 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'Accept': 'application/json'
     }
 
+    site_url = get_setting('site_url') or "https://radiobox.in.ua"
+
     products_list = []
     for item in items:
+        p_title = item.get('title') or 'Товар'
+        p_sku = str(item.get('sku') or '').strip()  # Берем sku из корзины
+
+        # Склеиваем полный путь к фото
+        raw_image = item.get('image') or ''
+        image_url = f"{site_url.rstrip('/')}/{raw_image.lstrip('/')}" if raw_image else ""
+
         products_list.append({
             'amount': int(item.get('qty', 1)),
-            'title': item.get('title', 'Товар'),
+            'title': p_title,
             'product_attributes': {
-                'sku': str(item.get('sku', '')),
-                'title': item.get('title', 'Товар'),
+                'sku': p_sku,
+                'title': p_title,
                 'price': float(item.get('price', 0)),
-                'currency': 'UAH'
+                'currency': 'UAH',
+                'image_url': image_url
             }
         })
 
