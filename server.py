@@ -1913,17 +1913,26 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         })
 
     payload = {
-        # Убрали "Замовлення №", теперь передается только ID
         'title': str(order_id),
         'source_id': 7,
         'status_id': 5,
+        'main_responsible_id': 1,
         'client_attributes': {
             'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
             'email': crm_data.get('email', ''),
             'phones': [crm_data.get('phone', '')],
             'lead': True
         },
-        'comment': f"Доставка: {crm_data.get('delivery')}\nАдреса: {crm_data.get('address')}\nОплата: {crm_data.get('payment')}",
+        # Основной комментарий можно оставить или убрать
+        'comment': crm_data.get('comment', ''),
+
+        # ДОБАВЛЯЕМ ЭТОТ БЛОК:
+        'custom_fields': [
+            {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
+            # {'name': 'adres_dostavki', 'value': crm_data.get('address')},
+            {'name': 'oplata_334', 'value': crm_data.get('payment')}
+        ],
+
         'jobs_attributes': products_list
     }
 
