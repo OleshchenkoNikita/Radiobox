@@ -622,6 +622,7 @@ def create_order():
             crm_data = {
                 'name': f"{name} {surname}",
                 'phone': phone,
+                'email': user_email,
                 'delivery': delivery_method,
                 'address': address,
                 'payment': payment_method,
@@ -1869,78 +1870,57 @@ def get_setting(key_name):
 
 def send_to_keepincrm(order_id, crm_data, items, total_sum):
     api_token = get_setting('crm_api_key')
+    if api_token:
+        api_token = api_token.strip()
+
     if not api_token:
-        print("⚠️ Ошибка: Токен KeepinCRM не найден!")
+        print("⚠️ Ошибка: API ключ не найден!")
         return
 
-    headers = {'Content-Type': 'application/json', 'X-Auth-Token': api_token}
+    url = 'https://api.keepincrm.com/v1/agreements'
 
-    # === ⚙️ ВАЖНЫЕ НАСТРОЙКИ ===
-    # source_id ты должен взять из Настройки -> Источники (как мы обсуждали в Шаге 1)
-    MY_SOURCE_ID = 7
-
-    # status_id: ID статуса "Новый" в разделе ЗАКАЗЫ (не Сделки!)
-    # Зайди в Настройки -> Заказы -> Статусы, нажми на "Новый" и посмотри ID в URL
-    MY_STATUS_ID = 5  # <-- Поменяй на свой реальный ID статуса заказа
-
-    # === 1. ТОВАРЫ (JOBS) ===
-    jobs_list = []
-    for item in items:
-        try:
-            # Важно: передаем SKU (артикул). CRM ищет товар по нему.
-            # Если не найдет - создаст просто строку без списания.
-            sku = str(item.get('sku', ''))
-            # Если в корзине нет sku, попробуем взять id, но лучше sku
-            if not sku:
-                sku = str(item.get('id', ''))
-
-            jobs_list.append({
-                "title": item.get('title', 'Товар'),
-                "price": float(item.get('price', 0)),
-                "amount": int(item.get('qty', 1)),
-                "sku": sku,  # <-- Критически важно для складского учета
-                # "product_id": local_product_id # Можно передавать, если точно знаешь ID товара внутри CRM
-            })
-        except:
-            pass
-
-    # === 2. КЛИЕНТ ===
-    # KeepinCRM сама найдет клиента по телефону или создаст нового
-    client_attr = {
-        "first_name": crm_data.get('name', 'Клиент').split(' ')[0],  # Берем имя
-        "last_name": crm_data.get('name', '').split(' ')[1] if len(crm_data.get('name', '').split(' ')) > 1 else "",
-        "phones": [crm_data.get('phone', '')],
-        "email": session.get('email', '')  # Если есть email, тоже полезно
+    headers = {
+        'X-Auth-Token': api_token,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
     }
 
-    # === 3. КОММЕНТАРИЙ ===
-    full_comment = crm_data.get('comment', '')
-    if crm_data.get('address'):
-        full_comment += f"\n📍 Доставка: {crm_data.get('delivery')} | {crm_data.get('address')}"
-    if crm_data.get('payment'):
-        full_comment += f"\n💳 Оплата: {crm_data.get('payment')}"
+    products_list = []
+    for item in items:
+        products_list.append({
+            'amount': int(item.get('qty', 1)),
+            'title': item.get('title', 'Товар'),
+            'product_attributes': {
+                'sku': str(item.get('sku', '')),
+                'title': item.get('title', 'Товар'),
+                'price': float(item.get('price', 0)),
+                'currency': 'UAH'
+            }
+        })
 
-    # === 4. ИТОГОВЫЙ JSON ДЛЯ /orders ===
     payload = {
-        "source_id": MY_SOURCE_ID,
-        "status_id": MY_STATUS_ID,
-        "buyer_attributes": client_attr,  # В Orders это называется buyer, а не client
-        "jobs_attributes": jobs_list,
-        "comment": full_comment
+        # Убрали "Замовлення №", теперь передается только ID
+        'title': str(order_id),
+        'source_id': 7,
+        'status_id': 5,
+        'client_attributes': {
+            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+            'email': crm_data.get('email', ''),
+            'phones': [crm_data.get('phone', '')],
+            'lead': True
+        },
+        'comment': f"Доставка: {crm_data.get('delivery')}\nАдреса: {crm_data.get('address')}\nОплата: {crm_data.get('payment')}",
+        'jobs_attributes': products_list
     }
 
     try:
-        # МЕНЯЕМ НА ORDERS
-        r = requests.post('https://api.keepincrm.com/v1/orders', json=payload, headers=headers)
-
+        r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
-            new_id = r.json().get('id')
-            print(f"✅ CRM OK: Заказ {new_id} создан успешно!")
+            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {r.json().get('id')}")
         else:
-            print(f"⚠️ CRM Error {r.status_code}: {r.text}")
-
+            print(f"❌ Помилка {r.status_code}: {r.text}")
     except Exception as e:
-        print(f"❌ CRM Connect Error: {e}")
+        print(f"❌ Критична помилка: {e}")
 
 @app.route('/api/admin/import_prom', methods=['POST'])
 def admin_import_prom():

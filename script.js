@@ -908,7 +908,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; // Не открываем корзину, если нельзя добавить
             }
         } else {
-            cart.push({ id: id, qty: 1 });
+            cart.push({
+                id: id,
+                qty: 1,
+                sku: product.sku,
+                title: product.title,
+                price: product.price
+            });
         }
 
         saveCart(cart);
