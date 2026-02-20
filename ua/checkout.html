@@ -186,17 +186,17 @@
 
                             <div class="co-field mt-15 relative">
                                 <label>Населений пункт</label>
-                                <input type="text" id="npCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
-                                <input type="hidden" id="npCityRef">
-                                <input type="hidden" id="npSettlementRef">
+                                <input type="text" id="npCitySearch" name="city_np" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="hidden" id="npCityRef" name="city_ref_np">
+                                <input type="hidden" id="npSettlementRef" name="settlement_ref_np">
                                 <div id="npCityDropdown" class="co-dropdown-list" hidden></div>
                             </div>
 
                             <div id="blockBranch">
                                 <div class="co-field mt-15 relative">
                                     <label>Відділення</label>
-                                    <input type="text" id="npBranchSearch" class="co-input-search" placeholder="Номер або адреса відділення" autocomplete="off">
-                                    <input type="hidden" id="npBranchRef">
+                                    <input type="text" id="npBranchSearch" name="point_np" class="co-input-search" placeholder="Номер або адреса відділення" autocomplete="off">
+                                    <input type="hidden" id="npBranchRef" name="point_ref_np">
                                     <div id="npBranchDropdown" class="co-dropdown-list" hidden></div>
                                 </div>
                             </div>
@@ -204,8 +204,8 @@
                             <div id="blockPostomat" hidden>
                                 <div class="co-field mt-15 relative">
                                     <label>Поштомат</label>
-                                    <input type="text" id="npPostomatSearch" class="co-input-search" placeholder="Номер поштомату" autocomplete="off">
-                                    <input type="hidden" id="npPostomatRef">
+                                    <input type="text" id="npPostomatSearch" name="point_np" class="co-input-search" placeholder="Номер поштомату" autocomplete="off">
+                                    <input type="hidden" id="npPostomatRef" name="point_ref_np">
                                     <div id="npPostomatDropdown" class="co-dropdown-list" hidden></div>
                                 </div>
                             </div>
@@ -264,7 +264,7 @@
 
                             <div class="co-field mt-15 relative">
                                 <label>Населений пункт</label>
-                                <input type="text" id="upCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="text" id="upCitySearch" name="city_up" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
                                 <input type="hidden" id="upCityRef">
                                 <input type="hidden" id="upSettlementRef">
                                 <div id="upCityDropdown" class="co-dropdown-list" hidden></div>
@@ -326,7 +326,7 @@
 
                             <div class="co-field mt-15 relative">
                                 <label>Населений пункт</label>
-                                <input type="text" id="upeCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                                <input type="text" id="upeCitySearch" name="city_upe" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
                                 <input type="hidden" id="upeCityRef">
                                 <input type="hidden" id="upeSettlementRef">
                                 <div id="upeCityDropdown" class="co-dropdown-list" hidden></div>
@@ -393,7 +393,7 @@
 
                         <div class="co-field mt-15 relative">
                             <label>Населений пункт</label>
-                            <input type="text" id="meestCitySearch" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
+                            <input type="text" id="meestCitySearch" name="city_meest" class="co-input-search" placeholder="Почніть вводити назву..." autocomplete="off">
                             <input type="hidden" id="meestCityRef">
                             <input type="hidden" id="meestSettlementRef">
                             <div id="meestCityDropdown" class="co-dropdown-list" hidden></div>
@@ -402,7 +402,7 @@
                         <div id="blockMeestBranch">
                             <div class="co-field mt-15">
                                 <label>Номер або адреса відділення</label>
-                                <input type="text" name="meest_branch_text" placeholder="Наприклад: Відділення №150" autocomplete="off">
+                                <input type="text" name="meest_branch_text" name="point_meest" placeholder="Наприклад: Відділення №150" autocomplete="off">
                             </div>
                         </div>
 

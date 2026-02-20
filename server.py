@@ -542,6 +542,8 @@ def create_order():
     address = request.form.get('full_address') or request.form.get('address')
     cart_json = request.form.get('cart_json')
     comment = request.form.get('comment')
+    city_ref = ""
+    point_ref = ""
 
     # --- [НОВОЕ] Статус оплаты из скрытого поля ---
     # Если JS сработал и оплата прошла, тут будет 'paid'. Иначе 'waiting' или 'unpaid'
@@ -554,6 +556,60 @@ def create_order():
     # 2. Расшифровка кодов (mapping)
     raw_payment = request.form.get('payment')
     raw_delivery = request.form.get('delivery')
+
+    delivery_method = request.form.get('delivery')
+
+    # Словари для преобразования системных имен в понятные названия
+    delivery_labels = {
+        'np': 'Нова Пошта',
+        'up': 'Укрпошта Стандарт',
+        'upe': 'Укрпошта Експрес',
+        'meest': 'Meest ПОШТА',
+        'self': 'Самовивіз'
+    }
+    delivery_display = delivery_labels.get(delivery_method, delivery_method)
+
+    payment_labels = {
+        'cod': 'Післяплата',
+        'seller_cashless': 'Безготівковий розрахунок',
+        'seller_privat': 'Оплата на рахунок ФОП',
+        'card_online': 'Оплата карткою Online'
+    }
+    payment_display = payment_labels.get(request.form.get('payment'), request.form.get('payment'))
+
+    city_ref = ""
+    point_ref = ""
+
+    # Сбор города
+    city = ""
+    if delivery_method == 'np':
+        city = request.form.get('city_np', '')
+        city_ref = request.form.get('city_ref_np', '')
+        point = request.form.get('point_np', '')
+        point_ref = request.form.get('point_ref_np', '')
+    elif delivery_method == 'up':
+        city = request.form.get(f'city_{delivery_method}', '')
+        city_ref = request.form.get(f'city_ref_{delivery_method}', '')
+        point = request.form.get(f'{delivery_method}_branch_text', '')
+    elif delivery_method == 'upe':
+        city = request.form.get(f'city_{delivery_method}', '')
+        city_ref = request.form.get(f'city_ref_{delivery_method}', '')
+        point = request.form.get(f'{delivery_method}_branch_text', '')
+    elif delivery_method == 'meest':
+        city = request.form.get('city_meest', '')
+        city_ref = request.form.get('city_ref_meest', '')
+        point = request.form.get('meest_branch_text', '')
+
+    # Сбор отделения
+    point = ""
+    if delivery_method == 'np':
+        point = request.form.get('point_np', '')
+    elif delivery_method == 'up':
+        point = request.form.get('up_branch_text', '')
+    elif delivery_method == 'upe':
+        point = request.form.get('upe_branch_text', '')
+    elif delivery_method == 'meest':
+        point = request.form.get('meest_branch_text', '')
 
     # Если ключ не найден, запишем "raw" значение, чтобы не потерять данные
     payment_method = PAYMENT_MAP.get(raw_payment, raw_payment)
@@ -623,15 +679,16 @@ def create_order():
                 crm_comment = f"[ОПЛАЧЕНО ONLINE] {comment}"
 
             crm_data = {
-                'name': f"{name} {surname}",
-                'phone': phone,
-                'email': user_email,
-                'delivery': delivery_method,
-                'address': address,
-                'payment': payment_method,
-                'comment': crm_comment,
-                # Если KeepinCRM умеет принимать статус оплаты отдельным полем, добавьте его сюда
-                # 'payment_status': payment_status_human
+                'name': f"{request.form.get('name', '')} {request.form.get('surname', '')}",
+                'phone': request.form.get('phone', ''),
+                'delivery': delivery_display,
+                'address': request.form.get('full_address', ''),
+                'city': city,
+                'point': point,
+                'city_ref': city_ref,  # Передаем скрытый ID города
+                'point_ref': point_ref,  # Передаем скрытый ID отделения
+                'payment': payment_display,
+                'comment': request.form.get('comment', '')
             }
 
             # =================================================
@@ -1917,6 +1974,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
+        'delivery': {
+            'city': crm_data.get('city'),
+            'point': crm_data.get('point'),
+            'city_ref': crm_data.get('city_ref'),
+            'point_ref': crm_data.get('point_ref')
+        },
         'client_attributes': {
             'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
             'email': crm_data.get('email', ''),
@@ -1929,8 +1992,10 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         # ДОБАВЛЯЕМ ЭТОТ БЛОК:
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
-            # {'name': 'adres_dostavki', 'value': crm_data.get('address')},
-            {'name': 'oplata_334', 'value': crm_data.get('payment')}
+            {'name': 'oplata_334', 'value': crm_data.get('payment')},
+            # Замените эти алиасы на ваши реальные из CRM:
+            {'name': 'misto_dostavki_338', 'value': crm_data.get('city')},
+            {'name': 'viddiliennia_339', 'value': crm_data.get('point')}
         ],
 
         'jobs_attributes': products_list
