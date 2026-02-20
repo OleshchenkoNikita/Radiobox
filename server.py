@@ -189,7 +189,8 @@ def init_db():
             ("orders", "delivery_address", "TEXT DEFAULT ''"),
             ("orders", "delivery_method", "TEXT DEFAULT ''"),
             ("orders", "payment_method", "TEXT DEFAULT ''"),
-            ("orders", "payment_status", "TEXT DEFAULT 'unpaid'")
+            ("orders", "payment_status", "TEXT DEFAULT 'unpaid'"),
+            ("orders", "crm_id", "INTEGER DEFAULT 1")
         ]
 
         # === МИГРАЦИЯ ДЛЯ ТОВАРОВ (добавляем новые поля) ===
@@ -712,7 +713,9 @@ def create_order():
             # [END] ВРЕМЕННАЯ ОТЛАДКА
             # =================================================
 
-            send_to_keepincrm(order_id, crm_data, items, total_sum)
+            crm_id_from_api = send_to_keepincrm(order_id, crm_data, items, total_sum)
+            if crm_id_from_api:
+                cursor.execute("UPDATE orders SET crm_id = ? WHERE id = ?", (crm_id_from_api, order_id))
             # =======================
 
     except sqlite3.IntegrityError:
@@ -754,56 +757,43 @@ def pay_order_api():
 def cancel_order_api():
     data = request.json
     order_id = data.get('order_id')
-
     if not order_id:
         return jsonify({"success": False, "error": "No ID"})
 
     try:
-        user_email = None
-        user_name = "Покупатель"
-
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-
-            # 1. Сначала получаем Email и Имя из заказа, чтобы знать, куда слать письмо
-            cursor.execute('SELECT user_email, user_name FROM orders WHERE id = ?', (order_id,))
+            # 1. Получаем crm_id заказа из новой колонки
+            cursor.execute('SELECT crm_id FROM orders WHERE id = ?', (order_id,))
             row = cursor.fetchone()
+            crm_id = row[0] if row else None
 
-            if row:
-                user_email = row[0]
-                if row[1]:
-                    user_name = row[1]
-
-            # 2. Обновляем статус на "Отменен"
+            # 2. Обновляем статус в локальной БД на "Отменен"
             cursor.execute('UPDATE orders SET status = ? WHERE id = ?', ("Отменен", order_id))
             conn.commit()
 
-        # 3. Отправляем письмо об отмене (если нашли email)
-#         if user_email:
-#             # Пытаемся определить язык по Referer (откуда пришел запрос)
-#             referer = request.referrer or ""
-#             is_ukrainian = '/ua/' in referer
-#
-#             if is_ukrainian:
-#                 subject = f"Скасування замовлення №{order_id}"
-#                 body = f"""Вітаємо, {user_name}!
-#
-# Ваше замовлення скасовано.
-# Номер замовлення: {order_id}
-# """
-#             else:
-#                 # Текст, который вы просили
-#                 subject = f"Отмена заказа №{order_id}"
-#                 body = f"""Здравствуйте, {user_name}!
-#
-# Ваш заказ отменён.
-# Номер заказа: {order_id}
-# """
-#
-#             send_email_real(user_email, subject, body)
+        # 3. Синхронизация с KeepinCRM
+        if crm_id:
+            api_token = get_setting('crm_api_key')
+            if api_token:
+                # Используем crm_id для формирования URL
+                url = f'https://api.keepincrm.com/v1/agreements/{crm_id}'
+                headers = {
+                    'X-Auth-Token': api_token.strip(),
+                    'Content-Type': 'application/json'
+                }
+
+                # Используем stage_id вместо status_id
+                payload = {'stage_id': 7}
+
+                # Отправляем PATCH запрос для частичного обновления сделки
+                crm_res = requests.patch(url, json=payload, headers=headers, timeout=10)
+                if crm_res.status_code == 200:
+                    print(f"✅ Статус заказа {order_id} в CRM изменен на этап 7 (stage_id)")
+                else:
+                    print(f"⚠️ Ошибка CRM при отмене: {crm_res.text}")
 
         return jsonify({"success": True})
-
     except Exception as e:
         print(f"Ошибка отмены: {e}")
         return jsonify({"success": False, "error": str(e)})
@@ -2004,11 +1994,13 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
-            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {r.json().get('id')}")
-        else:
-            print(f"❌ Помилка {r.status_code}: {r.text}")
+            crm_id = r.json().get('id')  # Получаем ID из CRM
+            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_id}")
+            return crm_id  # Возвращаем его
+        return None
     except Exception as e:
         print(f"❌ Критична помилка: {e}")
+        return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
 def admin_import_prom():
