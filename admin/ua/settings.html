@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Настройки — RadioBox Admin</title>
+    <title>Налаштування — RadioBox Admin</title>
     <link rel="stylesheet" href="/styles.css">
     <style>
         body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
@@ -65,64 +65,64 @@
         <div class="sidebar-header">RadioBox Seller</div>
 
         <ul class="nav-links">
-            <li><a href="/admin/ru/dashboard">Заказы</a></li>
-            <li><a href="/admin/ru/products">Товары</a></li>
-            <li><a href="/admin/ru/reviews">Отзывы</a></li>
-            <li><a href="/admin/ru/showcase.html">Витрина (Сортировка)</a></li>
-            <li><a href="/admin/ru/banners">Баннеры</a></li>
-            <li><a href="/admin/ru/settings" class="active">Настройки</a></li>
+            <li><a href="/admin/ua/dashboard">Замовлення</a></li>
+            <li><a href="/admin/ua/products">Товари</a></li>
+            <li><a href="/admin/ua/reviews">Відгуки</a></li>
+            <li><a href="/admin/ua/showcase.html">Вітрина (Сортування)</a></li>
+            <li><a href="/admin/ua/banners">Банери</a></li>
+            <li><a href="/admin/ua/settings" class="active">Налаштування</a></li>
         </ul>
         <div class="sidebar-footer">
-            <a href="/admin/logout" class="btn-logout">Выйти</a>
+            <a href="/admin/logout" class="btn-logout">Вийти</a>
         </div>
     </aside>
 
     <main class="main-content">
         <div class="page-header">
-            <h1 style="margin:0; font-size:24px;">Настройки сайта</h1>
+            <h1>Налаштування сайту</h1>
             <div class="admin-lang">
-                <a href="/admin/ru/settings.html" class="active">RU</a>
-                <a href="/admin/ua/settings.html">UA</a>
+                <a href="/admin/ru/settings.html">RU</a>
+                <a href="/admin/ua/settings.html" class="active">UA</a>
             </div>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="AdminSettings.openTab('seo')">SEO и Главное</button>
-            <button class="tab-btn" onclick="AdminSettings.openTab('backups')">Бэкапы и База</button>
-            <button class="tab-btn" onclick="AdminSettings.openTab('crm')">Интеграции (CRM)</button>
+            <button class="tab-btn active" onclick="AdminSettings.openTab('seo')">SEO та Головне</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('backups')">Бекапи та База</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('crm')">Інтеграції (CRM)</button>
         </div>
 
         <div id="tab-seo" class="tab-content active">
             <div class="settings-card">
                 <div class="form-group">
-                    <label>URL Сайта (Домен)</label>
+                    <label>URL Сайту (Домен)</label>
                     <input type="text" id="s_site_url" class="form-input" placeholder="https://radiobox.in.ua">
-                    <small>Используется для генерации sitemap.xml и ссылок в письмах.</small>
+                    <small>Використовується для генерації sitemap.xml та посилань у листах.</small>
                 </div>
 
                 <div class="form-group">
-                    <label>Google Search Console (Код верификации)</label>
+                    <label>Google Search Console (Код верифікації)</label>
                     <input type="text" id="s_google_ver" class="form-input" placeholder='<meta name="google-site-verification" content="..." />'>
-                    <small>Вставьте сюда мета-тег целиком, который дал Google.</small>
+                    <small>Вставте сюди мета-тег повністю, який надав Google.</small>
                 </div>
 
                 <div class="form-group">
                     <label>Файл robots.txt</label>
                     <textarea id="s_robots" class="form-textarea"></textarea>
-                    <small>Инструкция для поисковых роботов. Осторожно!</small>
+                    <small>Інструкція для пошукових роботів. Обережно!</small>
                 </div>
 
-                <button class="btn-save" onclick="AdminSettings.save()">Сохранить настройки</button>
+                <button class="btn-save" onclick="AdminSettings.save()">Зберегти налаштування</button>
             </div>
         </div>
 
         <div id="tab-backups" class="tab-content">
             <div class="settings-card">
-                <h3>Резервные копии базы данных</h3>
-                <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Бэкапы создаются автоматически раз в сутки при первом заходе. Здесь можно восстановить состояние магазина на прошлую дату.</p>
+                <h3>Резервні копії бази даних</h3>
+                <p style="font-size:13px; color:#64748b; margin-bottom:20px;">Бекапи створюються автоматично раз на добу при першому вході. Тут можна відновити стан магазину на минулу дату.</p>
 
                 <ul class="backup-list" id="backupsContainer">
-                    <li style="padding:10px; color:#999;">Загрузка...</li>
+                    <li style="padding:10px; color:#999;">Завантаження...</li>
                 </ul>
             </div>
         </div>
@@ -131,17 +131,16 @@
             <div class="settings-card">
                 <div class="form-group">
                     <label>CRM API Key</label>
-                    <input type="password" id="s_crm_key" class="form-input" placeholder="Введите ключ API">
-                    <small>Ключ для связи с CRM системой (KeyCRM, SalesDrive и т.д.). Сама интеграция прописывается в коде.</small>
+                    <input type="password" id="s_crm_key" class="form-input" placeholder="Введіть ключ API">
+                    <small>Ключ для зв'язку з CRM системою (KeyCRM, SalesDrive тощо). Сама інтеграція прописується в коді.</small>
                 </div>
-                 <button class="btn-save" onclick="AdminSettings.save()">Сохранить настройки</button>
+                 <button class="btn-save" onclick="AdminSettings.save()">Зберегти налаштування</button>
             </div>
         </div>
 
     </main>
 
     <script>
-        // Небольшой скрипт для инициализации, остальное в admin.js
         document.addEventListener('DOMContentLoaded', () => {
             if(window.AdminSettings) AdminSettings.init();
         });
