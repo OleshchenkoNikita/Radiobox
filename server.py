@@ -2344,73 +2344,78 @@ def reset_vitrine_all():
 
     return "✅ Готово! Со всех товаров снята галочка 'На витрине'. Теперь добавь вручную только нужные."
 
+
 @app.route('/api/admin/sync_keepincrm', methods=['POST'])
 def admin_sync_keepincrm():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "error": "Нужна авторизация"}), 403
 
     api_token = get_setting('crm_api_key')
-    if not api_token:
-        return jsonify({"success": False, "error": "Нет API ключа CRM"})
+    office_id = "40620"
 
-    headers = {'Content-Type': 'application/json', 'X-Auth-Token': api_token}
+    if not api_token:
+        return jsonify({"success": False, "error": "API ключ не найден"})
+
+    headers = {'X-Auth-Token': api_token.strip(), 'Accept': 'application/json'}
 
     updated_count = 0
-    not_found_count = 0
+    total_crm_items = 0
+    page = 1
 
     try:
-        # 1. Получаем все товары из CRM (нужна пагинация, если товаров > 50)
-        # Для начала берем первую страницу (по умолчанию 50 штук).
-        # Если товаров много, нужно делать цикл while.
-        r = requests.get('https://api.keepincrm.com/v1/products', headers=headers)
-        if r.status_code != 200:
-            return jsonify({"success": False, "error": f"Ошибка CRM: {r.text}"})
-
-        crm_products = r.json().get('items', [])
-
-        # Если товаров больше 50, нужно листать страницы:
-        total_pages = r.json().get('_meta', {}).get('page_count', 1)
-
-        # Собираем ВСЕ товары в один список
-        all_crm_items = crm_products
-        for page in range(2, total_pages + 1):
-            r_page = requests.get(f'https://api.keepincrm.com/v1/products?page={page}', headers=headers)
-            if r_page.status_code == 200:
-                all_crm_items.extend(r_page.json().get('items', []))
-
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
 
-            for item in all_crm_items:
-                # В CRM артикул обычно лежит в поле 'article' или 'sku'
-                sku = item.get('article')
-                if not sku: continue  # Без артикула не можем связать
+            while True:
+                url = f"https://api.keepincrm.com/v1/materials?per_page=50&page={page}&office_id={office_id}"
+                r = requests.get(url, headers=headers, timeout=15)
 
-                price = float(item.get('price', 0))
-                # Остаток: в CRM это может быть 'amount' или расчет по складам
-                # Обычно в списке товаров приходит 'leftover' (остаток)
-                qty = int(float(item.get('leftover', 0)))
+                if r.status_code != 200:
+                    break
 
-                # Обновляем только цену и остаток в нашей базе
-                cursor.execute("""
-                    UPDATE products 
-                    SET price = ?, quantity = ?, in_stock = ?
-                    WHERE sku = ?
-                """, (price, qty, (1 if qty > 0 else 0), sku))
+                data = r.json()
+                items = data.get('items') or []
 
-                if cursor.rowcount > 0:
-                    updated_count += 1
-                else:
-                    not_found_count += 1
+                if not items:
+                    break
+
+                for item in items:
+                    total_crm_items += 1
+                    crm_sku = str(item.get('sku', '')).strip()
+                    if not crm_sku:
+                        continue
+
+                    new_price = item.get('price_amount') or 0
+                    new_stock = item.get('stock_available') or 0
+
+                    # Логика определения типа единицы измерения
+                    crm_unit = str(item.get('unit', '')).lower().strip()
+                    # Если в CRM написано "комплект", "набір" или "set" — ставим 'set', иначе 'pcs'
+                    new_unit_type = 'set' if any(x in crm_unit for x in ['комплект', 'набір', 'set']) else 'pcs'
+
+                    stock_status = 1 if float(new_stock) > 0 else 0
+
+                    # Обновляем цену, остатки и тип единицы измерения (unit_type)
+                    cursor.execute("""
+                        UPDATE products 
+                        SET price = ?, quantity = ?, qty_stock = ?, in_stock = ?, unit_type = ?
+                        WHERE sku = ? OR sku = ?
+                    """, (new_price, new_stock, new_stock, stock_status, new_unit_type, crm_sku, crm_sku.lstrip('0')))
+
+                    if cursor.rowcount > 0:
+                        updated_count += 1
+
+                page += 1
 
             conn.commit()
 
         return jsonify({
             "success": True,
-            "message": f"Обновлено: {updated_count}, Не найдено по артикулу: {not_found_count}"
+            "message": f"Синхронизация завершена!\nОбновлено: {updated_count}\nПроверено в CRM: {total_crm_items}"
         })
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"success": False, "error": f"Ошибка: {str(e)}"})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап
