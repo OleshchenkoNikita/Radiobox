@@ -1223,46 +1223,58 @@ def admin_save_product_api():
     desc_ua = data.get('description_ua', '')
     price = float(data.get('price', 0))
     in_stock = int(data.get('in_stock', 1))
+
+    # --- ИСПРАВЛЕНИЕ: Получаем количество из фронтенда ---
+    qty = int(data.get('qty_stock', 0))
+
     unit_type = data.get('unit_type', 'pcs')
     category = data.get('category')
     subcategory = data.get('subcategory', '')
     images = json.dumps(data.get('images', []))
     on_index = int(data.get('on_index', 0))
 
-    # === НОВЫЕ SEO ПОЛЯ ===
     seo_title = data.get('seo_title', '')
     seo_desc = data.get('seo_description', '')
 
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         if pid:
-            # !!! 2. ОБНОВЛЕНИЕ (UPDATE) !!!
-            # Проверь, что у тебя в коде есть seo_title_ua и seo_description_ua
+            # Обновляем и quantity, и qty_stock, чтобы данные везде были актуальны
             cursor.execute('''
-                            UPDATE products SET 
-                            sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
-                            price=?, in_stock=?, category=?, subcategory=?, images_json=?, on_index=?,
-                            seo_title=?, seo_description=?, seo_title_ua=?, seo_description_ua=?,
-                            unit_type=?
-                            WHERE id=?
-                        ''', (
-            sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
-            seo_title, seo_desc, data.get('seo_title_ua'), data.get('seo_description_ua'),
-            unit_type, pid))
+                UPDATE products SET 
+                sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
+                price=?, in_stock=?, quantity=?, qty_stock=?, category=?, subcategory=?, 
+                images_json=?, on_index=?, seo_title=?, seo_description=?, 
+                seo_title_ua=?, seo_description_ua=?, unit_type=?
+                WHERE id=?
+            ''', (
+                sku, title_ru, title_ua, desc_ru, desc_ua,
+                price, in_stock, qty, qty, category, subcategory,
+                images, on_index, seo_title, seo_desc,
+                data.get('seo_title_ua'), data.get('seo_description_ua'),
+                unit_type, pid
+            ))
         else:
-            # СОЗДАНИЕ
+            # При создании нового товара
             cursor.execute("SELECT MAX(position) FROM products WHERE category=?", (category,))
             res = cursor.fetchone()
             max_pos = res[0] if res and res[0] is not None else 0
             pos = max_pos + 1
 
             cursor.execute('''
-                            INSERT INTO products (sku, title_ru, title_ua, description_ru, description_ua, price, in_stock, category, subcategory, images_json, on_index, position, created_at, seo_title, seo_description, unit_type)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (
-                sku, title_ru, title_ua, desc_ru, desc_ua, price, in_stock, category, subcategory, images, on_index,
-                pos,
-                created_at, seo_title, seo_desc, unit_type))
+                INSERT INTO products (
+                    sku, title_ru, title_ua, description_ru, description_ua, 
+                    price, in_stock, quantity, qty_stock, category, subcategory, 
+                    images_json, on_index, position, created_at, seo_title, 
+                    seo_description, unit_type
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                sku, title_ru, title_ua, desc_ru, desc_ua,
+                price, in_stock, qty, qty, category, subcategory,
+                images, on_index, pos, created_at, seo_title,
+                seo_desc, unit_type
+            ))
 
         conn.commit()
     return jsonify({"success": True})
