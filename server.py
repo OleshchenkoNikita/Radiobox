@@ -47,6 +47,20 @@ DELIVERY_MAP = {
     'self': 'Самовывоз'
 }
 
+
+# Новый маппинг этапов заказа согласно списку CRM
+CRM_STAGE_MAP = {
+    1: {"ru": "Необработанные", "ua": "Необроблені"},
+    2: {"ru": "Принятие решения", "ua": "Прийняття рішення"},
+    3: {"ru": "Первый контакт", "ua": "Перший контакт"},
+    4: {"ru": "Переговоры", "ua": "Переговори"},
+    5: {"ru": "Договор", "ua": "Договір"},
+    6: {"ru": "Выполнение", "ua": "Виконання"},
+    7: {"ru": "Оплачено", "ua": "Оплачено"},
+    8: {"ru": "Отменен", "ua": "Скасовано"},
+    99: {"ru": "Планируется повторный звонок", "ua": "Планується повторний дзвінок"}
+}
+
 def fix_layout(text):
     """Меняет английские буквы на русские/украинские по раскладке"""
     return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
@@ -190,7 +204,8 @@ def init_db():
             ("orders", "delivery_method", "TEXT DEFAULT ''"),
             ("orders", "payment_method", "TEXT DEFAULT ''"),
             ("orders", "payment_status", "TEXT DEFAULT 'unpaid'"),
-            ("orders", "crm_id", "INTEGER DEFAULT 1")
+            ("orders", "crm_id", "INTEGER DEFAULT 1"),
+            ("orders", "status_ua", "TEXT DEFAULT ''")
         ]
 
         # === МИГРАЦИЯ ДЛЯ ТОВАРОВ (добавляем новые поля) ===
@@ -465,26 +480,24 @@ def get_user_orders():
         return jsonify({"success": False, "error": "Не авторизован"}), 401
 
     email = session['email']
+    referer = request.referrer or ""
+    is_ukrainian = '/ua/' in referer
+
+    # Определяем, какую колонку брать из базы
+    status_col = "status_ua" if is_ukrainian else "status"
 
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # 1. Сначала загружаем карту картинок товаров (id -> картинка)
-        cursor.execute("SELECT id, sku, images_json FROM products")
-        products_map = {}
-        for p in cursor.fetchall():
-            try:
-                imgs = json.loads(p['images_json'])
-                # Берем первую картинку или None
-                image = imgs[0] if imgs else None
-            except:
-                image = None
-            products_map[p['id']] = image
+        # Загружаем товары (для фото)
+        cursor.execute("SELECT id, images_json FROM products")
+        products_map = {p['id']: (json.loads(p['images_json'])[0] if p['images_json'] else None) for p in
+                        cursor.fetchall()}
 
-        # 2. Загружаем заказы
-        cursor.execute('''
-            SELECT id, created_at, status, total_price, items_json, 
+        # Выбираем нужную колонку статуса и переименовываем её в 'status' для фронтенда
+        cursor.execute(f'''
+            SELECT id, created_at, {status_col} as status, total_price, items_json, 
                    delivery_method, payment_method, payment_status 
             FROM orders 
             WHERE user_email = ? 
@@ -494,34 +507,27 @@ def get_user_orders():
         rows = cursor.fetchall()
         orders = []
         for row in rows:
-            # Разбираем товары заказа
             items = []
             if row["items_json"]:
                 try:
-                    raw_items = json.loads(row["items_json"])
-                    for item in raw_items:
-                        # Подставляем актуальную картинку из базы товаров
+                    items = json.loads(row["items_json"])
+                    for item in items:
                         prod_id = int(item.get('id', 0))
-
-                        # Если в базе товаров есть картинка для этого ID — берем её
-                        if prod_id in products_map and products_map[prod_id]:
+                        if prod_id in products_map:
                             item['image'] = products_map[prod_id]
-
-                        items.append(item)
                 except:
-                    items = []
+                    pass
 
             orders.append({
                 "id": row["id"],
                 "created_at": row["created_at"],
-                "status": row["status"],
+                "status": row["status"],  # Здесь уже будет либо RU, либо UA версия
                 "total_price": row["total_price"],
                 "items": items,
                 "delivery": row["delivery_method"],
                 "payment_method": row["payment_method"],
                 "payment_status": row["payment_status"]
             })
-
     return jsonify({"success": True, "orders": orders})
 
 @app.route('/update_db_qty')
@@ -784,12 +790,12 @@ def cancel_order_api():
                 }
 
                 # Используем stage_id вместо status_id
-                payload = {'stage_id': 7}
+                payload = {'stage_id': 8}
 
                 # Отправляем PATCH запрос для частичного обновления сделки
                 crm_res = requests.patch(url, json=payload, headers=headers, timeout=10)
                 if crm_res.status_code == 200:
-                    print(f"✅ Статус заказа {order_id} в CRM изменен на этап 7 (stage_id)")
+                    print(f"✅ Статус заказа {order_id} в CRM изменен на этап 8 (stage_id)")
                 else:
                     print(f"⚠️ Ошибка CRM при отмене: {crm_res.text}")
 
@@ -931,34 +937,25 @@ def admin_get_orders():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # 4. Сначала загружаем словарь товаров (для фото)
+        # Собираем данные о товарах (артикулы и фото)
         cursor.execute("SELECT id, sku, images_json FROM products")
-        products_map = {}
-        for p in cursor.fetchall():
-            try:
-                imgs = json.loads(p['images_json'])
-                image = imgs[0] if imgs else None
-            except:
-                image = None
-            products_map[p['id']] = {'sku': p['sku'], 'image': image}
+        products_map = {
+            p['id']: {'sku': p['sku'], 'image': (json.loads(p['images_json'])[0] if p['images_json'] else None)} for p
+            in cursor.fetchall()}
 
-        # 5. Выполняем главный запрос заказов
-        cursor.execute(query, tuple(params))
+        cursor.execute(query, tuple(params))  # 'query' и 'params' должны быть сформированы выше
         rows = cursor.fetchall()
 
         orders = []
         for row in rows:
-            # Разбираем товары
             items = []
             if row["items_json"]:
                 try:
-                    raw_items = json.loads(row["items_json"])
-                    for item in raw_items:
-                        prod_id = int(item.get('id', 0))
-                        prod_info = products_map.get(prod_id, {})
-                        item['sku'] = prod_info.get('sku', '')
-                        item['image'] = prod_info.get('image', '')
-                        items.append(item)
+                    items = json.loads(row["items_json"])
+                    for item in items:
+                        p_info = products_map.get(int(item.get('id', 0)), {})
+                        item['sku'] = p_info.get('sku', '')
+                        item['image'] = p_info.get('image', '')
                 except:
                     pass
 
@@ -967,7 +964,9 @@ def admin_get_orders():
                 "name": f"{row['user_name']} {row['user_surname']}",
                 "phone": row["user_phone"],
                 "total": row["total_price"],
+                # Используем прямое обращение по ключу, БЕЗ .get()
                 "status": row["status"],
+                "status_ua": row["status_ua"] if "status_ua" in row.keys() else "",
                 "date": row["created_at"],
                 "payment": row["payment_method"],
                 "pay_status": row["payment_status"],
@@ -998,15 +997,45 @@ def admin_update_status():
 
     data = request.json
     order_id = data.get('id')
-    new_status = data.get('status')
+    new_status_ru = data.get('status')  # Текст из <option value="..."> в админке
+
+    # Автоматически находим украинский перевод для записи в БД
+    new_status_ua = new_status_ru
+    for stage in CRM_STAGE_MAP.values():
+        if stage['ru'] == new_status_ru:
+            new_status_ua = stage['ua']
+            break
 
     with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+
+        # 1. Получаем email пользователя из заказа
+        cursor.execute("SELECT user_email FROM orders WHERE id = ?", (order_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "Order not found"}), 404
+
+        user_email = row['user_email']
+
+        # 2. Обновляем статус в базе данных (обе колонки)
+        # Это критично: 'status' для RU версии сайта, 'status_ua' для UA версии
+        cursor.execute("UPDATE orders SET status = ?, status_ua = ? WHERE id = ?",
+                       (new_status_ru, new_status_ua, order_id))
         conn.commit()
 
-    return jsonify({"success": True})
+    # 3. Проверка на статус для отправки письма
+    if new_status_ru == "Планируется повторный звонок":
+        subject = "Підтвердження замовлення"
+        body = (
+            "Добрий день! Наш менеджер не зміг додзвонитися до Вас для підтвердження замовлення. "
+            "Будь ласка зателефонуйте нам по номеру: +380930728887, або зв'яжіться з нами через Viber, що є на цьому номері.\n\n"
+            "RadioBox"
+        )
+        # Используем существующую функцию отправки
+        send_email_real(user_email, subject, body)
 
+    return jsonify({"success": True})
 
 # === API: ПОЛУЧИТЬ НАСТРОЙКИ ===
 @app.route('/api/admin/settings', methods=['GET'])
@@ -2428,6 +2457,78 @@ def admin_sync_keepincrm():
 
     except Exception as e:
         return jsonify({"success": False, "error": f"Ошибка: {str(e)}"})
+
+
+@app.route('/api/webhooks/keepincrm', methods=['POST'])
+def keepincrm_webhook():
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "No data"}), 400
+
+    # Выводим в консоль для отладки, чтобы видеть реальные ключи
+    print(f"[*] Получен вебхук: {data}")
+
+    # 1. Проверка источника. В логе пришло "source", в коде было "source_id".
+    # Проверяем оба варианта. Если в логе 311362, подставьте его или временно закомментируйте проверку.
+    incoming_source = str(data.get('source') or data.get('source_id') or "")
+    if incoming_source not in ['7', '311362']:
+        return jsonify({"success": True, "message": f"Ignored: source {incoming_source} is not 7"}), 200
+
+    # 2. Ищем ID заказа.
+    # В стандартном вебхуке это 'deal_id', в нашем кастомном — 'order_id'
+    crm_id = data.get('deal_id') or data.get('id')
+    order_id = data.get('order_id')  # Это {{title}} из нашего тела
+
+    # 3. Ищем статус
+    stage_id = data.get('stage_id')
+    status_text = data.get('new_status')  # Текст типа "Необроблені"
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+
+            final_status_ru = ""
+            final_status_ua = ""
+
+            # Логика определения статуса из словаря
+            if stage_id:
+                s_data = CRM_STAGE_MAP.get(int(stage_id))
+                if s_data:
+                    final_status_ru, final_status_ua = s_data['ru'], s_data['ua']
+            elif status_text:
+                # Если пришел текст, ищем его в нашем словаре по украинскому названию
+                for sid, names in CRM_STAGE_MAP.items():
+                    if names['ua'] == status_text:
+                        final_status_ru, final_status_ua = names['ru'], names['ua']
+                        stage_id = sid
+                        break
+
+            if not final_status_ru:
+                return jsonify({"success": True, "message": "Status not recognized"}), 200
+
+            # 4. Обновляем заказ. Ищем по crm_id (т.к. deal_id из CRM — это crm_id в БД)
+            # или по order_id (который первичный ключ id)
+            if crm_id:
+                cursor.execute("""
+                    UPDATE orders SET status = ?, status_ua = ? WHERE crm_id = ?
+                """, (final_status_ru, final_status_ua, crm_id))
+            elif order_id:
+                cursor.execute("""
+                    UPDATE orders SET status = ?, status_ua = ? WHERE id = ?
+                """, (final_status_ru, final_status_ua, order_id))
+
+            # Если статус "Оплачено"
+            if stage_id == 7:
+                cursor.execute("UPDATE orders SET payment_status = 'Оплачено' WHERE crm_id = ? OR id = ?",
+                               (crm_id, order_id))
+
+            conn.commit()
+            print(f"[+] Заказ обновлен: {final_status_ru}")
+            return jsonify({"success": True}), 200
+
+    except Exception as e:
+        print(f"[-] Ошибка вебхука: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап
