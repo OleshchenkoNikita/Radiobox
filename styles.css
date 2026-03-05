@@ -1908,7 +1908,7 @@ p {
 
 /* 3. Область контента (Заказы) */
 .cab-content {
-    padding: 0 10px; /* Было 50px, теперь таблица станет шире */
+    overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
