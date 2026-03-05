@@ -676,7 +676,22 @@ def create_order():
                 total_sum,
                 ""
             ))
+
+            # === ЛОГИКА СПИСАНИЯ СО СКЛАДА ===
+            for item in items:
+                prod_id = item.get('id')
+                ordered_qty = int(item.get('qty', 0))
+
+                # Уменьшаем количество и обновляем статус наличия (in_stock = 0 если товара нет)
+                cursor.execute("""
+                                UPDATE products 
+                                SET quantity = MAX(0, quantity - ?),
+                                    qty_stock = MAX(0, qty_stock - ?),
+                                    in_stock = CASE WHEN (quantity - ?) <= 0 THEN 0 ELSE 1 END
+                                WHERE id = ?
+                            """, (ordered_qty, ordered_qty, ordered_qty, prod_id))
             conn.commit()
+            print(f"[Stock] Товары для заказа {order_id} списаны.")
 
             # === ИНТЕГРАЦИЯ CRM ===
             # Небольшой лайфхак: если оплачено, допишем это в комментарий для менеджера,
@@ -770,12 +785,36 @@ def cancel_order_api():
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
             # 1. Получаем crm_id заказа из новой колонки
-            cursor.execute('SELECT crm_id FROM orders WHERE id = ?', (order_id,))
+            cursor.execute('SELECT crm_id, items_json, status FROM orders WHERE id = ?', (order_id,))
             row = cursor.fetchone()
-            crm_id = row[0] if row else None
+            if not row or row[2] == "Отменен":
+                return jsonify({"success": True, "message": "Order not found or already cancelled"})
 
-            # 2. Обновляем статус в локальной БД на "Отменен"
-            cursor.execute('UPDATE orders SET status = ? WHERE id = ?', ("Отменен", order_id))
+            crm_id, items_json = row[0], row[1]
+            current_status = row[2]
+
+            # === ЛОГИКА ВОЗВРАТА НА СКЛАД ===
+            if items_json:
+                try:
+                    items = json.loads(items_json)
+                    for item in items:
+                        prod_id = item.get('id')
+                        qty_to_return = int(item.get('qty', 0))
+
+                        # Прибавляем товар обратно и восстанавливаем флаг наличия
+                        cursor.execute("""
+                                        UPDATE products 
+                                        SET quantity = quantity + ?, 
+                                            qty_stock = qty_stock + ?,
+                                            in_stock = 1
+                                        WHERE id = ?
+                                    """, (qty_to_return, qty_to_return, prod_id))
+                except Exception as e:
+                    print(f"Ошибка парсинга товаров при отмене: {e}")
+
+            # Обновляем статус в локальной БД (обе колонки: RU и UA)
+            cursor.execute('UPDATE orders SET status = ?, status_ua = ? WHERE id = ?',
+                           ("Отменен", "Скасовано", order_id))
             conn.commit()
 
         # 3. Синхронизация с KeepinCRM
@@ -790,7 +829,7 @@ def cancel_order_api():
                 }
 
                 # Используем stage_id вместо status_id
-                payload = {'stage_id': 8}
+                payload = {'stage_id': 7}
 
                 # Отправляем PATCH запрос для частичного обновления сделки
                 crm_res = requests.patch(url, json=payload, headers=headers, timeout=10)
