@@ -1759,13 +1759,33 @@ function renderOrdersPage() {
     // 3. Пагинация
     let paginationHtml = '';
     if (totalPages > 1) {
-        paginationHtml = `<div class="cab-pagination" style="margin-top:20px; display:flex; justify-content:center; gap:5px;">`;
-        paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage - 1})" ${currentOrderPage === 1 ? 'disabled' : ''}>←</button>`;
-        for (let i = 1; i <= totalPages; i++) {
+        paginationHtml = `<div class="cab-pagination" style="margin-top:20px; display:flex; justify-content:center; align-items:center; gap:5px;">`;
+
+        // Кнопки "В начало" и "Назад"
+        paginationHtml += `
+            <button class="cab-page-btn" onclick="window.changeOrderPage(1)" ${currentOrderPage === 1 ? 'disabled' : ''} title="${isUA ? 'На початок' : 'В начало'}">«</button>
+            <button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage - 1})" ${currentOrderPage === 1 ? 'disabled' : ''}>‹</button>
+        `;
+
+        // Логика показа ограниченного количества номеров (макс 5 штук)
+        let startPage = Math.max(1, currentOrderPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
             const activeClass = (i === currentOrderPage) ? 'active' : '';
             paginationHtml += `<button class="cab-page-btn ${activeClass}" onclick="window.changeOrderPage(${i})">${i}</button>`;
         }
-        paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage + 1})" ${currentOrderPage === totalPages ? 'disabled' : ''}>→</button>`;
+
+        // Кнопки "Вперед" и "В конец"
+        paginationHtml += `
+            <button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage + 1})" ${currentOrderPage === totalPages ? 'disabled' : ''}>›</button>
+            <button class="cab-page-btn" onclick="window.changeOrderPage(${totalPages})" ${currentOrderPage === totalPages ? 'disabled' : ''} title="${isUA ? 'В кінець' : 'В конец'}">»</button>
+        `;
+
         paginationHtml += `</div>`;
     }
 
