@@ -1629,24 +1629,38 @@ function renderOrdersPage() {
             }).join('');
         }
 
-        // --- ЛЕЧИЛКА ДЛЯ СТАРЫХ ЗАКАЗОВ ---
-        let displayDelivery = order.delivery || '—';
+        // --- ЛОГИКА ДОСТАВКИ И ТТН (ИСПРАВЛЕНА) ---
+        let rawDelivery = order.delivery || '—';
         let displayAddress = order.address || '—';
 
-        if ((!order.delivery || order.delivery === '—') && order.address && order.address.includes(':')) {
-            const parts = order.address.split(':');
-            displayDelivery = parts[0].trim();
-            displayAddress = parts.slice(1).join(':').trim();
+        // Полная карта соответствий для всех возможных строк из базы
+        const deliveryMap = isUA ? {
+            'np': 'Нова Пошта', 'up': 'Укрпошта Стандарт', 'upe': 'Укрпошта Експрес', 'meest': 'Meest ПОШТА', 'self': 'Самовивіз',
+            'Новая Почта': 'Нова Пошта', 'Укрпочта Стандарт': 'Укрпошта Стандарт', 'Укрпочта Экспресс': 'Укрпошта Експрес', 'Meest Почта': 'Meest ПОШТА', 'Самовывоз': 'Самовивіз'
+        } : {
+            'np': 'Новая Почта', 'up': 'Укрпочта Стандарт', 'upe': 'Укрпочта Экспресс', 'meest': 'Meest ПОЧТА', 'self': 'Самовывоз',
+            'Нова Пошта': 'Новая Почта', 'Укрпошта Стандарт': 'Укрпошта Стандарт', 'Укрпошта Експрес': 'Укрпошта Экспресс', 'Meest ПОШТА': 'Meest ПОЧТА', 'Самовивіз': 'Самовывоз'
+        };
 
-            const deliveryFix = {
-                'np': 'Нова Пошта',
-                'up': 'Укрпошта Стандарт',
-                'upe': 'Укрпошта Експрес',
-                'meest': 'Meest ПОШТА',
-                'self': 'Самовивіз'
-            };
-            if (deliveryFix[displayDelivery]) displayDelivery = deliveryFix[displayDelivery];
+        let displayDelivery = deliveryMap[rawDelivery] || rawDelivery;
+
+        // "Лечилка" для старых заказов: если в доставке прочерк, ищем метод в адресе (формат "Метод: Адрес")
+        if (displayDelivery === '—' && displayAddress.includes(':')) {
+            const parts = displayAddress.split(':');
+            let methodPart = parts[0].trim();
+            if (deliveryMap[methodPart]) {
+                displayDelivery = deliveryMap[methodPart];
+                displayAddress = parts.slice(1).join(':').trim();
+            }
         }
+
+        // ОПРЕДЕЛЯЕМ САМОВЫВОЗ (для скрытия ТТН)
+        const lowDelivery = displayDelivery.toLowerCase();
+        const isSelf = lowDelivery === 'self' || lowDelivery.includes('самовывоз') || lowDelivery.includes('самовивіз');
+
+        const ttnHtml = isSelf ? '' : `
+            <p><strong>ТТН:</strong> <span style="color:#2563eb; font-weight:bold;">${order.ttn || (isUA ? 'Очікується' : 'Ожидается')}</span></p>
+        `;
 
         // --- ЛОГИКА СТАТУСОВ ---
         const stRaw = (order.status || 'Новый');
@@ -1654,7 +1668,6 @@ function renderOrdersPage() {
         let stClass = 'new';
         if (stLower.includes('выполн') || stLower.includes('виконано') || stLower.includes('заверш')) stClass = 'completed';
         if (stLower.includes('отмен') || stLower.includes('скасовано')) stClass = 'cancelled';
-
         const displayStatus = TEXT.statuses[stRaw] || stRaw;
 
         // --- КНОПКИ (ОТМЕНА И ОПЛАТА) ---
@@ -1667,27 +1680,15 @@ function renderOrdersPage() {
             cancelBtnHtml = `<button class="btn-cancel-order" onclick="event.stopPropagation(); window.cancelOrderFromHistory(${order.id})">${isUA ? 'Скасувати замовлення' : 'Отменить заказ'}</button>`;
         }
 
-        // ПРАВКА: Логика кнопки оплаты
         let payBtnHtml = '';
-        // Условие: метод оплаты онлайн картой, статус оплаты не "оплачено", и заказ не отменен
-        const isCardPaymentMethod = (order.payment_method === 'card_online' || order.payment_method?.toLowerCase().includes('карт'));
-        const isCurrentlyUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
-        const isOrderActive = !stLower.includes('отмен') && !stLower.includes('скасовано');
+        const isCard = (order.payment_method === 'card_online' || (order.payment_method && order.payment_method.toLowerCase().includes('карт')));
+        const isUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
+        const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
 
-        // Проверка "свежести" (опционально, например, оплата доступна в течение 7 дней)
-        let isFreshOrder = false;
-        if(order.created_at) {
-            const orderDate = new Date(order.created_at.replace(' ', 'T'));
-            const diffDays = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
-            if(diffDays <= 7) isFreshOrder = true;
-        }
-
-        if (isCardPaymentMethod && isCurrentlyUnpaid && isOrderActive && isFreshOrder) {
-            payBtnHtml = `
-                <button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})" style="margin-right: 10px; padding: 5px 10px; background: #22c55e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px;">
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                    ${isUA ? 'Оплатити зараз' : 'Оплатить сейчас'}
-                </button>`;
+        if (isCard && isUnpaid && isNotCancelled) {
+            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})" style="margin-right:8px; padding:4px 10px; background:#22c55e; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+                ${isUA ? 'Оплатити зараз' : 'Оплатить сейчас'}
+            </button>`;
         }
 
         // --- ЛОГИ ИСТОРИИ ---
@@ -1701,12 +1702,12 @@ function renderOrdersPage() {
         // --- ВЫВОД АККОРДЕОНА ---
         return `
         <div class="order-block" id="order-${order.id}">
-            <div class="ob-header" onclick="this.parentElement.classList.toggle('is-expanded')" style="cursor:pointer; display: flex; justify-content: space-between; align-items: center;">
+            <div class="ob-header" onclick="this.parentElement.classList.toggle('is-expanded')" style="cursor:pointer;">
                 <div class="ob-info">
                     <span class="ob-id">№ ${order.id}</span>
                     <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
                 </div>
-                <div class="ob-actions" style="display: flex; align-items: center;">
+                <div class="ob-actions" style="display:flex; align-items:center;">
                     ${payBtnHtml}
                     <span class="ob-status ${stClass}">${displayStatus}</span>
                     <span class="expand-icon" style="margin-left:10px; font-size:12px;">▼</span>
@@ -1718,7 +1719,7 @@ function renderOrdersPage() {
                     <div>
                         <p><strong>${isUA ? 'Доставка:' : 'Доставка:'}</strong> ${displayDelivery}</p>
                         <p><strong>${isUA ? 'Адреса:' : 'Адрес:'}</strong> ${displayAddress}</p>
-                        <p><strong>ТТН:</strong> <span style="color:#2563eb; font-weight:bold;">${order.ttn || (isUA ? 'Очікується' : 'Ожидается')}</span></p>
+                        ${ttnHtml}
                     </div>
                     <div>
                         <p><strong>${isUA ? 'Оплата:' : 'Оплата:'}</strong> ${order.payment_method || '—'}</p>
