@@ -1633,13 +1633,11 @@ function renderOrdersPage() {
         let displayDelivery = order.delivery || '—';
         let displayAddress = order.address || '—';
 
-        // Если метод пустой, а в адресе есть двоеточие (старый формат f"{method}: {address}")
         if ((!order.delivery || order.delivery === '—') && order.address && order.address.includes(':')) {
             const parts = order.address.split(':');
             displayDelivery = parts[0].trim();
             displayAddress = parts.slice(1).join(':').trim();
 
-            // Дополнительная расшифровка кодов, если они остались в базе
             const deliveryFix = {
                 'np': 'Нова Пошта',
                 'up': 'Укрпошта Стандарт',
@@ -1669,23 +1667,27 @@ function renderOrdersPage() {
             cancelBtnHtml = `<button class="btn-cancel-order" onclick="event.stopPropagation(); window.cancelOrderFromHistory(${order.id})">${isUA ? 'Скасувати замовлення' : 'Отменить заказ'}</button>`;
         }
 
+        // ПРАВКА: Логика кнопки оплаты
         let payBtnHtml = '';
-        const isCard = (order.payment_method === 'card_online');
-        const isUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
-        const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
+        // Условие: метод оплаты онлайн картой, статус оплаты не "оплачено", и заказ не отменен
+        const isCardPaymentMethod = (order.payment_method === 'card_online' || order.payment_method?.toLowerCase().includes('карт'));
+        const isCurrentlyUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
+        const isOrderActive = !stLower.includes('отмен') && !stLower.includes('скасовано');
 
-        let isFresh = false;
+        // Проверка "свежести" (опционально, например, оплата доступна в течение 7 дней)
+        let isFreshOrder = false;
         if(order.created_at) {
             const orderDate = new Date(order.created_at.replace(' ', 'T'));
             const diffDays = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
-            if(diffDays <= 7) isFresh = true;
+            if(diffDays <= 7) isFreshOrder = true;
         }
 
-        if (isCard && isUnpaid && isNotCancelled && isFresh) {
-            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})">
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                ${isUA ? 'Сплатити' : 'Оплатить'}
-            </button>`;
+        if (isCardPaymentMethod && isCurrentlyUnpaid && isOrderActive && isFreshOrder) {
+            payBtnHtml = `
+                <button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})" style="margin-right: 10px; padding: 5px 10px; background: #22c55e; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px;">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    ${isUA ? 'Оплатити зараз' : 'Оплатить сейчас'}
+                </button>`;
         }
 
         // --- ЛОГИ ИСТОРИИ ---
@@ -1699,12 +1701,12 @@ function renderOrdersPage() {
         // --- ВЫВОД АККОРДЕОНА ---
         return `
         <div class="order-block" id="order-${order.id}">
-            <div class="ob-header" onclick="this.parentElement.classList.toggle('is-expanded')" style="cursor:pointer;">
+            <div class="ob-header" onclick="this.parentElement.classList.toggle('is-expanded')" style="cursor:pointer; display: flex; justify-content: space-between; align-items: center;">
                 <div class="ob-info">
                     <span class="ob-id">№ ${order.id}</span>
                     <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
                 </div>
-                <div class="ob-actions">
+                <div class="ob-actions" style="display: flex; align-items: center;">
                     ${payBtnHtml}
                     <span class="ob-status ${stClass}">${displayStatus}</span>
                     <span class="expand-icon" style="margin-left:10px; font-size:12px;">▼</span>
