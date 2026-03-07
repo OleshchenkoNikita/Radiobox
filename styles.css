@@ -1944,12 +1944,35 @@ p {
     display: flex; justify-content: space-between; align-items: center;
 }
 .ob-info { display: flex; gap: 15px; align-items: center; }
-.ob-id { font-weight: 800; font-size: 17px; color: #0f172a; }
-.ob-date { font-size: 13px; color: #64748b; }
+.ob-id { font-weight: 800; font-size: 22px; color: #0f172a; }
+.ob-date { font-size: 16px; color: #64748b; }
 
+/* 2. Текст статуса заказа */
 .ob-status {
-    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 15px; /* Было 12px */
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
+
+/* 3. Блок деталей (Доставка, Адрес, Оплата) */
+.ob-details-grid p {
+    font-size: 18px !important; /* Было 13px */
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.ob-details-grid strong {
+    font-weight: 700;
+}
+
+/* 4. Текст ТТН (если есть) */
+.ob-details-grid span[style*="color:#2563eb"] {
+    font-size: 19px;
+}
+
 .ob-status.new { background: #dbeafe; color: #1e40af; }
 .ob-status.completed { background: #dcfce7; color: #166534; }
 .ob-status.cancelled { background: #f3f4f6; color: #4b5563; }
@@ -2013,8 +2036,8 @@ p {
     text-align: right;
     border-top: 1px solid #f1f5f9;
 }
-.ob-total-label { font-size: 14px; color: #64748b; margin-right: 12px; }
-.ob-total-val { font-size: 22px; font-weight: 800; color: #0f172a; }
+.ob-total-label { font-size: 18px; color: #64748b; margin-right: 12px; }
+.ob-total-val { font-size: 26px; font-weight: 800; color: #0f172a; }
 
 .ob-body {
     max-height: 0;
@@ -2051,10 +2074,41 @@ p {
 }
 
 .log-item {
-    font-size: 13px;
+    font-size: 17px;
     margin-bottom: 8px;
     display: flex;
     gap: 10px;
+}
+
+/* Увеличение заголовка "История заказа" */
+.order-history-log h4 {
+    font-size: 18px !important; /* Было 13px */
+    margin-bottom: 12px !important;
+    color: #1e293b;
+}
+
+/* Увеличение текста самих записей в истории */
+.order-history-log .log-item {
+    font-size: 16px !important; /* Было 12px */
+    margin-bottom: 8px !important;
+    line-height: 1.4;
+}
+
+/* Увеличение даты в логах */
+.order-history-log .log-item span:first-child {
+    min-width: 150px !important; /* Увеличили ширину под более крупный шрифт */
+    color: #94a3b8;
+}
+
+/* Текст сообщения в логах */
+.order-history-log .log-item span:last-child {
+    color: #475569;
+}
+
+/* Сообщение "Записей нет", если история пуста */
+.order-history-log p {
+    font-size: 16px !important;
+    color: #94a3b8;
 }
 .log-date { color: #94a3b8; min-width: 130px; }
 .log-msg { color: #475569; }
@@ -2117,7 +2171,7 @@ p {
     border: none;
     padding: 8px 16px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, transform 0.1s;
@@ -2170,7 +2224,7 @@ p {
     color: #64748b;
     padding: 7px 12px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 17px;
     margin-left: 0; /* Убираем старый отступ */
 }
 .btn-cancel-order:hover {
