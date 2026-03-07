@@ -1927,7 +1927,13 @@ p {
     border-radius: 12px;         /* Скругляем углы */
     margin-bottom: 30px;
     overflow: hidden;
+    font-size: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04); /* Возвращаем объем */
+}
+
+.order-block p {
+    text-indent: 0 !important;
+    margin-bottom: 5px;
 }
 
 /* Шапка заказа */
@@ -1962,6 +1968,12 @@ p {
     border-bottom: 2px solid #f1f5f9;
     font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;
 }
+
+.ob-table th,
+.ob-table td {
+    font-size: 15px;
+}
+
 /* Первый столбец (фото) и второй (название) выравниваем влево */
 .ob-table th:first-child,
 .ob-table th:nth-child(2) { text-align: left; padding-left: 24px; }
@@ -1989,7 +2001,7 @@ p {
     display: block;
 }
 
-.obt-name { font-weight: 600; font-size: 14px; max-width: 250px; line-height: 1.4; }
+.obt-name { font-weight: 600; font-size: 16px; max-width: 250px; line-height: 1.4; }
 .obt-price { font-size: 14px; white-space: nowrap; }
 .obt-qty { font-size: 14px; color: #666; }
 .obt-sum { font-weight: 700; font-size: 15px; color: #0f172a; white-space: nowrap; }
@@ -2002,22 +2014,29 @@ p {
     border-top: 1px solid #f1f5f9;
 }
 .ob-total-label { font-size: 14px; color: #64748b; margin-right: 12px; }
-.ob-total-val { font-size: 20px; font-weight: 800; color: #0f172a; }
+.ob-total-val { font-size: 22px; font-weight: 800; color: #0f172a; }
 
-/* Стили для раскрывающегося блока в профиле */
 .ob-body {
-    display: none; /* По умолчанию скрыто */
-    padding: 15px;
+    max-height: 0;
+    overflow: hidden;
+    display: none;
+    transition: max-height 0.3s ease-out, padding 0.3s ease;
     background: #fff;
+    padding: 0 ;
+}
+
+.order-block.is-expanded .ob-body {
+    max-height: 2000px;
+    padding: 0 !important; /* Убираем отступы при раскрытии */
+    display: block;
     border-top: 1px solid #edf2f7;
 }
-.order-block.is-expanded .ob-body {
-    display: block;
-}
+
 .ob-header {
     cursor: pointer;
     transition: background 0.2s;
 }
+
 .ob-header:hover {
     background: #f8fafc;
 }
@@ -2025,9 +2044,12 @@ p {
 /* Стили истории (логов) */
 .order-history-log {
     margin-top: 20px;
-    padding-top: 15px;
-    border-top: 2px dashed #e2e8f0;
+    border-top: 1px dashed #cbd5e1;
+    padding: 15px 24px; /* 15px сверху/снизу и 24px по бокам */
+    font-size: 16px; /* Шрифт истории тоже можно чуть приподнять */
+    color: #475569;
 }
+
 .log-item {
     font-size: 13px;
     margin-bottom: 8px;
@@ -2036,22 +2058,6 @@ p {
 }
 .log-date { color: #94a3b8; min-width: 130px; }
 .log-msg { color: #475569; }
-
-/* Скрытое тело заказа */
-.ob-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out, padding 0.3s ease;
-    background: #fff;
-    padding: 0 15px;
-}
-
-/* Состояние, когда заказ развернут */
-.order-block.is-expanded .ob-body {
-    max-height: 2000px; /* Достаточно большое число */
-    padding: 15px;
-    border-top: 1px solid #edf2f7;
-}
 
 /* Иконка стрелочки */
 .expand-icon {
@@ -2063,14 +2069,6 @@ p {
     transform: rotate(180deg);
 }
 
-/* История логов */
-.order-history-log {
-    margin-top: 20px;
-    border-top: 1px dashed #cbd5e1;
-    padding-top: 10px;
-    font-size: 13px;
-    color: #475569;
-}
 .log-item { margin-bottom: 5px; display: flex; gap: 10px; }
 
 /* Пагинация (кнопки страниц) */
@@ -2200,7 +2198,16 @@ p {
 .modal-close { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
 .btn-modal-pay { width: 100%; padding: 12px; background: #10B981; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .btn-modal-pay:hover { background: #059669; }
-
+/* Смещение номера заказа в модалке на 5px влево */
+#payModalOrderNum {
+    position: relative;
+    left: -10px; /* Сдвигает элемент относительно его нормальной позиции влево */
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 15px;
+    width: 100%;
+}
 @media (max-width: 500px) {
     .ob-header { align-items: flex-start; }
     .ob-actions { width: 100%; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; }

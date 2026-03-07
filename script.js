@@ -1631,15 +1631,20 @@ function renderOrdersPage() {
 
         // --- ЛОГИКА ДОСТАВКИ И ТТН (ИСПРАВЛЕНА) ---
         let rawDelivery = order.delivery || '—';
-        let displayAddress = order.address || '—';
+        let fullAddress = order.address || '—';
+        let displayAddress = fullAddress;
 
-        // Полная карта соответствий для всех возможных строк из базы
+        // Убираем способ доставки из строки адреса, если он там есть (формат "Метод: Адрес")
+        if (fullAddress.includes(':')) {
+            displayAddress = fullAddress.split(':').slice(1).join(':').trim();
+        }
+
         const deliveryMap = isUA ? {
             'np': 'Нова Пошта', 'up': 'Укрпошта Стандарт', 'upe': 'Укрпошта Експрес', 'meest': 'Meest ПОШТА', 'self': 'Самовивіз',
             'Новая Почта': 'Нова Пошта', 'Укрпочта Стандарт': 'Укрпошта Стандарт', 'Укрпочта Экспресс': 'Укрпошта Експрес', 'Meest Почта': 'Meest ПОШТА', 'Самовывоз': 'Самовивіз'
         } : {
             'np': 'Новая Почта', 'up': 'Укрпочта Стандарт', 'upe': 'Укрпочта Экспресс', 'meest': 'Meest ПОЧТА', 'self': 'Самовывоз',
-            'Нова Пошта': 'Новая Почта', 'Укрпошта Стандарт': 'Укрпошта Стандарт', 'Укрпошта Експрес': 'Укрпошта Экспресс', 'Meest ПОШТА': 'Meest ПОЧТА', 'Самовивіз': 'Самовывоз'
+            'Нова Пошта': 'Новая Почта', 'Укрпошта Стандарт': 'Укрпочта Стандарт', 'Укрпошта Експрес': 'Укрпошта Экспресс', 'Meest ПОШТА': 'Meest ПОЧТА', 'Самовивіз': 'Самовывоз'
         };
 
         let displayDelivery = deliveryMap[rawDelivery] || rawDelivery;
@@ -1834,18 +1839,30 @@ function renderOrdersPage() {
 
 window.currentPayOrderId = null;
 
+// Найти в script.js функцию openPayModal и заменить её на эту:
+
 window.openPayModal = function(orderId, sum) {
     const modal = document.getElementById('historyPayModal');
     if(!modal) return;
 
     window.currentPayOrderId = orderId;
 
-    document.getElementById('payModalOrderNum').textContent = `Замовлення №${orderId}`;
-    document.getElementById('histPaySum').textContent = sum;
+    // Определяем язык страницы
+    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/'); //
 
+    // Исправляем текст заголовка заказа
+    const orderTitle = isUA ? `Замовлення №${orderId}` : `Заказ №${orderId}`; //
+    document.getElementById('payModalOrderNum').textContent = orderTitle; //
+
+    // Исправляем заголовок самого окна, если нужно
+    const modalHeader = modal.querySelector('h3');
+    if (modalHeader) {
+        modalHeader.textContent = isUA ? "Оплата замовлення" : "Оплата заказа"; //
+    }
+
+    document.getElementById('histPaySum').textContent = sum;
     modal.classList.add('active');
 
-    // Маски ввода (те же, что и в чекауте)
     setupCardInputs();
 };
 
