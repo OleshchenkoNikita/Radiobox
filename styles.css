@@ -2004,6 +2004,75 @@ p {
 .ob-total-label { font-size: 14px; color: #64748b; margin-right: 12px; }
 .ob-total-val { font-size: 20px; font-weight: 800; color: #0f172a; }
 
+/* Стили для раскрывающегося блока в профиле */
+.ob-body {
+    display: none; /* По умолчанию скрыто */
+    padding: 15px;
+    background: #fff;
+    border-top: 1px solid #edf2f7;
+}
+.order-block.is-expanded .ob-body {
+    display: block;
+}
+.ob-header {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.ob-header:hover {
+    background: #f8fafc;
+}
+
+/* Стили истории (логов) */
+.order-history-log {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 2px dashed #e2e8f0;
+}
+.log-item {
+    font-size: 13px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+}
+.log-date { color: #94a3b8; min-width: 130px; }
+.log-msg { color: #475569; }
+
+/* Скрытое тело заказа */
+.ob-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease;
+    background: #fff;
+    padding: 0 15px;
+}
+
+/* Состояние, когда заказ развернут */
+.order-block.is-expanded .ob-body {
+    max-height: 2000px; /* Достаточно большое число */
+    padding: 15px;
+    border-top: 1px solid #edf2f7;
+}
+
+/* Иконка стрелочки */
+.expand-icon {
+    transition: transform 0.3s;
+    display: inline-block;
+    color: #64748b;
+}
+.order-block.is-expanded .expand-icon {
+    transform: rotate(180deg);
+}
+
+/* История логов */
+.order-history-log {
+    margin-top: 20px;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 10px;
+    font-size: 13px;
+    color: #475569;
+}
+.log-item { margin-bottom: 5px; display: flex; gap: 10px; }
+
 /* Пагинация (кнопки страниц) */
 .cab-pagination { display: flex; justify-content: center; gap: 8px; margin-top: 40px; margin-bottom: 20px; }
 .cab-page-btn {

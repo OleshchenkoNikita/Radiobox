@@ -184,6 +184,16 @@ def init_db():
                     )
                 ''')
 
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS order_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER,
+                message_ru TEXT,
+                message_ua TEXT,
+                created_at TEXT
+            )
+        ''')
+
         # Заполним дефолтными, если пусто
         default_settings = {
             'site_url': 'https://radiobox.in.ua',
@@ -482,53 +492,72 @@ def get_user_orders():
     email = session['email']
     referer = request.referrer or ""
     is_ukrainian = '/ua/' in referer
-
-    # Определяем, какую колонку брать из базы
     status_col = "status_ua" if is_ukrainian else "status"
 
-    with sqlite3.connect(DB_NAME) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
 
-        # Загружаем товары (для фото)
-        cursor.execute("SELECT id, images_json FROM products")
-        products_map = {p['id']: (json.loads(p['images_json'])[0] if p['images_json'] else None) for p in
-                        cursor.fetchall()}
+            # Сначала убедимся, что таблица логов существует (на всякий случай)
+            cursor.execute('''CREATE TABLE IF NOT EXISTS order_logs 
+                (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, 
+                message_ru TEXT, message_ua TEXT, created_at TEXT)''')
 
-        # Выбираем нужную колонку статуса и переименовываем её в 'status' для фронтенда
-        cursor.execute(f'''
-            SELECT id, created_at, {status_col} as status, total_price, items_json, 
-                   delivery_method, payment_method, payment_status 
-            FROM orders 
-            WHERE user_email = ? 
-            ORDER BY created_at DESC
-        ''', (email,))
-
-        rows = cursor.fetchall()
-        orders = []
-        for row in rows:
-            items = []
-            if row["items_json"]:
+            # Загружаем фото товаров (безопасно)
+            cursor.execute("SELECT id, images_json FROM products")
+            products_map = {}
+            for p in cursor.fetchall():
                 try:
-                    items = json.loads(row["items_json"])
+                    imgs = json.loads(p['images_json']) if p['images_json'] else []
+                    products_map[p['id']] = imgs[0] if imgs else None
+                except:
+                    products_map[p['id']] = None
+
+            # Выбираем ВСЕ данные заказа
+            cursor.execute(f'''
+                SELECT id, created_at, {status_col} as status, total_price, items_json, 
+                       delivery_method, delivery_address, payment_method, payment_status, ttn 
+                FROM orders WHERE user_email = ? ORDER BY created_at DESC
+            ''', (email,))
+
+            rows = cursor.fetchall()
+            orders = []
+            for row in rows:
+                # Тянем историю для каждого заказа
+                cursor.execute(
+                    "SELECT message_ru, message_ua, created_at FROM order_logs WHERE order_id = ? ORDER BY created_at DESC",
+                    (row['id'],))
+                logs = [dict(l) for l in cursor.fetchall()]
+
+                items = []
+                if row["items_json"]:
+                    try:
+                        items = json.loads(row["items_json"])
+                    except:
+                        items = []
                     for item in items:
                         prod_id = int(item.get('id', 0))
                         if prod_id in products_map:
                             item['image'] = products_map[prod_id]
-                except:
-                    pass
 
-            orders.append({
-                "id": row["id"],
-                "created_at": row["created_at"],
-                "status": row["status"],  # Здесь уже будет либо RU, либо UA версия
-                "total_price": row["total_price"],
-                "items": items,
-                "delivery": row["delivery_method"],
-                "payment_method": row["payment_method"],
-                "payment_status": row["payment_status"]
-            })
-    return jsonify({"success": True, "orders": orders})
+                orders.append({
+                    "id": row["id"],
+                    "created_at": row["created_at"],
+                    "status": row["status"],
+                    "total_price": row["total_price"],
+                    "items": items,
+                    "delivery": row["delivery_method"],
+                    "address": row["delivery_address"],
+                    "payment_method": row["payment_method"],
+                    "payment_status": row["payment_status"],
+                    "ttn": row["ttn"],
+                    "logs": logs
+                })
+        return jsonify({"success": True, "orders": orders})
+    except Exception as e:
+        print(f"Ошибка в get_user_orders: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/update_db_qty')
 def update_db_structure():
@@ -542,218 +571,111 @@ def update_db_structure():
 
 @app.route('/create_order', methods=['POST'])
 def create_order():
-    # 1. Получаем данные из формы
+    # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
     name = request.form.get('name')
     surname = request.form.get('surname')
     address = request.form.get('full_address') or request.form.get('address')
     cart_json = request.form.get('cart_json')
     comment = request.form.get('comment')
-    city_ref = ""
-    point_ref = ""
 
-    # --- [НОВОЕ] Статус оплаты из скрытого поля ---
-    # Если JS сработал и оплата прошла, тут будет 'paid'. Иначе 'waiting' или 'unpaid'
     pay_status_raw = request.form.get('payment_status', 'unpaid')
-
-    # Для красоты в базе переведем на человеческий
     payment_status_human = "Оплачено" if pay_status_raw == 'paid' else "Не оплачено"
-    # -----------------------------------------------
 
-    # 2. Расшифровка кодов (mapping)
     raw_payment = request.form.get('payment')
     raw_delivery = request.form.get('delivery')
-
     delivery_method = request.form.get('delivery')
 
-    # Словари для преобразования системных имен в понятные названия
-    delivery_labels = {
-        'np': 'Нова Пошта',
-        'up': 'Укрпошта Стандарт',
-        'upe': 'Укрпошта Експрес',
-        'meest': 'Meest ПОШТА',
-        'self': 'Самовивіз'
-    }
+    delivery_labels = {'np': 'Нова Пошта', 'up': 'Укрпошта Стандарт', 'upe': 'Укрпошта Експрес', 'meest': 'Meest ПОШТА',
+                       'self': 'Самовивіз'}
     delivery_display = delivery_labels.get(delivery_method, delivery_method)
 
-    payment_labels = {
-        'cod': 'Післяплата',
-        'seller_cashless': 'Безготівковий розрахунок',
-        'seller_privat': 'Оплата на рахунок ФОП',
-        'card_online': 'Оплата карткою Online'
-    }
-    payment_display = payment_labels.get(request.form.get('payment'), request.form.get('payment'))
+    payment_labels = {'cod': 'Післяплата', 'seller_cashless': 'Безготівковий розрахунок',
+                      'seller_privat': 'Оплата на рахунок ФОП', 'card_online': 'Оплата карткою Online'}
+    payment_display = payment_labels.get(raw_payment, raw_payment)
 
+    # Сбор города и отделения (Вернул логику GitHub)
+    city = ""
     city_ref = ""
+    point = ""
     point_ref = ""
 
-    # Сбор города
-    city = ""
     if delivery_method == 'np':
         city = request.form.get('city_np', '')
         city_ref = request.form.get('city_ref_np', '')
-        point = request.form.get('point_np', '')
+        point = next((val for val in request.form.getlist('point_np') if val.strip()), '')
         point_ref = request.form.get('point_ref_np', '')
-    elif delivery_method == 'up':
+    elif delivery_method in ['up', 'upe', 'meest']:
         city = request.form.get(f'city_{delivery_method}', '')
         city_ref = request.form.get(f'city_ref_{delivery_method}', '')
         point = request.form.get(f'{delivery_method}_branch_text', '')
-    elif delivery_method == 'upe':
-        city = request.form.get(f'city_{delivery_method}', '')
-        city_ref = request.form.get(f'city_ref_{delivery_method}', '')
-        point = request.form.get(f'{delivery_method}_branch_text', '')
-    elif delivery_method == 'meest':
-        city = request.form.get('city_meest', '')
-        city_ref = request.form.get('city_ref_meest', '')
-        point = request.form.get('meest_branch_text', '')
 
-    # Сбор отделения
-    point = ""
-    if delivery_method == 'np':
-        point = request.form.get('point_np', '')
-    elif delivery_method == 'up':
-        point = request.form.get('up_branch_text', '')
-    elif delivery_method == 'upe':
-        point = request.form.get('upe_branch_text', '')
-    elif delivery_method == 'meest':
-        point = request.form.get('meest_branch_text', '')
-
-    # Если ключ не найден, запишем "raw" значение, чтобы не потерять данные
-    payment_method = PAYMENT_MAP.get(raw_payment, raw_payment)
-    delivery_method = DELIVERY_MAP.get(raw_delivery, raw_delivery)
-
-    # Склеиваем доставку для удобства чтения в БД
-    full_delivery_info = f"{delivery_method}: {address}"
-
-    # 3. Генерируем ID
+    full_delivery_info = f"{delivery_display}: {address}"
     order_id = random.randint(100000000, 999999999)
     user_email = session.get('email', '')
 
-    # 4. Считаем сумму и парсим товары
     total_sum = 0
     items = []
     try:
         items = json.loads(cart_json)
         for item in items:
-            # Пытаемся достать артикул из всех возможных ключей
-            sku = item.get('sku') or item.get('SKU') or item.get('article') or '—'
-            price = float(item.get('price', 0))
-            qty = int(item.get('qty', 0))
-            total_sum += price * qty
-            # Обнови этот принт для отладки
-            print(f"   [DEBUG_CART] Товар: {item.get('title')} | Артикул: {sku}")
+            total_sum += float(item.get('price', 0)) * int(item.get('qty', 0))
     except:
         pass
 
-    # 5. Сохранение в БД и отправка в CRM
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-
-            # Логика начального статуса заказа
-            # Если оплата прошла успешно -> ставим статус заказа "Оплаченный" (или какой у вас есть в CRM/БД)
-            # Иначе -> "Новый"
             initial_order_status = "Оплаченный" if pay_status_raw == 'paid' else "Новый"
 
+            # ИСПРАВЛЕНО: Добавил delivery_method в INSERT, чтобы подтягивалось в профиль
             cursor.execute('''
                 INSERT INTO orders (
-                    id, 
-                    user_name, user_surname, user_phone, user_email,
-                    delivery_address, payment_method, payment_status, 
-                    comment, items_json, 
-                    created_at, status, total_price, ttn
+                    id, user_name, user_surname, user_phone, user_email,
+                    delivery_method, delivery_address, payment_method, payment_status, 
+                    comment, items_json, created_at, status, total_price, ttn
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                order_id,
-                name, surname, phone, user_email,
-                full_delivery_info,
-                payment_method,
-                payment_status_human,  # В базу пишем красиво: "Оплачено" / "Не оплачено"
-                comment, cart_json,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                initial_order_status,
-                total_sum,
-                ""
+                order_id, name, surname, phone, user_email,
+                delivery_display, full_delivery_info, payment_display, payment_status_human,
+                comment, cart_json, datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                initial_order_status, total_sum, ""
             ))
 
-            # === ЛОГИКА СПИСАНИЯ СО СКЛАДА ===
+            # ПУНКТ 5: Логируем создание заказа
+            cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                           (order_id, "Заказ создан", "Замовлення створено",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+            # Списание со склада (твоя логика из GitHub)
             for item in items:
-                prod_id = item.get('id')
-                ordered_qty = int(item.get('qty', 0))
-
-                # Уменьшаем количество и обновляем статус наличия (in_stock = 0 если товара нет)
-                cursor.execute("""
-                                UPDATE products 
-                                SET quantity = MAX(0, quantity - ?),
-                                    qty_stock = MAX(0, qty_stock - ?),
-                                    in_stock = CASE WHEN (quantity - ?) <= 0 THEN 0 ELSE 1 END
-                                WHERE id = ?
-                            """, (ordered_qty, ordered_qty, ordered_qty, prod_id))
+                cursor.execute(
+                    "UPDATE products SET quantity = MAX(0, quantity - ?), qty_stock = MAX(0, qty_stock - ?), in_stock = CASE WHEN (quantity - ?) <= 0 THEN 0 ELSE 1 END WHERE id = ?",
+                    (int(item.get('qty', 0)), int(item.get('qty', 0)), int(item.get('qty', 0)), item.get('id')))
             conn.commit()
-            print(f"[Stock] Товары для заказа {order_id} списаны.")
 
-            # === ИНТЕГРАЦИЯ CRM ===
-            # Небольшой лайфхак: если оплачено, допишем это в комментарий для менеджера,
-            # чтобы он сразу видел, даже если поле статуса не настроено.
-            crm_comment = comment
-            if pay_status_raw == 'paid':
-                crm_comment = f"[ОПЛАЧЕНО ONLINE] {comment}"
-
+            # Интеграция CRM (Вернул переменные как были)
             crm_data = {
-                'name': f"{request.form.get('name', '')} {request.form.get('surname', '')}",
-                'phone': request.form.get('phone', ''),
-                'delivery': delivery_display,
-                'address': request.form.get('full_address', ''),
-                'city': city,
-                'point': point,
-                'city_ref': city_ref,  # Передаем скрытый ID города
-                'point_ref': point_ref,  # Передаем скрытый ID отделения
-                'payment': payment_display,
-                'comment': request.form.get('comment', '')
+                'name': f"{name} {surname}", 'phone': phone, 'delivery': delivery_display,
+                'address': address, 'city': city, 'point': point,
+                'city_ref': city_ref, 'point_ref': point_ref,
+                'payment': payment_display, 'comment': comment, 'email': user_email
             }
-
-            # =================================================
-            # [START] ВРЕМЕННАЯ ОТЛАДКА
-            # =================================================
-            print("\n" + "█" * 60)
-            print(f"🚀 [DEBUG] ОБРАБОТКА ЗАКАЗА №{order_id}")
-            print("-" * 60)
-            print(f"1. СТАТУС ОПЛАТЫ:       '{payment_status_human}' ({pay_status_raw})")
-            print(f"2. МЕТОД ОПЛАТЫ:        '{payment_method}'")
-            print(f"3. МЕТОД ДОСТАВКИ:      '{delivery_method}'")
-            print("-" * 60)
-            print(f"4. ТОВАРЫ ({len(items)} шт.):")
-            for i, it in enumerate(items, 1):
-                # Добавьте вывод SKU в дебаг
-                print(f"   {i}. {it.get('title')} [SKU: {it.get('sku')}] | {it.get('qty')} шт. * {it.get('price')} грн")
-            print("-" * 60)
-            print(f"5. ИТОГО СУММА:         {total_sum} грн")
-            print("█" * 60 + "\n")
-            # =================================================
-            # [END] ВРЕМЕННАЯ ОТЛАДКА
-            # =================================================
 
             crm_id_from_api = send_to_keepincrm(order_id, crm_data, items, total_sum)
             if crm_id_from_api:
                 cursor.execute("UPDATE orders SET crm_id = ? WHERE id = ?", (crm_id_from_api, order_id))
-            # =======================
+                conn.commit()
 
     except sqlite3.IntegrityError:
-        print("Совпадение номеров, рекурсия...")
-        return create_order()  # Пробуем еще раз с новым ID
+        return create_order()
     except Exception as e:
-        print(f"Ошибка БД: {e}")
-        return f"Ошибка при сохранении: {e}", 500
+        return f"Ошибка: {e}", 500
 
-    # 6. Редирект
     referer = request.referrer or ""
-    is_ukrainian = '/ua/' in referer
-
-    if is_ukrainian:
-        return redirect(f'/ua/order-success.html?order_id={order_id}')
-    else:
-        return redirect(f'/ru/order-success.html?order_id={order_id}')
+    lang = '/ua/' if '/ua/' in referer else '/ru/'
+    return redirect(f'{lang}order-success.html?order_id={order_id}')
 
 # === API: ОПЛАТА ЗАКАЗА (ОБНОВЛЕНИЕ СТАТУСА) ===
 @app.route('/api/pay_order', methods=['POST'])
@@ -1021,13 +943,28 @@ def admin_get_orders():
 # === API: АДМИНКА - СОХРАНИТЬ ТТН ===
 @app.route('/api/admin/order/ttn', methods=['POST'])
 def admin_save_ttn():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False}), 403
+
     data = request.json
+    order_id = data.get('id')
+    ttn_value = data.get('ttn')
+
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
-        cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (data['ttn'], data['id']))
+
+        # 1. Запись в историю изменений (чтобы появилось в профиле)
+        log_ru = f"Добавлен ТТН: {ttn_value}"
+        log_ua = f"Додано ТТН: {ttn_value}"
+        cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                       (order_id, log_ru, log_ua, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+        # 2. Обновление ТТН в основной таблице заказов
+        cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (ttn_value, order_id))
         conn.commit()
+
     return jsonify({"success": True})
+
 
 @app.route('/api/admin/order/status', methods=['POST'])
 def admin_update_status():
@@ -1036,9 +973,9 @@ def admin_update_status():
 
     data = request.json
     order_id = data.get('id')
-    new_status_ru = data.get('status')  # Текст из <option value="..."> в админке
+    new_status_ru = data.get('status')
 
-    # Автоматически находим украинский перевод для записи в БД
+    # Находим украинский перевод статуса
     new_status_ua = new_status_ru
     for stage in CRM_STAGE_MAP.values():
         if stage['ru'] == new_status_ru:
@@ -1049,7 +986,7 @@ def admin_update_status():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # 1. Получаем email пользователя из заказа
+        # 1. Получаем email для уведомления
         cursor.execute("SELECT user_email FROM orders WHERE id = ?", (order_id,))
         row = cursor.fetchone()
         if not row:
@@ -1057,21 +994,25 @@ def admin_update_status():
 
         user_email = row['user_email']
 
-        # 2. Обновляем статус в базе данных (обе колонки)
-        # Это критично: 'status' для RU версии сайта, 'status_ua' для UA версии
+        # 2. ПУНКТ 5: Запись изменения статуса в историю
+        log_msg_ru = f"Статус изменен на: {new_status_ru}"
+        log_msg_ua = f"Статус змінено на: {new_status_ua}"
+        cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                       (order_id, log_msg_ru, log_msg_ua, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+        # 3. Обновление статусов (RU и UA) в заказе
         cursor.execute("UPDATE orders SET status = ?, status_ua = ? WHERE id = ?",
                        (new_status_ru, new_status_ua, order_id))
         conn.commit()
 
-    # 3. Проверка на статус для отправки письма
-    if new_status_ru == "Планируется повторный звонок":
+    # 4. Отправка письма (твоя логика)
+    if new_status_ru == "Планируется повторный звонок" and user_email:
         subject = "Підтвердження замовлення"
         body = (
             "Добрий день! Наш менеджер не зміг додзвонитися до Вас для підтвердження замовлення. "
-            "Будь ласка зателефонуйте нам по номеру: +380930728887, або зв'яжіться з нами через Viber, що є на цьому номері.\n\n"
+            "Будь ласка зателефонуйте нам по номеру: +380930728887, або зв'яжіться з нами через Viber.\n\n"
             "RadioBox"
         )
-        # Используем существующую функцию отправки
         send_email_real(user_email, subject, body)
 
     return jsonify({"success": True})
@@ -2504,65 +2445,85 @@ def keepincrm_webhook():
     if not data:
         return jsonify({"success": False, "error": "No data"}), 400
 
-    # Выводим в консоль для отладки, чтобы видеть реальные ключи
-    print(f"[*] Получен вебхук: {data}")
+    print(f"[*] Получен вебхук из CRM: {data}")
 
-    # 1. Проверка источника. В логе пришло "source", в коде было "source_id".
-    # Проверяем оба варианта. Если в логе 311362, подставьте его или временно закомментируйте проверку.
     incoming_source = str(data.get('source') or data.get('source_id') or "")
     if incoming_source not in ['7', '311362']:
-        return jsonify({"success": True, "message": f"Ignored: source {incoming_source} is not 7"}), 200
+        return jsonify({"success": True, "message": f"Ignored: source {incoming_source}"}), 200
 
-    # 2. Ищем ID заказа.
-    # В стандартном вебхуке это 'deal_id', в нашем кастомном — 'order_id'
     crm_id = data.get('deal_id') or data.get('id')
-    order_id = data.get('order_id')  # Это {{title}} из нашего тела
+    order_id = data.get('order_id')
 
-    # 3. Ищем статус
-    stage_id = data.get('stage_id')
-    status_text = data.get('new_status')  # Текст типа "Необроблені"
+    # --- ИСПРАВЛЕННЫЙ БЛОК ТТН ---
+    # Проверяем все возможные поля
+    raw_ttn = data.get('delivery_ttns') or data.get('ttn') or data.get('delivery_ttn')
+    new_ttn = ""
+
+    if isinstance(raw_ttn, list) and len(raw_ttn) > 0:
+        new_ttn = str(raw_ttn[0]).strip()
+    elif raw_ttn:
+        new_ttn = str(raw_ttn).strip()
+    # -----------------------------
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
 
-            final_status_ru = ""
-            final_status_ua = ""
+            # Если в вебхуке нет order_id, ищем в базе по crm_id
+            if not order_id and crm_id:
+                cursor.execute("SELECT id FROM orders WHERE crm_id = ?", (crm_id,))
+                row = cursor.fetchone()
+                if row: order_id = row[0]
 
-            # Логика определения статуса из словаря
-            if stage_id:
-                s_data = CRM_STAGE_MAP.get(int(stage_id))
-                if s_data:
-                    final_status_ru, final_status_ua = s_data['ru'], s_data['ua']
-            elif status_text:
-                # Если пришел текст, ищем его в нашем словаре по украинскому названию
+            if not order_id:
+                print(f" [!] Заказ не найден (crm_id: {crm_id})")
+                return jsonify({"success": False, "error": "Order ID not found"}), 404
+
+            # --- ЛОГИКА ТТН (Пункт 4 и 5) ---
+            if new_ttn: # Если ТТН не пустая строка
+                cursor.execute("SELECT ttn FROM orders WHERE id = ?", (order_id,))
+                current_ttn = cursor.fetchone()[0]
+
+                if str(current_ttn) != new_ttn:
+                    cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (new_ttn, order_id))
+                    # Запись в историю
+                    log_ru = f"Добавлен ТТН (из CRM): {new_ttn}"
+                    log_ua = f"Додано ТТН (з CRM): {new_ttn}"
+                    cursor.execute(
+                        "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                        (order_id, log_ru, log_ua, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    print(f"[Webhook] ТТН обновлен для заказа {order_id}: {new_ttn}")
+
+            # --- ЛОГИКА СТАТУСА ---
+            status_text = data.get('new_status')
+            if status_text:
+                final_status_ru = ""
+                final_status_ua = ""
+                stage_id = None
+
                 for sid, names in CRM_STAGE_MAP.items():
-                    if names['ua'] == status_text:
+                    if names['ua'] == status_text or names['ru'] == status_text:
                         final_status_ru, final_status_ua = names['ru'], names['ua']
                         stage_id = sid
                         break
 
-            if not final_status_ru:
-                return jsonify({"success": True, "message": "Status not recognized"}), 200
+                if final_status_ru:
+                    cursor.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+                    old_status = cursor.fetchone()[0]
 
-            # 4. Обновляем заказ. Ищем по crm_id (т.к. deal_id из CRM — это crm_id в БД)
-            # или по order_id (который первичный ключ id)
-            if crm_id:
-                cursor.execute("""
-                    UPDATE orders SET status = ?, status_ua = ? WHERE crm_id = ?
-                """, (final_status_ru, final_status_ua, crm_id))
-            elif order_id:
-                cursor.execute("""
-                    UPDATE orders SET status = ?, status_ua = ? WHERE id = ?
-                """, (final_status_ru, final_status_ua, order_id))
+                    if old_status != final_status_ru:
+                        cursor.execute("UPDATE orders SET status = ?, status_ua = ? WHERE id = ?",
+                                       (final_status_ru, final_status_ua, order_id))
+                        # Запись в историю
+                        cursor.execute(
+                            "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                            (order_id, f"Статус: {final_status_ru}", f"Статус: {final_status_ua}",
+                             datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-            # Если статус "Оплачено"
-            if stage_id == 7:
-                cursor.execute("UPDATE orders SET payment_status = 'Оплачено' WHERE crm_id = ? OR id = ?",
-                               (crm_id, order_id))
+                    if stage_id == 7 or final_status_ru == "Оплачено":
+                        cursor.execute("UPDATE orders SET payment_status = 'Оплачено' WHERE id = ?", (order_id,))
 
             conn.commit()
-            print(f"[+] Заказ обновлен: {final_status_ru}")
             return jsonify({"success": True}), 200
 
     except Exception as e:

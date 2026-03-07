@@ -1556,151 +1556,172 @@ document.addEventListener('DOMContentLoaded', () => {
         renderOrdersPage();
     }
 
-    function renderOrdersPage() {
-        if (!allOrdersCache || allOrdersCache.length === 0) {
-            ordersContainer.innerHTML = `<div style="padding:40px; text-align:center; color:#888;">${TEXT.emptyHistory}</div>`;
-            return;
+function renderOrdersPage() {
+    if (!allOrdersCache || allOrdersCache.length === 0) {
+        ordersContainer.innerHTML = `<div style="padding:40px; text-align:center; color:#888;">${TEXT.emptyHistory}</div>`;
+        return;
+    }
+
+    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
+    // 1. Срез страниц
+    const start = (currentOrderPage - 1) * ordersPerPage;
+    const end = start + ordersPerPage;
+    const ordersSlice = allOrdersCache.slice(start, end);
+    const totalPages = Math.ceil(allOrdersCache.length / ordersPerPage);
+
+    // 2. Рендер
+    const ordersHtml = ordersSlice.map(order => {
+        let totalOrderSum = order.total_price || 0;
+        let itemsHtml = '';
+
+        let items = order.items;
+        if (typeof items === 'string') {
+            try { items = JSON.parse(items); } catch(e) {}
         }
 
-        // 1. Срез страниц
-        const start = (currentOrderPage - 1) * ordersPerPage;
-        const end = start + ordersPerPage;
-        const ordersSlice = allOrdersCache.slice(start, end);
-        const totalPages = Math.ceil(allOrdersCache.length / ordersPerPage);
+        // --- ЛОГИКА ТОВАРОВ ---
+        if (items && Array.isArray(items)) {
+            itemsHtml = items.map((i, index) => {
+                let title = i.title || `Товар ID: ${i.id}`;
+                let price = parseFloat(i.price || 0);
+                let qty = parseInt(i.qty || 1);
 
-        // 2. Рендер
-        const ordersHtml = ordersSlice.map(order => {
-            let totalOrderSum = order.total_price || 0;
-            let itemsHtml = '';
+                let prod = null;
+                try {
+                    const catKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+                    const catalog = JSON.parse(localStorage.getItem(catKey) || '{"items":[]}').items;
+                    prod = catalog.find(p => p.id == i.id);
+                } catch(e) {}
 
-            let items = order.items;
-            if (typeof items === 'string') {
-                try { items = JSON.parse(items); } catch(e) {}
-            }
+                if ((!i.title || price === 0) && prod) {
+                     title = prod.title;
+                     if (price === 0) price = prod.price;
+                }
 
-            if (items && Array.isArray(items)) {
-                itemsHtml = items.map((i, index) => {
-                    let title = i.title || `Товар ID: ${i.id}`;
-                    let price = parseFloat(i.price || 0);
-                    let qty = parseInt(i.qty || 1);
+                let sum = price * qty;
+                if (totalOrderSum === 0) totalOrderSum += sum;
 
-                    // 1. Сразу ищем товар в локальном каталоге (чтобы использовать его данные и ФОТО)
-                    let prod = null;
-                    try {
-                        const catKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
-                        const catalog = JSON.parse(localStorage.getItem(catKey) || '{"items":[]}').items;
-                        prod = catalog.find(p => p.id == i.id);
-                    } catch(e) {}
+                let rawImg = i.image;
+                if (!rawImg && prod) {
+                    if (prod.images && prod.images.length > 0) rawImg = prod.images[0];
+                    else if (prod.image) rawImg = prod.image;
+                }
 
-                    // Если в заказе нет названия или цены, берем из каталога
-                    if ((!i.title || price === 0) && prod) {
-                         title = prod.title;
-                         if (price === 0) price = prod.price;
-                    }
+                let imgUrl = "";
+                if (Array.isArray(rawImg)) {
+                    imgUrl = rawImg.length > 0 ? rawImg[0] : "";
+                } else if (rawImg) {
+                    imgUrl = rawImg;
+                }
+                if (!imgUrl) imgUrl = "/assets/icons/company.png";
 
-                    let sum = price * qty;
-                    if (totalOrderSum === 0) totalOrderSum += sum;
+                return `
+                    <tr>
+                        <td class="obt-num">${index + 1}</td>
+                        <td class="obt-img"><img src="${imgUrl}" alt=""></td>
+                        <td class="obt-name" data-label="${TEXT.headers.name}">${title}</td>
+                        <td class="obt-price" data-label="${TEXT.headers.price}">${price} ₴</td>
+                        <td class="obt-qty" data-label="${TEXT.headers.qty}">${qty} шт.</td>
+                        <td class="obt-sum" data-label="${TEXT.headers.sum}">${sum} ₴</td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
-                    // === ЛОГИКА КАРТИНОК ===
+        // --- ЛЕЧИЛКА ДЛЯ СТАРЫХ ЗАКАЗОВ ---
+        let displayDelivery = order.delivery || '—';
+        let displayAddress = order.address || '—';
 
-                    // 1. Пытаемся взять картинку из объекта товара (пришла с сервера)
-                    let rawImg = i.image;
+        // Если метод пустой, а в адресе есть двоеточие (старый формат f"{method}: {address}")
+        if ((!order.delivery || order.delivery === '—') && order.address && order.address.includes(':')) {
+            const parts = order.address.split(':');
+            displayDelivery = parts[0].trim();
+            displayAddress = parts.slice(1).join(':').trim();
 
-                    // 2. Если сервер не прислал, берем из локального каталога
-                    if (!rawImg && prod) {
-                        if (prod.images && prod.images.length > 0) rawImg = prod.images[0];
-                        else if (prod.image) rawImg = prod.image;
-                    }
+            // Дополнительная расшифровка кодов, если они остались в базе
+            const deliveryFix = {
+                'np': 'Нова Пошта',
+                'up': 'Укрпошта Стандарт',
+                'upe': 'Укрпошта Експрес',
+                'meest': 'Meest ПОШТА',
+                'self': 'Самовивіз'
+            };
+            if (deliveryFix[displayDelivery]) displayDelivery = deliveryFix[displayDelivery];
+        }
 
-                    // 3. Обработка (берем первое фото, если массив)
-                    let imgUrl = "";
-                    if (Array.isArray(rawImg)) {
-                        imgUrl = rawImg.length > 0 ? rawImg[0] : "";
-                    } else if (rawImg) {
-                        imgUrl = rawImg;
-                    }
+        // --- ЛОГИКА СТАТУСОВ ---
+        const stRaw = (order.status || 'Новый');
+        const stLower = stRaw.toLowerCase();
+        let stClass = 'new';
+        if (stLower.includes('выполн') || stLower.includes('виконано') || stLower.includes('заверш')) stClass = 'completed';
+        if (stLower.includes('отмен') || stLower.includes('скасовано')) stClass = 'cancelled';
 
-                    // 4. Заглушка, если ничего не нашлось
-                    if (!imgUrl) imgUrl = "/assets/icons/company.png";
-                    // (Важно: я поставил слэш в начале пути заглушки, чтобы работало везде)
+        const displayStatus = TEXT.statuses[stRaw] || stRaw;
 
-                    return `
-                        <tr>
-                            <td class="obt-num">${index + 1}</td>
-                            <td class="obt-img"><img src="${imgUrl}" alt=""></td>
-                            <td class="obt-name" data-label="${TEXT.headers.name}">${title}</td>
-                            <td class="obt-price" data-label="${TEXT.headers.price}">${price} ₴</td>
-                            <td class="obt-qty" data-label="${TEXT.headers.qty}">${qty} шт.</td>
-                            <td class="obt-sum" data-label="${TEXT.headers.sum}">${sum} ₴</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
+        // --- КНОПКИ (ОТМЕНА И ОПЛАТА) ---
+        let cancelBtnHtml = '';
+        const isPaid = stLower.includes('оплач') || order.payment_status === 'paid' || order.payment_status === 'Оплачено';
+        const hasTTN = order.ttn && order.ttn.trim() !== '';
+        const isNonCancellable = stLower.includes('выполн') || stLower.includes('викон') || stLower.includes('отмен') || stLower.includes('скасов') || isPaid || hasTTN;
 
-            // --- ЛОГИКА СТАТУСОВ И КНОПКИ ОТМЕНЫ ---
-            const stRaw = (order.status || 'Новый');
-            const stLower = stRaw.toLowerCase();
-            let stClass = 'new';
+        if (!isNonCancellable) {
+            cancelBtnHtml = `<button class="btn-cancel-order" onclick="event.stopPropagation(); window.cancelOrderFromHistory(${order.id})">${isUA ? 'Скасувати замовлення' : 'Отменить заказ'}</button>`;
+        }
 
-            // Определяем класс цвета
-            if (stLower.includes('выполн') || stLower.includes('виконано') || stLower.includes('заверш')) stClass = 'completed';
-            if (stLower.includes('отмен') || stLower.includes('скасовано')) stClass = 'cancelled';
+        let payBtnHtml = '';
+        const isCard = (order.payment_method === 'card_online');
+        const isUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
+        const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
 
-            // Перевод статуса
-            const displayStatus = TEXT.statuses[stRaw] || stRaw;
+        let isFresh = false;
+        if(order.created_at) {
+            const orderDate = new Date(order.created_at.replace(' ', 'T'));
+            const diffDays = (new Date() - orderDate) / (1000 * 60 * 60 * 24);
+            if(diffDays <= 7) isFresh = true;
+        }
 
-            // Проверяем, можно ли отменить (НЕ Выполняется, НЕ Выполнен, НЕ Отменен)
-            // Ищем корни слов, чтобы покрыть и RU и UA варианты
-            const isNonCancellable =
-                   stLower.includes('выполн') || stLower.includes('викон') || // Выполнен, Выполняется
-                   stLower.includes('отмен')  || stLower.includes('скасов');  // Отменен
+        if (isCard && isUnpaid && isNotCancelled && isFresh) {
+            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                ${isUA ? 'Сплатити' : 'Оплатить'}
+            </button>`;
+        }
 
-            let cancelBtnHtml = '';
-            if (!isNonCancellable) {
-                const btnText = isUA ? 'Скасувати замовлення' : 'Отменить заказ';
-                // Добавляем кнопку
-                cancelBtnHtml = `<button class="btn-cancel-order" onclick="window.cancelOrderFromHistory(${order.id})">${btnText}</button>`;
-            }
+        // --- ЛОГИ ИСТОРИИ ---
+        const logsHtml = (order.logs || []).map(log => `
+            <div class="log-item" style="display:flex; gap:10px; font-size:12px; margin-bottom:4px;">
+                <span style="color:#94a3b8; min-width:120px;">${log.created_at}</span>
+                <span style="color:#475569;">${isUA ? log.message_ua : log.message_ru}</span>
+            </div>
+        `).join('');
 
-            // --- КНОПКА ОПЛАТЫ (Зеленая, открывает модалку) ---
-            let payBtnHtml = '';
-            const isCard = (order.payment_method === 'card_online');
-            const isUnpaid = (order.payment_status !== 'paid');
-            const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
+        // --- ВЫВОД АККОРДЕОНА ---
+        return `
+        <div class="order-block" id="order-${order.id}">
+            <div class="ob-header" onclick="this.parentElement.classList.toggle('is-expanded')" style="cursor:pointer;">
+                <div class="ob-info">
+                    <span class="ob-id">№ ${order.id}</span>
+                    <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
+                </div>
+                <div class="ob-actions">
+                    ${payBtnHtml}
+                    <span class="ob-status ${stClass}">${displayStatus}</span>
+                    <span class="expand-icon" style="margin-left:10px; font-size:12px;">▼</span>
+                </div>
+            </div>
 
-            let isFresh = false;
-            if(order.created_at) {
-                const isoDate = order.created_at.replace(' ', 'T');
-                const orderDate = new Date(isoDate);
-                const now = new Date();
-                const diffMs = now - orderDate;
-                const diffDays = diffMs / (1000 * 60 * 60 * 24);
-                if(diffDays <= 7) isFresh = true;
-            }
-
-            // Если все условия совпали — показываем кнопку
-            if (isCard && isUnpaid && isNotCancelled && isFresh) {
-                const btnPayText = isUA ? 'Сплатити карткою' : 'Оплатить картой';
-                // ВАЖНО: Вызываем функцию открытия модалки
-                payBtnHtml = `<button class="btn-pay-late" onclick="window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})">
-                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                    ${btnPayText}
-                </button>`;
-            }
-            // ==========================================
-
-            return `
-            <div class="order-block">
-                <div class="ob-header">
-                    <div class="ob-info">
-                        <span class="ob-id">№ ${order.id}</span>
-                        <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
+            <div class="ob-body">
+                <div class="ob-details-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; padding:15px; background:#f8fafc; border-radius:8px; margin-bottom:15px; font-size:13px;">
+                    <div>
+                        <p><strong>${isUA ? 'Доставка:' : 'Доставка:'}</strong> ${displayDelivery}</p>
+                        <p><strong>${isUA ? 'Адреса:' : 'Адрес:'}</strong> ${displayAddress}</p>
+                        <p><strong>ТТН:</strong> <span style="color:#2563eb; font-weight:bold;">${order.ttn || (isUA ? 'Очікується' : 'Ожидается')}</span></p>
                     </div>
-
-                    <div class="ob-actions">
-                        ${payBtnHtml}
-                        <span class="ob-status ${stClass}">${displayStatus}</span>
-                        ${cancelBtnHtml}
+                    <div>
+                        <p><strong>${isUA ? 'Оплата:' : 'Оплата:'}</strong> ${order.payment_method || '—'}</p>
+                        <p><strong>${isUA ? 'Статус оплати:' : 'Статус оплаты:'}</strong> ${order.payment_status || '—'}</p>
+                        <div style="margin-top:10px;">${cancelBtnHtml}</div>
                     </div>
                 </div>
 
@@ -1718,29 +1739,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     <tbody>${itemsHtml}</tbody>
                 </table>
 
-                <div class="ob-footer">
+                <div class="order-history-log" style="margin-top:15px; border-top:1px dashed #cbd5e1; padding-top:10px;">
+                    <h4 style="font-size:13px; margin-bottom:8px; color:#1e293b;">${isUA ? 'Історія замовлення' : 'История заказа'}</h4>
+                    ${logsHtml || `<p style="color:#94a3b8;">${isUA ? 'Записів немає' : 'Записей нет'}</p>`}
+                </div>
+
+                <div class="ob-footer" style="margin-top:10px; border-top:1px solid #eee; padding-top:10px;">
                     <span class="ob-total-label">${TEXT.totalLabel}</span>
                     <span class="ob-total-val">${totalOrderSum.toFixed(2)} ₴</span>
                 </div>
             </div>
-            `;
-        }).join('');
+        </div>
+        `;
+    }).join('');
 
-        // 3. Пагинация
-        let paginationHtml = '';
-        if (totalPages > 1) {
-            paginationHtml = `<div class="cab-pagination">`;
-            paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage - 1})" ${currentOrderPage === 1 ? 'disabled' : ''}>←</button>`;
-            for (let i = 1; i <= totalPages; i++) {
-                const activeClass = (i === currentOrderPage) ? 'active' : '';
-                paginationHtml += `<button class="cab-page-btn ${activeClass}" onclick="window.changeOrderPage(${i})">${i}</button>`;
-            }
-            paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage + 1})" ${currentOrderPage === totalPages ? 'disabled' : ''}>→</button>`;
-            paginationHtml += `</div>`;
+    // 3. Пагинация
+    let paginationHtml = '';
+    if (totalPages > 1) {
+        paginationHtml = `<div class="cab-pagination" style="margin-top:20px; display:flex; justify-content:center; gap:5px;">`;
+        paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage - 1})" ${currentOrderPage === 1 ? 'disabled' : ''}>←</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+            const activeClass = (i === currentOrderPage) ? 'active' : '';
+            paginationHtml += `<button class="cab-page-btn ${activeClass}" onclick="window.changeOrderPage(${i})">${i}</button>`;
         }
-
-        ordersContainer.innerHTML = ordersHtml + paginationHtml;
+        paginationHtml += `<button class="cab-page-btn" onclick="window.changeOrderPage(${currentOrderPage + 1})" ${currentOrderPage === totalPages ? 'disabled' : ''}>→</button>`;
+        paginationHtml += `</div>`;
     }
+
+    ordersContainer.innerHTML = ordersHtml + paginationHtml;
+}
 
     // --- ФУНКЦИЯ ОТМЕНЫ ЗАКАЗА ИЗ ИСТОРИИ ---
     window.cancelOrderFromHistory = async (orderId) => {
