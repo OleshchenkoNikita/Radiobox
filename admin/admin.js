@@ -1910,6 +1910,7 @@ const AdminSettings = {
         if(tabName === 'seo') btns[0].classList.add('active');
         if(tabName === 'backups') btns[1].classList.add('active');
         if(tabName === 'crm') btns[2].classList.add('active');
+        if(tabName === 'billing') btns[3].classList.add('active');
     },
 
     load: async function() {
@@ -1922,6 +1923,12 @@ const AdminSettings = {
                 if(document.getElementById('s_google_ver')) document.getElementById('s_google_ver').value = s.google_verification || '';
                 if(document.getElementById('s_robots')) document.getElementById('s_robots').value = s.robots_txt || '';
                 if(document.getElementById('s_crm_key')) document.getElementById('s_crm_key').value = s.crm_api_key || '';
+                if(document.getElementById('s_np_key')) document.getElementById('s_np_key').value = s.nova_poshta_api_key || '';
+                if(document.getElementById('s_pb_id')) document.getElementById('s_pb_id').value = s.privatbank_merchant_id || '';
+                if(document.getElementById('s_pb_pass')) document.getElementById('s_pb_pass').value = s.privatbank_password || '';
+                if(document.getElementById('s_iban')) document.getElementById('s_iban').value = s.iban_details || '';
+                if(document.getElementById('s_edrpou')) document.getElementById('s_edrpou').value = s.edrpou_details || '';
+                if(document.getElementById('s_beneficiary')) document.getElementById('s_beneficiary').value = s.beneficiary_details || '';
             }
         } catch(e) { console.error(e); }
     },
@@ -1931,7 +1938,13 @@ const AdminSettings = {
             site_url: document.getElementById('s_site_url').value,
             google_verification: document.getElementById('s_google_ver').value,
             robots_txt: document.getElementById('s_robots').value,
-            crm_api_key: document.getElementById('s_crm_key').value
+            crm_api_key: document.getElementById('s_crm_key').value,
+            nova_poshta_api_key: document.getElementById('s_np_key').value,
+            privatbank_merchant_id: document.getElementById('s_pb_id').value,
+            privatbank_password: document.getElementById('s_pb_pass').value,
+            iban_details: document.getElementById('s_iban').value,
+            edrpou_details: document.getElementById('s_edrpou').value,
+            beneficiary_details: document.getElementById('s_beneficiary').value
         };
 
         try {

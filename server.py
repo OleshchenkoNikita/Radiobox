@@ -199,7 +199,14 @@ def init_db():
             'site_url': 'https://radiobox.in.ua',
             'google_verification': '',
             'robots_txt': 'User-agent: *\nDisallow: /admin\nDisallow: /cart\nDisallow: /api\nDisallow: *?search=\nAllow: /',
-            'crm_api_key': ''
+            'crm_api_key': '',
+            'nova_poshta_api_key': 'ВАШ_ТЕКУЩИЙ_КЛЮЧ_ИЗ_КОДА',  # Перенесите сюда ключ из кода
+            'privatbank_merchant_id': '',
+            'privatbank_password': '',
+            'iban_details': 'UA000000000000000000000000000',
+            'mfo_details': '300001',
+            'edrpou_details': '12345678',
+            'beneficiary_details': 'ФОП Олещенко Микита'
         }
 
         for k, v in default_settings.items():
@@ -2447,81 +2454,142 @@ def keepincrm_webhook():
 
     print(f"[*] Получен вебхук из CRM: {data}")
 
+    # Проверка источника (игнорируем чужие заказы)
     incoming_source = str(data.get('source') or data.get('source_id') or "")
     if incoming_source not in ['7', '311362']:
         return jsonify({"success": True, "message": f"Ignored: source {incoming_source}"}), 200
 
     crm_id = data.get('deal_id') or data.get('id')
     order_id = data.get('order_id')
+    incoming_products = data.get('products', [])
 
-    # --- ИСПРАВЛЕННЫЙ БЛОК ТТН ---
-    # Проверяем все возможные поля
-    raw_ttn = data.get('delivery_ttns') or data.get('ttn') or data.get('delivery_ttn')
-    new_ttn = ""
-
-    if isinstance(raw_ttn, list) and len(raw_ttn) > 0:
-        new_ttn = str(raw_ttn[0]).strip()
-    elif raw_ttn:
-        new_ttn = str(raw_ttn).strip()
-    # -----------------------------
+    # Обработка ТТН
+    raw_ttn = data.get('ttn') or data.get('delivery_ttn')
+    new_ttn = str(raw_ttn[0] if isinstance(raw_ttn, list) and raw_ttn else raw_ttn or "").strip()
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row  # Для удобного обращения к полям
             cursor = conn.cursor()
 
-            # Если в вебхуке нет order_id, ищем в базе по crm_id
+            # Поиск заказа в локальной БД
             if not order_id and crm_id:
                 cursor.execute("SELECT id FROM orders WHERE crm_id = ?", (crm_id,))
                 row = cursor.fetchone()
-                if row: order_id = row[0]
+                if row: order_id = row['id']
 
             if not order_id:
-                print(f" [!] Заказ не найден (crm_id: {crm_id})")
                 return jsonify({"success": False, "error": "Order ID not found"}), 404
 
-            # --- ЛОГИКА ТТН (Пункт 4 и 5) ---
-            if new_ttn: # Если ТТН не пустая строка
-                cursor.execute("SELECT ttn FROM orders WHERE id = ?", (order_id,))
-                current_ttn = cursor.fetchone()[0]
+            # --- 1. ЛОГИКА ТОВАРОВ И ИНВЕНТАРИЗАЦИИ ---
+            cursor.execute("SELECT items_json FROM orders WHERE id = ?", (order_id,))
+            order_row = cursor.fetchone()
 
-                if str(current_ttn) != new_ttn:
-                    cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (new_ttn, order_id))
-                    # Запись в историю
-                    log_ru = f"Добавлен ТТН (из CRM): {new_ttn}"
-                    log_ua = f"Додано ТТН (з CRM): {new_ttn}"
+            # В базе сайта товары обычно хранятся с ID и SKU
+            old_items_list = json.loads(order_row['items_json']) if order_row and order_row['items_json'] else []
+
+            # Создаем карту текущего заказа: {sku: {qty, id, price, title}}
+            # Используем SKU как ключ, так как CRM присылает SKU
+            local_items_map = {str(item.get('sku')): item for item in old_items_list if item.get('sku')}
+
+            new_items_for_json = []
+            processed_skus = set()
+
+            for p in incoming_products:
+                sku = str(p.get('sku', '')).strip()
+                if not sku: continue
+
+                new_qty = int(float(p.get('amount', 0)))
+                # Ищем товар в старом составе заказа по SKU
+                old_item_data = local_items_map.get(sku, {})
+                old_qty = int(old_item_data.get('qty', 0))
+
+                diff = new_qty - old_qty
+
+                if diff != 0:
+                    # Обновляем обе колонки остатков: quantity и qty_stock
+                    cursor.execute("""
+                        UPDATE products 
+                        SET qty_stock = MAX(0, qty_stock - ?), 
+                            quantity = MAX(0, quantity - ?),
+                            in_stock = CASE WHEN (quantity - ?) <= 0 THEN 0 ELSE 1 END
+                        WHERE sku = ?
+                    """, (diff, diff, diff, sku))
+
+                    # Логируем изменение в историю заказа
+                    log_ru = f"Обновлено кол-во SKU {sku} (CRM): {old_qty} -> {new_qty}"
+                    log_ua = f"Оновлено к-сть SKU {sku} (CRM): {old_qty} -> {new_qty}"
                     cursor.execute(
                         "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
                         (order_id, log_ru, log_ua, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    print(f"[Webhook] ТТН обновлен для заказа {order_id}: {new_ttn}")
 
-            # --- ЛОГИКА СТАТУСА ---
+                # Формируем новый объект товара.
+                # Если товара не было в заказе раньше, пытаемся подтянуть его ID и цену из таблицы products
+                if not old_item_data:
+                    cursor.execute("SELECT id, price, title_ru FROM products WHERE sku = ?", (sku,))
+                    p_info = cursor.fetchone()
+                    item_to_save = {
+                        "id": p_info['id'] if p_info else 0,
+                        "sku": sku,
+                        "qty": new_qty,
+                        "price": p_info['price'] if p_info else 0,
+                        "title": p_info['title_ru'] if p_info else f"SKU: {sku}"
+                    }
+                else:
+                    item_to_save = old_item_data.copy()
+                    item_to_save['qty'] = new_qty
+
+                new_items_for_json.append(item_to_save)
+                processed_skus.add(sku)
+
+            # Проверка удаленных товаров (были в заказе, но пропали в CRM)
+            for sku, old_item in local_items_map.items():
+                if sku not in processed_skus:
+                    return_qty = int(old_item.get('qty', 0))
+                    cursor.execute(
+                        "UPDATE products SET qty_stock = qty_stock + ?, quantity = quantity + ?, in_stock = 1 WHERE sku = ?",
+                        (return_qty, return_qty, sku))
+
+                    log_msg = f"Товар SKU {sku} удален из заказа в CRM. Возвращено на склад: {return_qty}"
+                    cursor.execute(
+                        "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                        (order_id, log_msg, log_msg, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+            # Сохраняем обновленный JSON и пересчитываем общую сумму заказа
+            total_price = sum(float(i.get('price', 0)) * int(i.get('qty', 0)) for i in new_items_for_json)
+            cursor.execute("UPDATE orders SET items_json = ?, total_price = ? WHERE id = ?",
+                           (json.dumps(new_items_for_json), total_price, order_id))
+
+            # --- 2. ЛОГИКА ТТН ---
+            if new_ttn:
+                cursor.execute("SELECT ttn FROM orders WHERE id = ?", (order_id,))
+                db_ttn = cursor.fetchone()
+                if db_ttn and str(db_ttn['ttn']) != new_ttn:
+                    cursor.execute("UPDATE orders SET ttn = ? WHERE id = ?", (new_ttn, order_id))
+                    cursor.execute(
+                        "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                        (order_id, f"Добавлен ТТН: {new_ttn}", f"Додано ТТН: {new_ttn}",
+                         datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+            # --- 3. ЛОГИКА СТАТУСА ---
             status_text = data.get('new_status')
             if status_text:
-                final_status_ru = ""
-                final_status_ua = ""
-                stage_id = None
-
-                for sid, names in CRM_STAGE_MAP.items():
+                for sid, names in CRM_STAGE_MAP.items():  #
                     if names['ua'] == status_text or names['ru'] == status_text:
-                        final_status_ru, final_status_ua = names['ru'], names['ua']
-                        stage_id = sid
+                        cursor.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+                        curr_status = cursor.fetchone()
+                        if curr_status and curr_status['status'] != names['ru']:
+                            cursor.execute("UPDATE orders SET status = ?, status_ua = ? WHERE id = ?",
+                                           (names['ru'], names['ua'], order_id))
+                            cursor.execute(
+                                "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                                (order_id, f"Статус: {names['ru']}", f"Статус: {names['ua']}",
+                                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+                            if sid == 7:  # Оплачено
+                                cursor.execute("UPDATE orders SET payment_status = 'Оплачено' WHERE id = ?",
+                                               (order_id,))
                         break
-
-                if final_status_ru:
-                    cursor.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
-                    old_status = cursor.fetchone()[0]
-
-                    if old_status != final_status_ru:
-                        cursor.execute("UPDATE orders SET status = ?, status_ua = ? WHERE id = ?",
-                                       (final_status_ru, final_status_ua, order_id))
-                        # Запись в историю
-                        cursor.execute(
-                            "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
-                            (order_id, f"Статус: {final_status_ru}", f"Статус: {final_status_ua}",
-                             datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-                    if stage_id == 7 or final_status_ru == "Оплачено":
-                        cursor.execute("UPDATE orders SET payment_status = 'Оплачено' WHERE id = ?", (order_id,))
 
             conn.commit()
             return jsonify({"success": True}), 200
