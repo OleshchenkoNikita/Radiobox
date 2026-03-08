@@ -1206,31 +1206,32 @@
         // 5. ЛОГИКА ОПЛАТЫ (ЗАВИСИМОСТЬ ОТ ДОСТАВКИ)
         // ==========================================
         function updatePaymentOptions() {
-            // Какая доставка выбрана?
             const delivery = document.querySelector('input[name="delivery"]:checked')?.value;
-
-            // Блок наложенного платежа
             const payCod = document.getElementById('payCod');
 
-            if(!payCod) return;
+            if (!payCod) return;
 
-            // 1. По умолчанию показываем
-            payCod.style.display = 'block';
+            // 1. Если почта НЕ выбрана ВООБЩЕ — показываем наложенный платеж (на случай, если выберут NP позже)
+            if (!delivery) {
+                payCod.style.display = 'block';
+                return;
+            }
 
-            if (!delivery) return; // Если доставка не выбрана - всё видно
-
-            // 2. Логика: Наложенный платеж только для Новой Почты
+            // 2. Если выбрана Новая Почта — показываем
             if (delivery === 'np') {
                 payCod.style.display = 'block';
-            } else {
-                // Для всех остальных (Укрпочта, Meest, Самовывоз) скрываем
+            }
+            // 3. Если выбрано что-то другое (Укрпочта, Meest, Самовывоз) — скрываем и сбрасываем
+            else {
                 payCod.style.display = 'none';
 
-                // Если он был выбран - сбрасываем выбор
                 const codRadio = payCod.querySelector('input');
-                if (codRadio.checked) {
+                if (codRadio && codRadio.checked) {
                     codRadio.checked = false;
-                    updateDeliveryState(); // Убираем синюю рамку
+                    updateDeliveryState(); // Обновляем визуальную часть (рамки)
+
+                    // Сбрасываем статус онлайн-оплаты, если он был
+                    if (typeof isOrderPaid !== 'undefined') isOrderPaid = false;
                 }
             }
         }
@@ -1434,11 +1435,14 @@
                 if(!document.getElementById('coSurname').value) return showError('Введіть прізвище', 'coSurname');
                 if(!document.getElementById('coName').value) return showError('Введіть ім\'я', 'coName');
 
-                if (!deliveryType) {
-                    alert('Будь ласка, оберіть спосіб доставки!');
-                    const sect = document.getElementById('optNP')?.closest('.co-section');
-                    if(sect) sect.scrollIntoView({ behavior: 'smooth' });
-                    return;
+                // Усиленная проверка оплаты
+                if (!paymentType || paymentType === '') {
+                    alert('Оберіть спосіб оплати!');
+                    const paySection = document.getElementById('payCod')?.closest('.co-section');
+                    if (paySection) {
+                        paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return; // Остановка выполнения
                 }
 
                 // Валидация адресов доставки
@@ -1525,11 +1529,16 @@
                 }
 
                 // Метки оплаты
-                let paymentLabel = '';
-                if (paymentType === 'cod') paymentLabel = 'Післяплата';
-                else if (paymentType === 'seller_cashless') paymentLabel = 'Безготівковий розрахунок';
-                else if (paymentType === 'seller_privat') paymentLabel = 'Оплата на рахунок ФОП';
-                else if (paymentType === 'card_online') paymentLabel = 'Оплата карткою Visa/Mastercard';
+                let paymentLabel = 'Спосіб не обраний';
+                if (paymentType === 'cod') {
+                    paymentLabel = 'Післяплата';
+                } else if (paymentType === 'card_online') {
+                    paymentLabel = 'Оплата карткою Visa/Mastercard';
+                } else if (paymentType === 'seller_privat') {
+                    paymentLabel = 'Оплата на рахунок ФОП';
+                } else if (paymentType === 'seller_cashless') {
+                    paymentLabel = 'Безготівковий розрахунок';
+                }
 
                 // !!! ЗДЕСЬ ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID !!!
                 const orderId = generateUniqueOrderId();
