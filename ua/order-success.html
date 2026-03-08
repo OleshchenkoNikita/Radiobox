@@ -232,7 +232,7 @@
             <p style="margin:5px 0; font-size:14px;"><strong>IBAN:</strong> <span id="disp_iban">...</span></p>
             <p style="margin:5px 0; font-size:14px;"><strong>Банк:</strong> АТ КБ "ПРИВАТБАНК"</p>
             <p style="margin:10px 0; font-size:14px; color:#444;">
-                <strong>Призначення:</strong> Оплата замовлення <span id="fopOrderNumInvoice" style="color: #189BFF !important; font-weight: bold;">№...</span>
+                <strong>Призначення:</strong> Оплата замовлення <span id="fopOrderNumInvoice" style="font-weight: bold;">№...</span>
             </p>
             <p style="margin:5px 0; font-size:16px; font-weight:bold;"><strong>До сплати:</strong> <span id="disp_total">...</span></p>
         </div>
@@ -317,7 +317,6 @@
 
             // Заполнение полей
             document.getElementById('orderNum').textContent = order.id;
-            document.getElementById('fopOrderNum').textContent = '#' + order.id;
 
             document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
             document.getElementById('osCustomerPhone').textContent = order.contact.phone;
@@ -402,19 +401,32 @@
 
             // Товары
             const cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || [];
-            const catalog = JSON.parse(localStorage.getItem('rb_catalog_v1_ru'))?.items || [];
+            const catalogRaw = localStorage.getItem('rb_catalog_v1_ua') || localStorage.getItem('rb_catalog_v1_ru');
+            const catalog = catalogRaw ? JSON.parse(catalogRaw).items : [];
             const listEl = document.getElementById('osItemsList');
 
             if (cart.length > 0) {
+                // Внутри функции map для товаров в order-success.html
                 listEl.innerHTML = cart.map(item => {
-                    const p = catalog.find(x => x.id == item.id) || { title: 'Товар', price: 0 };
+                    // Ищем товар в каталоге
+                    const p = catalog.find(x => x.id == item.id) || {};
+
+                    // Определяем название: сначала ищем в каталоге (title, title_ua, title_ru),
+                    // если нет — берем то, что сохранилось в корзине, или ставим "Товар"
+                    const displayTitle = p.title || p.title_ua || p.title_ru || item.title || 'Товар';
+
+                    // Цена и фото (как в предыдущем совете)
+                    const price = p.price || item.price || 0;
+                    const img = p.image || (p.images && p.images[0]) || item.image || '../assets/icons/company.png';
+
                     return `
-                    <div class="os-item">
-                        <div>
-                            <div class="os-item-name">${p.title}</div>
-                            <div class="os-item-meta">${item.qty} шт.</div>
+                    <div class="os-item" style="display: flex; align-items: center; gap: 15px; padding: 12px 0;">
+                        <img src="${img}" style="width: 60px; height: 60px; object-fit: contain; border-radius: 8px; border: 1px solid #f1f5f9; background: #fff;">
+                        <div style="flex: 1;">
+                            <div class="os-item-name" style="font-weight: 600; color: #333;">${displayTitle}</div>
+                            <div class="os-item-meta" style="color: #666; font-size: 13px;">${item.qty} шт.</div>
                         </div>
-                        <div class="os-item-price">${p.price * item.qty} ₴</div>
+                        <div class="os-item-price" style="font-weight: 700;">${price * item.qty} ₴</div>
                     </div>`;
                 }).join('');
             }

@@ -1435,6 +1435,15 @@
                 if(!document.getElementById('coSurname').value) return showError('Введіть прізвище', 'coSurname');
                 if(!document.getElementById('coName').value) return showError('Введіть ім\'я', 'coName');
 
+                if (!deliveryType) {
+                    alert('Будь ласка, оберіть спосіб доставки!');
+                    const deliverySection = document.querySelector('#optNP').closest('.co-section');
+                    if (deliverySection) {
+                        deliverySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return; // Остановить отправку
+                }
+
                 // Усиленная проверка оплаты
                 if (!paymentType || paymentType === '') {
                     alert('Оберіть спосіб оплати!');
