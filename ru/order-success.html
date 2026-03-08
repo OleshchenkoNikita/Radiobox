@@ -205,6 +205,18 @@
             <div class="os-comment-box" id="osCommentText"></div>
         </div>
 
+        <div id="fopDetailsBlock" style="display: none; background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 8px; margin-top: 15px;">
+            <p style="margin:0 0 10px; font-weight:bold;" id="disp_beneficiary">Загрузка...</p>
+            <p style="margin:5px 0; font-size:14px;"><strong>ЕДРПОУ:</strong> <span id="disp_edrpou">...</span></p>
+            <p style="margin:5px 0; font-size:14px;"><strong>IBAN:</strong> <span id="disp_iban">...</span></p>
+            <p style="margin:5px 0; font-size:14px;"><strong>Банк:</strong> АТ КБ "ПРИВАТБАНК"</p>
+            <p style="margin:10px 0; font-size:14px; color: #333;">
+                <strong>Назначение:</strong> Оплата заказа
+                <span id="fopOrderNumInvoice" style="color: #333 !important; font-weight: bold;">№...</span>
+            </p>
+            <p style="margin:5px 0; font-size:16px; font-weight:bold;"><strong>К оплате:</strong> <span id="disp_total">...</span></p>
+        </div>
+
         <div class="os-card">
             <div class="os-info-grid">
                 <div class="os-block">
@@ -279,15 +291,6 @@
                 <button type="button" class="final-btn" onclick="submitPayment()">Оплатить</button>
             </form>
         </div>
-
-        <div id="tab-account" class="hidden">
-            <div style="background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 8px;">
-                <p style="margin:0 0 10px; font-weight:bold;">ФОП Бугаенко С.В.</p>
-                <p style="margin:5px 0; font-size:14px;">IBAN: UA28305299000002600123456789</p>
-                <p style="margin:5px 0; font-size:14px;">ЄДРПОУ: 12345678</p>
-                <p style="margin:10px 0; font-size:14px; color:#189BFF;">Назначение: Оплата заказа <span id="fopOrderNum"></span></p>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -330,6 +333,31 @@
         safeSet('osDeliveryMethod', order.delivery.method);
         safeSet('osDeliveryAddress', order.delivery.address);
         safeSet('osTotalPrice', order.total);
+
+        // Вставьте это в блок проверки seller_privat
+        if (order.payment && order.payment.type === 'seller_privat') {
+            const fopBlock = document.getElementById('fopDetailsBlock');
+            if (fopBlock) fopBlock.style.display = 'block';
+
+            // Устанавливаем № вместо #
+            const invoiceNumEl = document.getElementById('fopOrderNumInvoice');
+            if (invoiceNumEl) {
+                invoiceNumEl.textContent = '№' + order.id;
+            }
+
+            // Загружаем актуальные реквизиты из БД
+            fetch('/api/admin/settings')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const s = data.settings;
+                        document.getElementById('disp_beneficiary').textContent = s.beneficiary_details || 'ФОП Бугаенко С.В.';
+                        document.getElementById('disp_edrpou').textContent = s.edrpou_details || '12345678';
+                        document.getElementById('disp_iban').textContent = s.iban_details || 'UA...';
+                        document.getElementById('disp_total').textContent = order.total;
+                    }
+                });
+        }
 
         if (order.comment && document.getElementById('osCommentBlock')) {
             document.getElementById('osCommentBlock').hidden = false;
