@@ -97,6 +97,32 @@ const Admin = {
         }
     },
 
+    // Добавьте это внутрь объекта Admin в admin.js
+    updateItemQty: async function(orderId, productId, newQty) {
+        if (newQty < 1) return;
+        try {
+            const res = await fetch('/api/admin/order/update_item', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    order_id: orderId,
+                    product_id: productId,
+                    qty: parseInt(newQty)
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Перезагружаем таблицу, чтобы обновилась итоговая сумма заказа
+                this.loadOrders();
+            } else {
+                alert("Ошибка: " + data.error);
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Ошибка сети");
+        }
+    },
+
     renderTable: function(orders) {
         const tbody = document.getElementById('ordersTableBody');
         if (!tbody) return;
@@ -144,9 +170,14 @@ const Admin = {
 
                 return `<div style="display:flex; align-items:center; gap:12px; border-bottom:1px solid #f1f5f9; padding:8px 0;">
                     ${imgTag}
-                    <div style="line-height:1.4;">
+                    <div style="line-height:1.4; flex:1;">
                         <div style="font-size:15px; color:#1e293b;">${i.title}</div>
-                        <div style="font-size:13px; color:#64748b; margin-top:2px;">Арт: ${i.sku || '-'} | <span style="color:#0f172a;">${i.qty} шт.</span></div>
+                        <div style="font-size:13px; color:#64748b; margin-top:2px;">
+                            Арт: ${i.sku || '-'} |
+                            <input type="number" value="${i.qty}" min="1"
+                                   onchange="Admin.updateItemQty(${order.id}, ${i.id}, this.value)"
+                                   style="width:45px; padding:2px; border:1px solid #cbd5e1; border-radius:4px; font-size:13px; text-align:center;"> шт.
+                        </div>
                     </div>
                 </div>`;
             }).join('');

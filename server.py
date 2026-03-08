@@ -2530,6 +2530,67 @@ def keepincrm_webhook():
         print(f"[-] Ошибка вебхука: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@app.route('/api/admin/order/update_item', methods=['POST'])
+def admin_update_order_item():
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "error": "Auth required"}), 403
+
+    data = request.json
+    order_id = data.get('order_id')
+    product_id = int(data.get('product_id'))
+    new_qty = int(data.get('qty'))
+
+    if new_qty < 1:
+        return jsonify({"success": False, "error": "Количество не может быть меньше 1"})
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. Получаем текущие данные заказа
+        cursor.execute("SELECT items_json, total_price FROM orders WHERE id=?", (order_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "Order not found"})
+
+        items = json.loads(row['items_json'])
+        total_price = 0
+        old_qty = 0
+        product_title = ""
+        found = False
+
+        # 2. Обновляем количество у конкретного товара и считаем новую сумму
+        for item in items:
+            if int(item.get('id')) == product_id:
+                old_qty = int(item.get('qty', 0))
+                item['qty'] = new_qty
+                product_title = item.get('title', 'Товар')
+                found = True
+            total_price += float(item.get('price', 0)) * int(item.get('qty', 0))
+
+        if not found:
+            return jsonify({"success": False, "error": "Product not found in order"})
+
+        # 3. Сохраняем обновленный заказ
+        cursor.execute("UPDATE orders SET items_json=?, total_price=? WHERE id=?",
+                       (json.dumps(items), total_price, order_id))
+
+        # 4. Логируем изменение для профиля клиента
+        log_ru = f"Изменено кол-во '{product_title}': {old_qty} -> {new_qty}"
+        log_ua = f"Змінено к-сть '{product_title}': {old_qty} -> {new_qty}"
+        cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                       (order_id, log_ru, log_ua, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+        # 5. (Опционально) Корректируем остаток на складе
+        diff = new_qty - old_qty
+        if diff != 0:
+            cursor.execute("UPDATE products SET qty_stock = qty_stock - ?, quantity = quantity - ? WHERE id = ?",
+                           (diff, diff, product_id))
+
+        conn.commit()
+    return jsonify({"success": True})
+
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
