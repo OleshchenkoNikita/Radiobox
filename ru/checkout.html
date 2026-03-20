@@ -500,17 +500,6 @@
                                 <span class="co-radio-circle"></span>
                                 <div class="co-radio-info">
                                     <div class="co-radio-title">Оплата картой Visa / Mastercard</div>
-
-                                    <div class="pay-now-container" id="cardPayBlock">
-                                        <button type="button" class="btn-pay-action" id="btnOpenModal" style="background:#189BFF;">
-                                            Оплатить сейчас
-                                        </button>
-
-                                        <div class="pay-success-msg" id="msgPaid" style="display:none;">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                            Заказ оплачен
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </label>
@@ -1320,116 +1309,6 @@
             return `г. ${city}, ${addr}`;
         }
 
-        // --- ЛОГИКА ОПЛАТЫ КАРТОЙ (МОДАЛЬНОЕ ОКНО) ---
-        const modal = document.getElementById('paymentModal');
-        const openModalBtn = document.getElementById('btnOpenModal');
-        const closeModalBtn = document.getElementById('closeModal');
-        const doPayBtn = document.getElementById('doPayBtn');
-        const cardPayBlock = document.getElementById('cardPayBlock');
-
-        // Статус оплаты заказа (по умолчанию false)
-        let isOrderPaid = false;
-
-        // --- АВТОМАТИЧЕСКОЕ ФОРМАТИРОВАНИЕ (МАСКИ) ---
-        const inpCard = document.getElementById('cNum');
-        const inpDate = document.getElementById('cDate');
-
-        // 1. Номер карты: пробел каждые 4 цифры
-        if (inpCard) {
-            inpCard.addEventListener('input', (e) => {
-                let v = e.target.value.replace(/\D/g, '').substring(0, 16); // Оставляем только цифры (макс 16)
-                e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 '); // Добавляем пробелы
-            });
-        }
-
-        // 2. Срок действия: слеш после 2-й цифры
-        if (inpDate) {
-            inpDate.addEventListener('input', (e) => {
-                // Удаляем всё кроме цифр
-                let v = e.target.value.replace(/\D/g, '').substring(0, 4);
-
-                // Если ввели больше 2 цифр, ставим слеш
-                if (v.length >= 2) {
-                    e.target.value = v.substring(0, 2) + '/' + v.substring(2);
-                } else {
-                    e.target.value = v;
-                }
-            });
-
-            // Чтобы корректно работал Backspace (удаление слеша)
-            inpDate.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && e.target.value.endsWith('/')) {
-                    e.target.value = e.target.value.slice(0, -1);
-                }
-            });
-        }
-
-        // 1. Открытие модалки
-        if(openModalBtn) {
-            openModalBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if(modal) modal.classList.add('active');
-            });
-        }
-
-        // 2. Закрытие модалки
-        if(closeModalBtn) {
-            closeModalBtn.addEventListener('click', () => {
-                if(modal) modal.classList.remove('active');
-            });
-        }
-
-        // 3. Обработка нажатия "Оплатить" в бланке
-        if(doPayBtn) {
-            doPayBtn.addEventListener('click', () => {
-                const cNum = document.getElementById('cNum').value;
-                const cCvv = document.getElementById('cCvv').value;
-                const cDate = document.getElementById('cDate').value;
-
-                // Простейшая проверка (можно усилить)
-                if(cNum.length < 16 || cCvv.length < 3 || !cDate) {
-                    alert("Пожалуйста, заполните корректные данные карты.");
-                    return;
-                }
-
-                // Имитация процесса
-                doPayBtn.textContent = 'Обработка...';
-
-                setTimeout(() => {
-                    // Успешная оплата
-                    if(modal) modal.classList.remove('active');
-                    doPayBtn.textContent = 'Оплатить'; // вернем текст
-
-                    // Меняем состояние UI
-                    if(openModalBtn) openModalBtn.style.display = 'none'; // Скрыть кнопку
-                    const msgPaid = document.getElementById('msgPaid');
-                    if(msgPaid) msgPaid.style.display = 'flex'; // Показать "Заказ оплачен"
-
-                    isOrderPaid = true; // Ставим флаг оплаты
-                }, 1500);
-            });
-        }
-
-        // 4. Показ/скрытие блока "Оплатить сейчас" при выборе радиокнопки
-        function updatePaymentUI() {
-            const paymentType = document.querySelector('input[name="payment"]:checked')?.value;
-            const block = document.getElementById('cardPayBlock');
-
-            if (block) {
-                if (paymentType === 'card_online') {
-                    block.style.display = 'block';
-                } else {
-                    block.style.display = 'none';
-                    // При смене метода оплаты статус оплаты НЕ сбрасываем, если пользователь вдруг вернулся,
-                    // но можно и сбрасывать: isOrderPaid = false; (на ваше усмотрение)
-                }
-            }
-        }
-        // Вешаем слушатель на все радиокнопки оплаты
-        document.querySelectorAll('input[name="payment"]').forEach(r => {
-            r.addEventListener('change', updatePaymentUI);
-        });
-
         // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
         if (form) {
             form.addEventListener('submit', (e) => {
@@ -1604,30 +1483,6 @@
         }
     });
     </script>
-<div class="modal-overlay" id="paymentModal">
-    <div class="pay-modal">
-        <button type="button" class="modal-close" id="closeModal">&times;</button>
-        <h3 style="margin-top:0; margin-bottom:20px; text-align:center;">Оплата картой</h3>
-
-        <div class="modal-field">
-            <label>Номер карты</label>
-            <input type="text" class="modal-input" id="cNum" placeholder="0000 0000 0000 0000" maxlength="19">
-        </div>
-        <div class="modal-row">
-            <div class="modal-field">
-                <label>Срок (MM/YY)</label>
-                <input type="text" class="modal-input" id="cDate" placeholder="MM/YY" maxlength="5">
-            </div>
-            <div class="modal-field">
-                <label>CVV</label>
-                <input type="password" class="modal-input" id="cCvv" placeholder="123" maxlength="3">
-            </div>
-        </div>
-
-        <button type="button" class="btn-modal-pay" id="doPayBtn">Оплатить</button>
-        <div id="payStatus" style="text-align:center; margin-top:10px; font-size:14px;"></div>
-    </div>
-</div>
 
 </body>
 </html>

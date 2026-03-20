@@ -2,6 +2,8 @@ import sqlite3
 import random
 import smtplib
 import json
+import base64
+import hashlib
 import shutil
 import os
 import csv
@@ -56,8 +58,8 @@ CRM_STAGE_MAP = {
     4: {"ru": "Переговоры", "ua": "Переговори"},
     5: {"ru": "Договор", "ua": "Договір"},
     6: {"ru": "Выполнение", "ua": "Виконання"},
-    7: {"ru": "Оплачено", "ua": "Оплачено"},
-    8: {"ru": "Отменен", "ua": "Скасовано"},
+    8: {"ru": "Оплачено", "ua": "Оплачено"},
+    7: {"ru": "Отменен", "ua": "Скасовано"},
     99: {"ru": "Планируется повторный звонок", "ua": "Планується повторний дзвінок"}
 }
 
@@ -695,9 +697,36 @@ def pay_order_api():
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-            # Обновляем И статус оплаты, И статус заказа
-            cursor.execute("UPDATE orders SET payment_status = 'paid', status = 'Оплаченный' WHERE id = ?", (order_id,))
+            # Обновляем статус оплаты и общий статус заказа
+            cursor.execute(
+                "UPDATE orders SET payment_status = 'paid', status = 'Оплаченный', status_ua = 'Оплачено' WHERE id = ?",
+                (order_id,))
+
+            # Добавляем запись в логи профиля
+            cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                           (order_id, "Оплачено через LiqPay", "Оплачено через LiqPay",
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+            # Получаем crm_id для обновления в KeepinCRM
+            cursor.execute("SELECT crm_id FROM orders WHERE id = ?", (order_id,))
+            row = cursor.fetchone()
+            crm_id = row[0] if row else None
+
             conn.commit()
+
+        # Синхронизация с KeepinCRM
+        if crm_id:
+            api_token = get_setting('crm_api_key')
+            if api_token:
+                url = f'https://api.keepincrm.com/v1/agreements/{crm_id}'
+                headers = {
+                    'X-Auth-Token': api_token.strip(),
+                    'Content-Type': 'application/json'
+                }
+                # stage_id: 8 - это этап "Оплачено" из твоего CRM_STAGE_MAP
+                payload = {'stage_id': 8}
+                requests.patch(url, json=payload, headers=headers, timeout=10)
+
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -2658,6 +2687,58 @@ def admin_update_order_item():
 
         conn.commit()
     return jsonify({"success": True})
+
+@app.route('/api/liqpay/generate', methods=['POST'])
+def liqpay_generate():
+    data_req = request.json
+    order_id = data_req.get('order_id')
+
+    # Пробуем достать ключи по имени из init_db или по ID из settings.html
+    LIQPAY_PUBLIC_KEY = get_setting('privatbank_merchant_id') or get_setting('pb_id')
+    LIQPAY_PRIVATE_KEY = get_setting('privatbank_password') or get_setting('pb_pass')
+
+    if not LIQPAY_PUBLIC_KEY or not LIQPAY_PRIVATE_KEY:
+        return jsonify({"success": False, "error": "Ключи LiqPay не настроены в базе данных"})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT total_price FROM orders WHERE id = ?", (order_id,))
+            row = cursor.fetchone()
+
+        if not row:
+            return jsonify({"success": False, "error": "Заказ не найден"})
+
+        total_price = row[0]
+
+        # 1. Формируем JSON с параметрами платежа
+        liqpay_params = {
+            "public_key": LIQPAY_PUBLIC_KEY,
+            "version": 3,
+            "action": "pay",
+            "amount": float(total_price),
+            "currency": "UAH",
+            "description": f"Оплата заказа №{order_id}",
+            "order_id": str(order_id),
+            "language": "ru",
+            # "server_url": "https://radiobox.in.ua/api/liqpay/callback"
+        }
+
+        # Выводим в консоль сервера для проверки (поможет понять, есть ли ключ)
+        print("LIQPAY PARAMS TO ENCODE:", json.dumps(liqpay_params))
+
+        # 2. Кодируем параметры в base64
+        json_bytes = json.dumps(liqpay_params).encode('utf-8')
+        data_str = base64.b64encode(json_bytes).decode('utf-8')
+
+        # 3. Создаем подпись (signature)
+        sign_str = LIQPAY_PRIVATE_KEY + data_str + LIQPAY_PRIVATE_KEY
+        signature = base64.b64encode(hashlib.sha1(sign_str.encode('utf-8')).digest()).decode('utf-8')
+
+        return jsonify({"success": True, "data": data_str, "signature": signature})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

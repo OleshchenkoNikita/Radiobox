@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Замовлення оформлено — RadioBox</title>
     <link rel="stylesheet" href="../styles.css">
+    <script src="//static.liqpay.ua/libjs/checkout.js"></script>
     <style>
-        /* --- ТВОИ ОРИГИНАЛЬНЫЕ СТИЛИ (НЕ ТРОГАЛ) --- */
         body { background: #f4f6f8; margin: 0; font-family: sans-serif; }
         .os-container { max-width: 900px; margin: 0 auto; padding: 30px 20px; }
 
-        /* БАННЕР */
         .os-banner {
-            border-radius: 12px; padding: 30px; display: flex; align-items: flex-start; /* Чуть поправил выравнивание для кнопки */
+            border-radius: 12px; padding: 30px; display: flex; align-items: flex-start;
             justify-content: space-between; margin-bottom: 24px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: relative; overflow: hidden; color: #fff;
         }
@@ -36,7 +35,6 @@
             .os-banner__img { position: relative; right: auto; bottom: auto; align-self: flex-end; width: 120px; margin-top: -40px; margin-bottom: -20px; opacity: 0.8; }
         }
 
-        /* КАРТОЧКИ */
         .os-card { background: #fff; border: 1px solid #e6e8ed; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
         .os-card h4 { margin-top: 0; margin-bottom: 12px; font-size: 16px; font-weight: 700; color: #0f172a; }
 
@@ -77,83 +75,16 @@
         .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 5000; }
         .toast.show { opacity: 1; }
 
-        /* --- НОВЫЕ СТИЛИ (ДЛЯ КНОПКИ И ШТОРКИ) --- */
-
-        /* Кнопка в баннере */
         .pay-now-btn {
             background-color: #28a745;
             color: #fff; border: none; padding: 12px 24px;
             border-radius: 6px; font-weight: 700; font-size: 15px;
             cursor: pointer; margin-top: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: background 0.2s;
-            display: none; /* Скрыта по умолчанию */
+            display: none;
         }
         .pay-now-btn:hover { background-color: #218838; }
-
-        /* Затемнение */
-        .overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.5); z-index: 998;
-            display: none; opacity: 0; transition: opacity 0.3s ease;
-        }
-        .overlay.active { display: block; opacity: 1; }
-
-        /* Шторка */
-        .payment-sidebar {
-            position: fixed; top: 0; right: -450px;
-            width: 400px; max-width: 100%; height: 100%;
-            background-color: white; box-shadow: -2px 0 10px rgba(0,0,0,0.2);
-            z-index: 999; transition: right 0.3s ease-in-out;
-            padding: 25px; box-sizing: border-box;
-            display: flex; flex-direction: column;
-            font-family: 'Segoe UI', sans-serif; /* Локальный шрифт для шторки */
-        }
-        .payment-sidebar.active { right: 0; }
-
-        .sidebar-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px;
-        }
-        .sidebar-header h3 { margin: 0; font-size: 22px; color: #333; }
-        .close-btn { background: none; border: none; font-size: 28px; cursor: pointer; color: #555; }
-
-        /* Табы выбора метода */
-        .pay-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .pay-tab {
-            flex: 1; padding: 12px; text-align: center;
-            border: 1px solid #eee; border-radius: 6px; cursor: pointer;
-            font-weight: 600; color: #555; background: #f9f9f9;
-        }
-        .pay-tab.active {
-            border-color: #189BFF; color: #189BFF; background: #f0f9ff;
-        }
-
-        /* Выбор типа карты */
-        .card-types { display: flex; gap: 10px; margin-bottom: 20px; }
-        .card-type-opt {
-            flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 10px;
-            text-align: center; cursor: pointer; font-size: 14px; font-weight: 500;
-        }
-        .card-type-opt:hover { background: #f5f5f5; }
-        .card-type-opt.selected { border-color: #189BFF; background: #f0f9ff; color: #189BFF; font-weight: bold; }
-
-        /* Поля ввода */
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 13px; margin-bottom: 5px; color: #666; font-weight: 600; }
-        .input-group input {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;
-            font-size: 16px; box-sizing: border-box;
-        }
-        .input-row { display: flex; gap: 15px; }
-
-        .final-btn {
-            width: 100%; background: #28a745; color: white; padding: 14px;
-            border: none; border-radius: 6px; font-size: 16px; font-weight: bold;
-            cursor: pointer; margin-top: 10px;
-        }
-        .final-btn:hover { background: #218838; }
-
-        .hidden { display: none; }
+        .pay-now-btn:disabled { background-color: #6c757d; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -227,8 +158,8 @@
         </div>
 
         <div id="fopDetailsBlock" style="display: none; background: #f8f9fa; padding: 15px; border: 1px dashed #ccc; border-radius: 8px; margin-top: 15px;">
-            <p style="margin:0 0 10px; font-weight:bold;" id="disp_beneficiary">Завантеження...</p>
-            <p style="margin:5px 0; font-size:14px;"><strong>ЕДРПОУ:</strong> <span id="disp_edrpou">...</span></p>
+            <p style="margin:0 0 10px; font-weight:bold;" id="disp_beneficiary">Завантаження...</p>
+            <p style="margin:5px 0; font-size:14px;"><strong>ЄДРПОУ:</strong> <span id="disp_edrpou">...</span></p>
             <p style="margin:5px 0; font-size:14px;"><strong>IBAN:</strong> <span id="disp_iban">...</span></p>
             <p style="margin:5px 0; font-size:14px;"><strong>Банк:</strong> АТ КБ "ПРИВАТБАНК"</p>
             <p style="margin:10px 0; font-size:14px; color:#444;">
@@ -252,53 +183,13 @@
 
     <div id="toast" class="toast">Скопійовано!</div>
 
-    <div id="overlay" class="overlay"></div>
-    <div id="paymentSidebar" class="payment-sidebar">
-        <div class="sidebar-header">
-            <h3>Оплата</h3>
-            <button id="closeSidebar" class="close-btn">&times;</button>
-        </div>
-
-        <div class="pay-tabs">
-            <div class="pay-tab active" onclick="switchTab('card')">Сплатити карткою</div>
-            <div class="pay-tab" onclick="switchTab('account')">Оплата на рахунок</div>
-        </div>
-
-        <div id="tab-card">
-            <div style="margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #333;">Оберіть систему:</div>
-            <div class="card-types">
-                <div class="card-type-opt" onclick="selectCardType('Visa')">Visa</div>
-                <div class="card-type-opt" onclick="selectCardType('Mastercard')">Mastercard</div>
-                <div class="card-type-opt" onclick="selectCardType('PayPal')">PayPal</div>
-            </div>
-
-            <form id="cardFormInputs" class="hidden">
-                <div class="input-group">
-                    <label>Номер картки</label>
-                    <input type="text" id="cardNumber" placeholder="0000 0000 0000 0000" maxlength="19">
-                </div>
-                <div class="input-row">
-                    <div class="input-group" style="flex:1">
-                        <label>Термін (MM/YY)</label>
-                        <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5">
-                    </div>
-                    <div class="input-group" style="flex:1">
-                        <label>CVV</label>
-                        <input type="password" id="cardCvv" placeholder="123" maxlength="3">
-                    </div>
-                </div>
-                <button type="button" class="final-btn" onclick="submitPayment()">Сплатити</button>
-            </form>
-        </div>
-    </div>
+    <div id="liqpay_checkout"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
-            // 1. Пытаемся найти номер заказа в ссылке (?order_id=...)
             const params = new URLSearchParams(window.location.search);
             const serverOrderId = params.get('order_id');
-
             const orderRaw = localStorage.getItem('rb_last_order_details');
 
             let order = orderRaw ? JSON.parse(orderRaw) : {
@@ -310,46 +201,36 @@
                 comment: ''
             };
 
-            // ВАЖНО: Если сервер передал ID, используем его!
-            if (serverOrderId) {
-                order.id = serverOrderId;
-            }
+            if (serverOrderId) order.id = serverOrderId;
 
             // Заполнение полей
             document.getElementById('orderNum').textContent = order.id;
-
             document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
             document.getElementById('osCustomerPhone').textContent = order.contact.phone;
             document.getElementById('osDeliveryMethod').textContent = order.delivery.method;
             document.getElementById('osDeliveryAddress').textContent = order.delivery.address;
             document.getElementById('osTotalPrice').textContent = order.total;
 
-            // Вставьте это в блок проверки seller_privat
             if (order.payment && order.payment.type === 'seller_privat') {
                 const fopBlock = document.getElementById('fopDetailsBlock');
                 if (fopBlock) fopBlock.style.display = 'block';
 
-                // Устанавливаем номер заказа с символом № вместо #
                 const invoiceNumEl = document.getElementById('fopOrderNumInvoice');
-                if (invoiceNumEl) {
-                    invoiceNumEl.textContent = '№' + order.id; // Решетка убрана, добавлен №
-                }
+                if (invoiceNumEl) invoiceNumEl.textContent = '№' + order.id;
 
-                // Загрузка остальных реквизитов (как было ранее)
                 fetch('/api/admin/settings')
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
                             const s = data.settings;
-                            document.getElementById('disp_beneficiary').textContent = s.beneficiary_details;
-                            document.getElementById('disp_edrpou').textContent = s.edrpou_details;
-                            document.getElementById('disp_iban').textContent = s.iban_details;
+                            document.getElementById('disp_beneficiary').textContent = s.beneficiary_details || 'ФОП Бугаєнко С.А.';
+                            document.getElementById('disp_edrpou').textContent = s.edrpou_details || '12345678';
+                            document.getElementById('disp_iban').textContent = s.iban_details || 'UA...';
                             document.getElementById('disp_total').textContent = order.total;
                         }
                     });
             }
 
-            // === ВАЖНО: ЗАМЕНА НАЗВАНИЯ МЕТОДА ОПЛАТЫ ===
             const payMethodEl = document.getElementById('osPaymentMethod');
             if (order.payment.type === 'seller_privat') {
                 payMethodEl.textContent = 'Оплата на рахунок ФОП';
@@ -362,7 +243,6 @@
                 document.getElementById('osCommentText').textContent = order.comment;
             }
 
-            // === БАННЕР, ТЕКСТЫ И КНОПКА ===
             const banner = document.getElementById('osBanner');
             const badge = document.getElementById('osBadge');
             const title = document.getElementById('osBannerTitle');
@@ -376,229 +256,147 @@
             text.style.display = 'block';
 
             const pType = order.payment.type;
-            const pStatus = order.payment.status; // 'paid' или 'unpaid'
+            const pStatus = order.payment.status;
 
-            // 1. Наложенный платеж
             if (pType === 'cod') {
                 text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
-            }
-            // 2. Безналичный расчет
-            else if (pType === 'seller_cashless') {
+            } else if (pType === 'seller_cashless') {
                 text.innerHTML = "Замовлення прийнято!<br>Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
-            }
-            // 3. Оплата на ФОП
-            else if (pType === 'seller_privat') {
+            } else if (pType === 'seller_privat') {
                 text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
-            }
-            // 4. Оплата картой
-            else if (pType === 'card_online') {
-                text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
-            }
-            // Прочие варианты (на всякий случай)
-            else {
+            } else if (pType === 'card_online') {
+                if (pStatus === 'paid') {
+                    text.innerHTML = "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
+                    payBtn.style.display = 'none';
+                } else {
+                    text.innerHTML = "Замовлення прийнято!<br>Очікуйте підтвердження. Ви можете сплатити замовлення зараз.";
+                    payBtn.style.display = 'inline-block';
+                }
+            } else {
                 text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами!";
             }
 
-            // Товары
-            const cart = JSON.parse(localStorage.getItem('rb_cart_v1')) || [];
-            const catalogRaw = localStorage.getItem('rb_catalog_v1_ua') || localStorage.getItem('rb_catalog_v1_ru');
-            const catalog = catalogRaw ? JSON.parse(catalogRaw).items : [];
-            const listEl = document.getElementById('osItemsList');
+            // === ФИКС С ПРОПАДАНИЕМ ТОВАРОВ ИЗ КОРЗИНЫ ===
+            try {
+                let cart = order.items || [];
 
-            if (cart.length > 0) {
-                // Внутри функции map для товаров в order-success.html
-                listEl.innerHTML = cart.map(item => {
-                    // Ищем товар в каталоге
-                    const p = catalog.find(x => x.id == item.id) || {};
+                if (cart.length === 0) {
+                    cart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
+                    if (cart.length > 0) {
+                        order.items = cart;
+                        localStorage.setItem('rb_last_order_details', JSON.stringify(order));
+                        localStorage.removeItem('rb_cart_v1');
+                    }
+                }
 
-                    // Определяем название: сначала ищем в каталоге (title, title_ua, title_ru),
-                    // если нет — берем то, что сохранилось в корзине, или ставим "Товар"
-                    const displayTitle = p.title || p.title_ua || p.title_ru || item.title || 'Товар';
+                let catalog = [];
+                try {
+                    const cRu = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{"items":[]}').items || [];
+                    const cUa = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{"items":[]}').items || [];
+                    catalog = [...cRu, ...cUa];
+                } catch(e) {}
 
-                    // Цена и фото (как в предыдущем совете)
-                    const price = p.price || item.price || 0;
-                    const img = p.image || (p.images && p.images[0]) || item.image || '../assets/icons/company.png';
+                const listEl = document.getElementById('osItemsList');
+                if (listEl && cart.length > 0) {
+                    listEl.innerHTML = cart.map(item => {
+                        const p = catalog.find(x => x.id == item.id) || {};
+                        let itemTitle = p.title_ua || p.title_ru || p.title || item.title || 'Товар';
+                        const price = p.price || item.price || 0;
+                        const img = p.image || (p.images && p.images[0]) || item.image || '../assets/icons/company.png';
 
-                    return `
-                    <div class="os-item" style="display: flex; align-items: center; gap: 15px; padding: 12px 0;">
-                        <img src="${img}" style="width: 60px; height: 60px; object-fit: contain; border-radius: 8px; border: 1px solid #f1f5f9; background: #fff;">
-                        <div style="flex: 1;">
-                            <div class="os-item-name" style="font-weight: 600; color: #333;">${displayTitle}</div>
-                            <div class="os-item-meta" style="color: #666; font-size: 13px;">${item.qty} шт.</div>
-                        </div>
-                        <div class="os-item-price" style="font-weight: 700;">${price * item.qty} ₴</div>
-                    </div>`;
-                }).join('');
-            }
-            localStorage.removeItem('rb_cart_v1');
+                        return `
+                        <div class="os-item" style="display: flex; align-items: center; gap: 15px; padding: 12px 0;">
+                            <img src="${img}" style="width: 60px; height: 60px; object-fit: contain; border-radius: 8px; border: 1px solid #f1f5f9; background: #fff;">
+                            <div style="flex: 1;">
+                                <div class="os-item-name" style="font-weight: 600; color: #333;">${itemTitle}</div>
+                                <div class="os-item-meta" style="color: #666; font-size: 13px;">${item.qty} шт.</div>
+                            </div>
+                            <div class="os-item-price" style="font-weight: 700;">${price * item.qty} ₴</div>
+                        </div>`;
+                    }).join('');
+                }
+            } catch (err) { console.error(err); }
 
+            // === ЛОГИКА ОПЛАТЫ LIQPAY ===
+            if (payBtn) {
+                payBtn.addEventListener('click', async () => {
+                    const originalText = payBtn.textContent;
+                    payBtn.textContent = "Завантаження...";
+                    payBtn.disabled = true;
 
-            // === ЛОГИКА ШТОРКИ ===
-            const sidebar = document.getElementById('paymentSidebar');
-            const overlay = document.getElementById('overlay');
-            const closeBtn = document.getElementById('closeSidebar');
+                    try {
+                        const res = await fetch('/api/liqpay/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order_id: order.id })
+                        });
+                        const data = await res.json();
 
-            payBtn.addEventListener('click', () => {
-                sidebar.classList.add('active');
-                overlay.classList.add('active');
-            });
-
-            function closeSidebarFn() {
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
-            }
-            closeBtn.addEventListener('click', closeSidebarFn);
-            overlay.addEventListener('click', closeSidebarFn);
-
-            // Маски ввода
-            const cnInput = document.getElementById('cardNumber');
-            const ceInput = document.getElementById('cardExpiry');
-
-            if(cnInput) {
-                cnInput.addEventListener('input', (e) => {
-                    let v = e.target.value.replace(/\D/g,'');
-                    e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
-                });
-            }
-            if(ceInput) {
-                ceInput.addEventListener('input', (e) => {
-                    let v = e.target.value.replace(/\D/g,'');
-                    if(v.length >= 2) e.target.value = v.substring(0,2) + '/' + v.substring(2,4);
-                    else e.target.value = v;
+                        if (data.success) {
+                            LiqPayCheckout.init({
+                                data: data.data,
+                                signature: data.signature,
+                                embedTo: "#liqpay_checkout",
+                                language: "uk", // Украинский интерфейс Ликпей
+                                mode: "popup"
+                            }).on("liqpay.callback", function(callbackData){
+                                if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
+                                    fetch('/api/pay_order', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ order_id: order.id })
+                                    }).then(() => {
+                                        alert("Оплата пройшла успішно!");
+                                        order.payment.status = 'paid';
+                                        localStorage.setItem('rb_last_order_details', JSON.stringify(order));
+                                        window.location.reload();
+                                    });
+                                } else if (['error', 'failure'].includes(callbackData.status)) {
+                                    alert("Помилка при оплаті. Спробуйте ще раз.");
+                                }
+                            }).on("liqpay.close", function(){
+                                payBtn.textContent = originalText;
+                                payBtn.disabled = false;
+                            });
+                        } else {
+                            alert("Помилка сервера: " + data.error);
+                            payBtn.textContent = originalText;
+                            payBtn.disabled = false;
+                        }
+                    } catch (err) {
+                        console.error("Помилка при ініціалізації LiqPay:", err);
+                        alert("Помилка мережі");
+                        payBtn.textContent = originalText;
+                        payBtn.disabled = false;
+                    }
                 });
             }
         });
 
-        // --- ФУНКЦИИ ИНТЕРФЕЙСА ---
-
-        // 1. Переключение табов (Карта / Счет)
-        function switchTab(tab) {
-            // Сброс стилей табов
-            document.querySelectorAll('.pay-tab').forEach(el => el.classList.remove('active'));
-            // Скрытие контента
-            document.getElementById('tab-card').classList.add('hidden');
-            document.getElementById('tab-account').classList.add('hidden');
-
-            // Активация
-            if(tab === 'card') {
-                document.querySelectorAll('.pay-tab')[0].classList.add('active');
-                document.getElementById('tab-card').classList.remove('hidden');
-            } else {
-                document.querySelectorAll('.pay-tab')[1].classList.add('active');
-                document.getElementById('tab-account').classList.remove('hidden');
-            }
-        }
-
-        // 2. Выбор типа карты -> Показ формы
-        function selectCardType(type) {
-            // Подсветка
-            document.querySelectorAll('.card-type-opt').forEach(el => el.classList.remove('selected'));
-            event.target.classList.add('selected');
-
-            // Показываем форму
-            const form = document.getElementById('cardFormInputs');
-            form.classList.remove('hidden');
-
-            // Симуляция автозаполнения (если авторизован)
-            checkAuthAndFill();
-        }
-
-        // 3. Заглушка авторизации
-        const fakeUser = { isAuth: false, card: "4111 1111 1111 1111", exp: "12/28" };
-
-        function checkAuthAndFill() {
-            if(fakeUser.isAuth) {
-                document.getElementById('cardNumber').value = fakeUser.card;
-                document.getElementById('cardExpiry').value = fakeUser.exp;
-            }
-        }
-
-        function submitPayment() {
-            // Берем ID заказа из текста на странице
-            const idText = document.getElementById('orderNum').textContent.trim();
-            // Если там вдруг "..." или пусто, берем из URL
-            const params = new URLSearchParams(window.location.search);
-            const orderId = idText !== '...' ? idText : params.get('order_id');
-
-            if (!orderId) {
-                alert("Помилка: номер замовлення не знайдено");
-                return;
-            }
-
-            const btn = document.querySelector('.final-btn');
-            btn.textContent = 'Обробка...';
-            btn.disabled = true;
-
-            // Отправляем реальный запрос на сервер
-            fetch('/api/pay_order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: orderId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Оплата успішна!');
-                    btn.textContent = 'Сплачено';
-
-                    // Закрываем шторку
-                    document.getElementById('paymentSidebar').classList.remove('active');
-                    document.getElementById('overlay').classList.remove('active');
-
-                    // Скрываем кнопку "Сплатити зараз" на баннере, так як вже оплачено
-                    const payNowBtn = document.getElementById('payNowBtn');
-                    if(payNowBtn) payNowBtn.style.display = 'none';
-
-                    // Обновляем текст статуса (опционально)
-                    const bannerText = document.getElementById('osBannerText');
-                    if(bannerText) bannerText.innerHTML = "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
-                } else {
-                    alert("Помилка: " + data.error);
-                    btn.textContent = 'Сплатити';
-                    btn.disabled = false;
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Помилка з'єднання");
-                btn.textContent = 'Сплатити';
-                btn.disabled = false;
-            });
-        }
-
         async function cancelOrder() {
-            // Определяем язык страницы для правильного текста
-            const isUA = document.documentElement.lang === 'uk';
-            const confirmText = isUA ? "Ви дійсно хочете скасувати замовлення?" : "Вы действительно хотите отменить заказ?";
-            const alertText = isUA ? "Замовлення скасовано." : "Заказ отменен.";
-
-            if(confirm(confirmText)) {
-                // Берем ID заказа из текста на странице
+            if(confirm("Ви дійсно хочете скасувати замовлення?")) {
                 const idEl = document.getElementById('orderNum');
                 const orderId = idEl ? idEl.textContent.trim() : null;
 
                 if (!orderId || orderId === '???') return;
 
                 try {
-                    // Отправляем запрос на сервер
                     const res = await fetch('/api/cancel_order', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ order_id: orderId })
                     });
-
                     const data = await res.json();
 
                     if(data.success) {
-                        alert(alertText);
-                        // Редирект в кабинет, чтобы увидеть статус, или на главную
-                        window.location.href = isUA ? "../ua/profile.html" : "../ru/profile.html";
+                        alert("Замовлення скасовано.");
+                        window.location.href = "../ua/profile.html";
                     } else {
-                        alert("Ошибка/Помилка: " + data.error);
+                        alert("Помилка: " + data.error);
                     }
                 } catch(e) {
                     console.error(e);
-                    alert("Ошибка соединения / Помилка з'єднання");
+                    alert("Помилка з'єднання");
                 }
             }
         }
