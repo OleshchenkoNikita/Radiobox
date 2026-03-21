@@ -1691,7 +1691,7 @@ function renderOrdersPage() {
         const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
 
         if (isCard && isUnpaid && isNotCancelled) {
-            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.openPayModal(${order.id}, ${totalOrderSum.toFixed(2)})" style="margin-right:8px; padding:4px 10px; background:#22c55e; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
+            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.payOrderLiqPay(${order.id}, this)" style="margin-right:8px; padding:4px 10px; background:#22c55e; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
                 ${isUA ? 'Оплатити зараз' : 'Оплатить сейчас'}
             </button>`;
         }
@@ -1835,114 +1835,57 @@ function renderOrdersPage() {
     };
 });
 
-// === ЛОГИКА МОДАЛЬНОГО ОКНА В ИСТОРИИ ЗАКАЗОВ ===
+// === ЛОГИКА ОПЛАТЫ ЧЕРЕЗ LIQPAY ДЛЯ ПРОФИЛЯ ===
+window.payOrderLiqPay = async function(orderId, btnElement) {
+    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+    const originalText = btnElement.textContent;
+    btnElement.textContent = isUA ? "Завантаження..." : "Загрузка...";
+    btnElement.disabled = true;
 
-window.currentPayOrderId = null;
-
-// Найти в script.js функцию openPayModal и заменить её на эту:
-
-window.openPayModal = function(orderId, sum) {
-    const modal = document.getElementById('historyPayModal');
-    if(!modal) return;
-
-    window.currentPayOrderId = orderId;
-
-    // Определяем язык страницы
-    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/'); //
-
-    // Исправляем текст заголовка заказа
-    const orderTitle = isUA ? `Замовлення №${orderId}` : `Заказ №${orderId}`; //
-    document.getElementById('payModalOrderNum').textContent = orderTitle; //
-
-    // Исправляем заголовок самого окна, если нужно
-    const modalHeader = modal.querySelector('h3');
-    if (modalHeader) {
-        modalHeader.textContent = isUA ? "Оплата замовлення" : "Оплата заказа"; //
-    }
-
-    document.getElementById('histPaySum').textContent = sum;
-    modal.classList.add('active');
-
-    setupCardInputs();
-};
-
-window.closePayModal = function() {
-    const modal = document.getElementById('historyPayModal');
-    if(modal) modal.classList.remove('active');
-};
-
-// Инициализация масок для полей модалки истории
-function setupCardInputs() {
-    const iNum = document.getElementById('histCardNum');
-    const iDate = document.getElementById('histCardDate');
-
-    if(iNum) {
-        iNum.oninput = (e) => {
-            let v = e.target.value.replace(/\D/g,'').substring(0,16);
-            e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
-        }
-    }
-    if(iDate) {
-        iDate.oninput = (e) => {
-            let v = e.target.value.replace(/\D/g,'').substring(0,4);
-            if(v.length >= 2) e.target.value = v.substring(0,2) + '/' + v.substring(2);
-            else e.target.value = v;
-        }
-        iDate.onkeydown = (e) => {
-            if (e.key === 'Backspace' && e.target.value.endsWith('/'))
-                e.target.value = e.target.value.slice(0, -1);
-        }
-    }
-}
-
-// Обработка кнопки "Оплатить" внутри модалки
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('histDoPayBtn');
-    if(btn) {
-        btn.addEventListener('click', () => {
-            const num = document.getElementById('histCardNum').value;
-            const date = document.getElementById('histCardDate').value;
-            const cvv = document.getElementById('histCardCvv').value;
-
-            // Простейшая валидация
-            if(num.length < 16 || !date || cvv.length < 3) {
-                alert("Перевірте дані картки");
-                return;
-            }
-
-            // Визуально показываем процесс
-            btn.textContent = "Обробка...";
-            btn.disabled = true;
-
-            // === РЕАЛЬНЫЙ ЗАПРОС НА СЕРВЕР ===
-            fetch('/api/pay_order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: window.currentPayOrderId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert("Оплата успішна!");
-                    window.closePayModal();
-                    // Перезагружаем страницу.
-                    // Так как в базе теперь payment_status = 'paid', кнопка при отрисовке исчезнет сама.
-                    location.reload();
-                } else {
-                    alert("Помилка: " + data.error);
-                    btn.textContent = "Сплатити";
-                    btn.disabled = false;
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert("Помилка з'єднання");
-                btn.textContent = "Сплатити";
-                btn.disabled = false;
-            });
+    try {
+        const res = await fetch('/api/liqpay/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId })
         });
+        const data = await res.json();
+
+        if (data.success) {
+            LiqPayCheckout.init({
+                data: data.data,
+                signature: data.signature,
+                embedTo: "#liqpay_checkout",
+                language: isUA ? "uk" : "ru",
+                mode: "popup"
+            }).on("liqpay.callback", function(callbackData){
+                if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
+                    fetch('/api/pay_order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: orderId })
+                    }).then(() => {
+                        alert(isUA ? "Оплата пройшла успішно!" : "Оплата прошла успешно!");
+                        window.location.reload();
+                    });
+                } else if (['error', 'failure'].includes(callbackData.status)) {
+                    alert(isUA ? "Помилка при оплаті. Спробуйте ще раз." : "Ошибка при оплате. Попробуйте еще раз.");
+                }
+            }).on("liqpay.close", function(){
+                btnElement.textContent = originalText;
+                btnElement.disabled = false;
+            });
+        } else {
+            alert((isUA ? "Помилка сервера: " : "Ошибка сервера: ") + data.error);
+            btnElement.textContent = originalText;
+            btnElement.disabled = false;
+        }
+    } catch (err) {
+        console.error("Ошибка при инициализации LiqPay:", err);
+        alert(isUA ? "Помилка мережі" : "Ошибка сети");
+        btnElement.textContent = originalText;
+        btnElement.disabled = false;
     }
-});
+};
 
 // ============================================
 // SEO: ДИНАМИЧЕСКАЯ ПОДСТАНОВКА МЕТА-ТЕГОВ

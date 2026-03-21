@@ -6,6 +6,7 @@
     <title>Особистий кабінет — RadioBox</title>
     <link rel="stylesheet" href="../styles.css">
     <script src="../script.js" defer></script>
+    <script src="//static.liqpay.ua/libjs/checkout.js"></script>
 </head>
 <body>
 
@@ -42,28 +43,6 @@
 
     <div id="footer-placeholder"></div>
 
-    <div class="modal-overlay" id="historyPayModal">
-        <div class="pay-modal">
-            <button type="button" class="modal-close" onclick="closePayModal()">&times;</button>
-            <h3 style="margin-top:0; margin-bottom:20px; text-align:center;">Оплата заказа</h3>
-            <p id="payModalOrderNum" style="text-align:center; color:#666; font-size:14px; margin-bottom:15px;">Заказ №...</p>
-            <div class="modal-field">
-                <label>Номер карты</label>
-                <input type="text" class="modal-input" id="histCardNum" placeholder="0000 0000 0000 0000" maxlength="19">
-            </div>
-            <div class="modal-row">
-                <div class="modal-field">
-                    <label>Срок (MM/YY)</label>
-                    <input type="text" class="modal-input" id="histCardDate" placeholder="MM/YY" maxlength="5">
-                </div>
-                <div class="modal-field">
-                    <label>CVV</label>
-                    <input type="password" class="modal-input" id="histCardCvv" placeholder="123" maxlength="3">
-                </div>
-            </div>
-            <button type="button" class="btn-modal-pay" id="histDoPayBtn">Оплатить <span id="histPaySum">0</span> ₴</button>
-        </div>
-    </div>
-
+    <div id="liqpay_checkout"></div>
 </body>
 </html>
