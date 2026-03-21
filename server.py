@@ -1828,7 +1828,6 @@ def admin_delete_banner():
 
     return jsonify({"success": True})
 
-
 # === API: ВИДИМОСТЬ БАННЕРА ===
 @app.route('/api/admin/banner/visibility', methods=['POST'])
 @role_required('manager', 'superadmin')
