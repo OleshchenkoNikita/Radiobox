@@ -94,17 +94,17 @@ def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
 
-        # 1. Пользователи
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                surname TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                phone TEXT,
-                password TEXT NOT NULL
-            )
-        ''')
+                    CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        surname TEXT NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        phone TEXT,
+                        password TEXT NOT NULL,
+                        role TEXT DEFAULT 'client'  -- 'client', 'manager', 'superadmin'
+                    )
+                ''')
 
         # Создаем таблицу КАТЕГОРИЙ (если её нет)
         cursor.execute('''
@@ -127,15 +127,6 @@ def init_db():
                 payment_method TEXT, payment_status TEXT DEFAULT 'unpaid', 
                 comment TEXT, total_price REAL, status TEXT DEFAULT 'Новый',
                 items_json TEXT, created_at TEXT, ttn TEXT
-            )
-        ''')
-
-        # 3. Админы
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS admins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                login TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
             )
         ''')
 
@@ -267,6 +258,12 @@ def init_db():
                 # Ошибка возникает, если колонка уже есть. Это нормально, просто пропускаем.
                 pass
 
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'client'")
+            print("[Migration] Добавлена колонка role в таблицу users")
+        except sqlite3.OperationalError:
+            pass  # Колонка уже существует
+
             # === ДОБАВИТЬ ВОТ ЭТО (ЛЕЧЕНИЕ NULL) ===
         try:
             cursor.execute("UPDATE products SET on_index = 0 WHERE on_index IS NULL")
@@ -344,13 +341,31 @@ def make_daily_backup():
             print(f"[Backup] Удален старый файл: {f}")
 
 # === ДЕКОРАТОР ДЛЯ ЗАЩИТЫ АДМИНКИ ===
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'admin_logged_in' not in session:
-            return redirect('/admin/login')
-        return f(*args, **kwargs)
-    return decorated_function
+def role_required(*allowed_roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user_role = session.get('role')
+
+            if not user_role:
+                # Если пытаются зайти в /superadmin
+                if request.path.startswith('/superadmin'):
+                    return redirect('/superadmin/login')
+                # Если пытаются зайти в /admin
+                if request.path.startswith('/admin'):
+                    # По умолчанию редиректим на RU версию логина
+                    return redirect('/admin/ru/login')
+                return jsonify({"success": False, "error": "Нужна авторизация"}), 401
+
+            # Супер-админ проходит везде, остальные — по списку ролей
+            if user_role == 'superadmin' or user_role in allowed_roles:
+                return f(*args, **kwargs)
+
+            return "Доступ запрещен: недостаточно прав", 403
+
+        return decorated_function
+
+    return decorator
 
 # === ФУНКЦИЯ ОТПРАВКИ ПИСЬМА ===
 def send_email_real(to_email, subject, body):
@@ -390,17 +405,23 @@ def serve_static(path):
 def register():
     data = request.json
     hashed_pw = generate_password_hash(data['password'])
+    role = 'client'  # По умолчанию все новые - клиенты
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO users (name, surname, email, phone, password)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (data['name'], data['surname'], data['email'], data['phone'], hashed_pw))
+                INSERT INTO users (name, surname, email, phone, password, role)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (data['name'], data['surname'], data['email'], data['phone'], hashed_pw, role))
             conn.commit()
             user_id = cursor.lastrowid
-            # ОБНОВЛЕНИЕ: Возвращаем также phone и email
+
+            # Сразу записываем в сессию
+            session['user_id'] = user_id
+            session['email'] = data['email']
+            session['role'] = role
+
             return jsonify({
                 "success": True,
                 "user": {
@@ -408,38 +429,39 @@ def register():
                     "name": data['name'],
                     "surname": data['surname'],
                     "phone": data['phone'],
-                    "email": data['email']
+                    "email": data['email'],
+                    "role": role
                 }
             })
     except sqlite3.IntegrityError:
         return jsonify({"success": False, "error": "Пользователь с таким Email уже существует!"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute('SELECT id, name, surname, password, phone, email FROM users WHERE email = ?', (data['email'],))
+        cursor.execute('SELECT * FROM users WHERE email = ?', (data['email'],))
         user = cursor.fetchone()
 
-        if user and check_password_hash(user[3], data['password']):
-            # === ГЛАВНОЕ ИСПРАВЛЕНИЕ ===
-            # Сохраняем email в сессию, чтобы видеть его в create_order
-            session['email'] = user[5]
-            session.permanent = True  # (Опционально) чтобы сессия жила долго
-            # ===========================
+        if user and check_password_hash(user['password'], data['password']):
+            # Сохраняем всё необходимое в сессию
+            session['user_id'] = user['id']
+            session['email'] = user['email']
+            session['role'] = user['role'] # Теперь роль 'superadmin' или 'manager' сохранится
+            session.permanent = True
 
             return jsonify({
                 "success": True,
                 "user": {
-                    "id": user[0],
-                    "name": user[1],
-                    "surname": user[2],
-                    "phone": user[4],
-                    "email": user[5]
+                    "id": user['id'],
+                    "name": user['name'],
+                    "surname": user['surname'],
+                    "phone": user['phone'],
+                    "email": user['email'],
+                    "role": user['role']
                 }
             })
         else:
@@ -494,10 +516,8 @@ def change_password():
 
 
 @app.route('/api/user/orders', methods=['GET'])
+@role_required('client', 'manager', 'superadmin')
 def get_user_orders():
-    if 'email' not in session:
-        return jsonify({"success": False, "error": "Не авторизован"}), 401
-
     email = session['email']
     referer = request.referrer or ""
     is_ukrainian = '/ua/' in referer
@@ -807,36 +827,37 @@ def cancel_order_api():
 # 1. Корневой редирект (если зашли просто на /admin)
 @app.route('/admin')
 def admin_root():
-    # Если залогинен -> на дашборд RU, иначе -> на логин RU
-    if session.get('admin_logged_in'):
+    # Проверяем роль вместо старого флага
+    if session.get('role') in ['manager', 'superadmin']:
         return redirect('/admin/ru/dashboard')
-    else:
-        return redirect('/admin/ru/login')
+    return redirect('/admin/ru/login')
 
 
 # 2. Универсальный ВХОД (Логин)
 @app.route('/admin/<lang>/login', methods=['GET', 'POST'])
 def admin_login_lang(lang):
-    # Защита: если язык не ru/ua, кидаем на ru
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/login')
-
     error = None
     if request.method == 'POST':
-        login = request.form.get('login')
+        email = request.form.get('login') # В форме это поле называется 'login'
         password = request.form.get('password')
 
         with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT password FROM admins WHERE login = ?", (login,))
-            row = cursor.fetchone()
+            # Ищем только тех, кто имеет право заходить в админку
+            cursor.execute("SELECT * FROM users WHERE email = ? AND role IN ('manager', 'superadmin')", (email,))
+            user = cursor.fetchone()
 
-            if row and check_password_hash(row[0], password):
-                session['admin_logged_in'] = True
+            if user and check_password_hash(user['password'], password):
+                session['user_id'] = user['id']
+                session['email'] = user['email']
+                session['role'] = user['role']
+                session.permanent = True
                 return redirect(f'/admin/{lang}/dashboard')
             else:
                 error = "Невірний логін або пароль" if lang == 'ua' else "Неверный логин или пароль"
 
-    # Открываем файл из папки admin/ru/ или admin/ua/
     try:
         with open(f'admin/{lang}/admin_login.html', 'r', encoding='utf-8') as f:
             return render_template_string(f.read(), error=error)
@@ -850,18 +871,16 @@ def serve_admin_static_files(filename):
 # 3. Выход
 @app.route('/admin/logout')
 def admin_logout():
-    session.pop('admin_logged_in', None)
+    session.clear() # Очистит и role, и user_id, и email
     return redirect('/admin/ru/login')
 
 # === АДМИНКА: СТРАНИЦЫ И API ===
 
 # ДАШБОРД (с учетом языка)
 @app.route('/admin/<lang>/dashboard')
+@role_required('manager', 'superadmin')
 def admin_dashboard(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/dashboard')
-
-    if not session.get('admin_logged_in'):
-        return redirect(f'/admin/{lang}/login')
 
     try:
         with open(f'admin/{lang}/dashboard.html', 'r', encoding='utf-8') as f:
@@ -872,9 +891,8 @@ def admin_dashboard(lang):
 
 # === API: АДМИНКА - СПИСОК ЗАКАЗОВ С ФИЛЬТРАМИ ===
 @app.route('/api/admin/orders', methods=['GET'])
+@role_required('manager', 'superadmin')
 def admin_get_orders():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False, "error": "Auth required"}), 403
 
     # 1. Получаем параметры фильтрации
     search = request.args.get('search', '').strip()
@@ -978,9 +996,8 @@ def admin_get_orders():
 
 # === API: АДМИНКА - СОХРАНИТЬ ТТН ===
 @app.route('/api/admin/order/ttn', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_save_ttn():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False}), 403
 
     data = request.json
     order_id = data.get('id')
@@ -1003,9 +1020,8 @@ def admin_save_ttn():
 
 
 @app.route('/api/admin/order/status', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_update_status():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False, "error": "Auth required"}), 403
 
     data = request.json
     order_id = data.get('id')
@@ -1055,8 +1071,8 @@ def admin_update_status():
 
 # === API: ПОЛУЧИТЬ НАСТРОЙКИ ===
 @app.route('/api/admin/settings', methods=['GET'])
+@role_required('superadmin')
 def admin_get_settings():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT * FROM settings").fetchall()
@@ -1067,8 +1083,8 @@ def admin_get_settings():
 
 # === API: СОХРАНИТЬ НАСТРОЙКИ ===
 @app.route('/api/admin/settings', methods=['POST'])
+@role_required('superadmin')
 def admin_save_settings():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         for key, value in data.items():
@@ -1079,8 +1095,8 @@ def admin_save_settings():
 
 # === API: СПИСОК БЭКАПОВ ===
 @app.route('/api/admin/backups', methods=['GET'])
+@role_required('superadmin')
 def admin_list_backups():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     if not os.path.exists('backups'):
         return jsonify({"success": True, "backups": []})
 
@@ -1090,8 +1106,8 @@ def admin_list_backups():
 
 # === API: ВОССТАНОВИТЬ БЭКАП ===
 @app.route('/api/admin/backup/restore', methods=['POST'])
+@role_required('superadmin')
 def admin_restore_backup():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     filename = request.json.get('filename')
     backup_path = os.path.join('backups', filename)
 
@@ -1123,9 +1139,9 @@ def serve_robots():
 
 # === СТРАНИЦА НАСТРОЕК ===
 @app.route('/admin/<lang>/settings')
+@role_required('superadmin')
 def admin_settings_page(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/settings')
-    if not session.get('admin_logged_in'): return redirect(f'/admin/{lang}/login')
     return send_from_directory(f'admin/{lang}', 'settings.html')
 
 
@@ -1141,11 +1157,9 @@ def allowed_file(filename):
 
 # === РОУТ: СТРАНИЦА ТОВАРОВ ===
 @app.route('/admin/<lang>/products')
+@role_required('manager', 'superadmin')
 def admin_products(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/products')
-
-    if not session.get('admin_logged_in'):
-        return redirect(f'/admin/{lang}/login')
 
     try:
         with open(f'admin/{lang}/products.html', 'r', encoding='utf-8') as f:
@@ -1156,8 +1170,8 @@ def admin_products(lang):
 
 # === API: СПИСОК ТОВАРОВ С ФИЛЬТРАМИ И СОРТИРОВКОЙ ===
 @app.route('/api/admin/products', methods=['GET'])
+@role_required('manager', 'superadmin')
 def admin_get_products_api():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
 
     # Параметры из URL
     show_deleted = request.args.get('show_deleted') == '1'
@@ -1253,8 +1267,8 @@ def admin_get_products_api():
 
 # === API: ДОБАВИТЬ / ОБНОВИТЬ ТОВАР ===
 @app.route('/api/admin/product/save', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_save_product_api():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
 
     pid = data.get('id')
@@ -1326,9 +1340,8 @@ def admin_save_product_api():
 
 # === API: ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ КАТЕГОРИЙ И ПОДКАТЕГОРИЙ ===
 @app.route('/api/admin/fix_categories', methods=['GET'])
+@role_required('superadmin')
 def fix_categories_route():
-    if not session.get('admin_logged_in'): return "Access denied", 403
-
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
 
@@ -1386,9 +1399,8 @@ def fix_categories_route():
 
 # === API: ЗАГРУЗКА КАРТИНКИ ===
 @app.route('/api/admin/upload', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_upload_file():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
-
     if 'file' not in request.files:
         return jsonify({"success": False, "error": "No file part"})
 
@@ -1418,9 +1430,8 @@ def admin_upload_file():
 
 # === API: СКРЫТЬ / ПОКАЗАТЬ ТОВАР ===
 @app.route('/api/admin/product/visibility', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_product_visibility():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
-
     data = request.json
     pid = data.get('id')
     is_visible = data.get('is_visible')  # 1 или 0
@@ -1468,8 +1479,8 @@ def get_public_products():
 
 # Мягкое удаление (в корзину)
 @app.route('/api/admin/product/delete', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_delete_product():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     deleted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with sqlite3.connect(DB_NAME) as conn:
@@ -1480,8 +1491,8 @@ def admin_delete_product():
 
 # Восстановление из корзины
 @app.route('/api/admin/product/restore', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_restore_product():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE products SET deleted_at = NULL WHERE id = ?", (data.get('id'),))
@@ -1491,8 +1502,8 @@ def admin_restore_product():
 
 # Сортировка (Вверх/Вниз)
 @app.route('/api/admin/product/move', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_move_product():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     pid = data.get('id')
     direction = data.get('direction')  # 'up' or 'down'
@@ -1540,8 +1551,8 @@ def admin_move_product():
     return jsonify({"success": True})
 
 @app.route('/api/admin/product/index', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_product_index_toggle():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE products SET on_index = ? WHERE id = ?", (data['on_index'], data['id']))
@@ -1551,9 +1562,8 @@ def admin_product_index_toggle():
 
 # === API: УНИВЕРСАЛЬНАЯ СОРТИРОВКА (DRAG-AND-DROP) ===
 @app.route('/api/admin/reorder', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_reorder_general():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
-
     data = request.json
     # Фронт пришлет нам: items = [{ 'id': 10, 'cat': 'meas' }, { 'id': 5, 'cat': 'solder' } ...]
     items = data.get('items', [])
@@ -1602,8 +1612,8 @@ def get_categories_api():
 
 # === API: СОХРАНИТЬ КАТЕГОРИЮ ===
 @app.route('/api/admin/category/save', methods=['POST'])
+@role_required('manager', 'superadmin')
 def save_category_api():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
 
     cat_id = data.get('id')
@@ -1635,8 +1645,8 @@ def save_category_api():
 
 # === API: УДАЛИТЬ КАТЕГОРИЮ ===
 @app.route('/api/admin/category/delete', methods=['POST'])
+@role_required('manager', 'superadmin')
 def delete_category_api():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     cat_id = data.get('id')
 
@@ -1649,8 +1659,8 @@ def delete_category_api():
 
 # === API: СОРТИРОВКА КАТЕГОРИЙ ===
 @app.route('/api/admin/category/reorder', methods=['POST'])
+@role_required('manager', 'superadmin')
 def reorder_categories_api():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     ids = request.json.get('ids', [])
 
     with sqlite3.connect(DB_NAME) as conn:
@@ -1719,9 +1729,9 @@ def public_search_api():
 
 # === СТРАНИЦА БАННЕРОВ ===
 @app.route('/admin/<lang>/banners')
+@role_required('manager', 'superadmin')
 def admin_banners_page(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/banners')
-    if not session.get('admin_logged_in'): return redirect(f'/admin/{lang}/login')
     try:
         # Мы создадим этот файл на Шаге 2
         with open(f'admin/{lang}/banners.html', 'r', encoding='utf-8') as f:
@@ -1732,8 +1742,8 @@ def admin_banners_page(lang):
 
 # === API: СПИСОК БАННЕРОВ (АДМИН) ===
 @app.route('/api/admin/banners', methods=['GET'])
+@role_required('manager', 'superadmin')
 def admin_get_banners():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         # Сортируем по позиции
@@ -1744,9 +1754,8 @@ def admin_get_banners():
 
 # === API: ЗАГРУЗКА БАННЕРА ===
 @app.route('/api/admin/banner/upload', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_upload_banner():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
-
     if 'file' not in request.files: return jsonify({"success": False, "error": "No file"})
     file = request.files['file']
     css_style = request.form.get('css_style', '')  # <--- ПОЛУЧАЕМ СТИЛЬ
@@ -1785,8 +1794,8 @@ def admin_upload_banner():
     return jsonify({"success": True})
 
 @app.route('/api/admin/banner/update_style', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_banner_update_style():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE banners SET css_style = ? WHERE id = ?", (data['css_style'], data['id']))
@@ -1795,8 +1804,8 @@ def admin_banner_update_style():
 
 # === API: УДАЛЕНИЕ БАННЕРА ===
 @app.route('/api/admin/banner/delete', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_delete_banner():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     bid = data.get('id')
 
@@ -1822,8 +1831,8 @@ def admin_delete_banner():
 
 # === API: ВИДИМОСТЬ БАННЕРА ===
 @app.route('/api/admin/banner/visibility', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_banner_visibility():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE banners SET is_visible = ? WHERE id = ?", (data['is_visible'], data['id']))
@@ -1833,8 +1842,8 @@ def admin_banner_visibility():
 
 # === API: СОРТИРОВКА БАННЕРОВ ===
 @app.route('/api/admin/banner/reorder', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_banner_reorder():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     ids = request.json.get('ids', [])
     with sqlite3.connect(DB_NAME) as conn:
         for idx, bid in enumerate(ids):
@@ -1855,6 +1864,7 @@ def public_get_banners():
 
 # === API: ОТЗЫВЫ (ПУБЛИЧНЫЕ) ===
 @app.route('/api/reviews', methods=['GET'])
+@role_required('client', 'manager', 'superadmin')
 def get_public_reviews():
     # Получаем список видимых отзывов
     with sqlite3.connect(DB_NAME) as conn:
@@ -1895,8 +1905,8 @@ def add_public_review():
 
 # === API: ОТЗЫВЫ (АДМИН) ===
 @app.route('/api/admin/reviews', methods=['GET'])
+@role_required('manager', 'superadmin')
 def admin_get_reviews():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -1906,8 +1916,8 @@ def admin_get_reviews():
     return jsonify({"success": True, "reviews": reviews})
 
 @app.route('/api/admin/review/delete', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_delete_review():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         # Полное удаление (или можно делать is_visible=0)
@@ -1916,8 +1926,8 @@ def admin_delete_review():
     return jsonify({"success": True})
 
 @app.route('/api/admin/review/reply', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_reply_review():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("UPDATE reviews SET reply = ? WHERE id = ?", (data['reply'], data['id']))
@@ -1925,16 +1935,14 @@ def admin_reply_review():
     return jsonify({"success": True})
 
 @app.route('/admin/ru/reviews')
+@role_required('manager', 'superadmin')
 def admin_reviews_page():
-    # Проверка авторизации (если она у вас так реализована)
-    if not session.get('admin_logged_in'):
-        return redirect('/admin/login')
     # Отдаем файл reviews.html из папки admin/ru
     return send_from_directory('admin/ru', 'reviews.html')
 
 @app.route('/api/admin/review/visibility', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_review_vis():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     data = request.json
     try:
         with sqlite3.connect(DB_NAME) as conn:
@@ -1947,8 +1955,8 @@ def admin_review_vis():
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/admin/reviews/count_all', methods=['GET'])
+@role_required('manager', 'superadmin')
 def admin_reviews_count_all():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         # Считаем ВСЕ отзывы (и видимые, и скрытые)
@@ -1957,9 +1965,8 @@ def admin_reviews_count_all():
     return jsonify({"success": True, "count": count})
 
 @app.route('/admin/ua/reviews')
+@role_required('manager', 'superadmin')
 def admin_reviews_page_ua():
-    if not session.get('admin_logged_in'):
-        return redirect('/admin/ua/login')
     return send_from_directory('admin/ua', 'reviews.html')
 
 
@@ -2060,9 +2067,8 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_import_prom():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
-
     if 'file' not in request.files:
         return jsonify({"success": False, "error": "Нет файла"})
 
@@ -2167,8 +2173,8 @@ def simple_slugify(text):
 
 
 @app.route('/api/admin/import_keepincrm_xlsx', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_import_keepincrm_xlsx():
-    if not session.get('admin_logged_in'): return jsonify({"success": False}), 403
     if 'file' not in request.files: return jsonify({"success": False, "error": "Нет файла"})
 
     file = request.files['file']
@@ -2391,9 +2397,8 @@ def admin_import_keepincrm_xlsx():
 
 # === СПЕЦИАЛЬНАЯ КОМАНДА: УБРАТЬ ВСЁ С ВИТРИНЫ ===
 @app.route('/api/admin/reset_vitrine')
+@role_required('superadmin')
 def reset_vitrine_all():
-    if not session.get('admin_logged_in'): return "Нужны права админа!", 403
-
     with sqlite3.connect(DB_NAME) as conn:
         # Ставим 0 (выкл) для всех товаров
         conn.execute("UPDATE products SET on_index = 0")
@@ -2403,10 +2408,8 @@ def reset_vitrine_all():
 
 
 @app.route('/api/admin/sync_keepincrm', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_sync_keepincrm():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False, "error": "Нужна авторизация"}), 403
-
     api_token = get_setting('crm_api_key')
     office_id = "40620"
 
@@ -2629,10 +2632,8 @@ def keepincrm_webhook():
 
 
 @app.route('/api/admin/order/update_item', methods=['POST'])
+@role_required('manager', 'superadmin')
 def admin_update_order_item():
-    if not session.get('admin_logged_in'):
-        return jsonify({"success": False, "error": "Auth required"}), 403
-
     data = request.json
     order_id = data.get('order_id')
     product_id = int(data.get('product_id'))
@@ -2737,6 +2738,100 @@ def liqpay_generate():
 
         return jsonify({"success": True, "data": data_str, "signature": signature})
 
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/superadmin')
+@role_required('superadmin')
+def superadmin_main_page():
+    return send_from_directory('superadmin', 'superadmin.html')
+
+@app.route('/superadmin/login')
+def superadmin_login_page():
+    return send_from_directory('superadmin', 'login.html')
+
+# 1. Получение всех пользователей для таблицы
+@app.route('/api/superadmin/users', methods=['GET'])
+@role_required('superadmin')
+def superadmin_get_users():
+    search = request.args.get('search', '').strip()
+    query = "SELECT id, name, surname, email, phone, role FROM users"
+    params = []
+
+    if search:
+        query += " WHERE email LIKE ? OR name LIKE ? OR surname LIKE ?"
+        term = f"%{search}%"
+        params = [term, term, term]
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            rows = cursor.execute(query, params).fetchall()
+            users_list = [dict(row) for row in rows]
+            return jsonify({"success": True, "users": users_list})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# 2. Сохранение изменений (или создание нового)
+@app.route('/api/superadmin/user/save', methods=['POST'])
+@role_required('superadmin')
+def superadmin_save_user():
+    data = request.json
+    user_id = data.get('id')
+    name = data.get('name')
+    surname = data.get('surname')
+    email = data.get('email')
+    phone = data.get('phone')
+    role = data.get('role')  # 'client', 'manager', 'superadmin'
+    new_password = data.get('password')
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            if user_id:
+                # Обновляем существующего
+                if new_password and len(new_password.strip()) > 0:
+                    pw_hash = generate_password_hash(new_password)
+                    cursor.execute('''
+                        UPDATE users SET name=?, surname=?, email=?, phone=?, role=?, password=?
+                        WHERE id=?
+                    ''', (name, surname, email, phone, role, pw_hash, user_id))
+                else:
+                    cursor.execute('''
+                        UPDATE users SET name=?, surname=?, email=?, phone=?, role=?
+                        WHERE id=?
+                    ''', (name, surname, email, phone, role, user_id))
+            else:
+                # Создаем нового пользователя
+                pw_hash = generate_password_hash(new_password or "123456")
+                cursor.execute('''
+                    INSERT INTO users (name, surname, email, phone, role, password)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (name, surname, email, phone, role, pw_hash))
+
+            conn.commit()
+            return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+
+# 3. Удаление аккаунта
+@app.route('/api/superadmin/user/delete', methods=['POST'])
+@role_required('superadmin')
+def superadmin_delete_user():
+    user_id = request.json.get('id')
+
+    # Защита от удаления самого себя
+    if 'user_id' in session and int(user_id) == int(session['user_id']):
+        return jsonify({"success": False, "error": "Вы не можете удалить свою собственную учетную запись!"})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 

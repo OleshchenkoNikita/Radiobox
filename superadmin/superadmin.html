@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление аккаунтами | RadioBox</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        .user-table th, .user-table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        .user-table th { background-color: #f4f4f4; }
+        .role-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .role-superadmin { background: #ffebee; color: #c62828; }
+        .role-manager { background: #e3f2fd; color: #1565c0; }
+        .role-client { background: #f5f5f5; color: #616161; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 20px; width: 400px; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; box-sizing: border-box; }
+        .btn { padding: 8px 16px; cursor: pointer; border: none; border-radius: 4px; }
+        .btn-add { background: #4CAF50; color: white; margin-bottom: 20px; }
+        .btn-edit { background: #2196F3; color: white; margin-right: 5px; }
+        .btn-delete { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <h2>Управление пользователями системы</h2>
+
+        <div style="display: flex; justify-content: space-between;">
+            <button class="btn btn-add" onclick="openModal()">+ Добавить пользователя</button>
+            <input type="text" id="userSearch" placeholder="Поиск по Email или фамилии..." oninput="loadUsers()" style="padding: 8px; width: 300px; height: 35px;">
+        </div>
+
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Имя Фамилия</th>
+                    <th>Email / Телефон</th>
+                    <th>Роль</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                </tbody>
+        </table>
+    </div>
+
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Пользователь</h3>
+            <input type="hidden" id="userId">
+            <div class="form-group">
+                <label>Имя</label>
+                <input type="text" id="userName">
+            </div>
+            <div class="form-group">
+                <label>Фамилия</label>
+                <input type="text" id="userSurname">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="userEmail">
+            </div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="text" id="userPhone">
+            </div>
+            <div class="form-group">
+                <label>Роль</label>
+                <select id="userRole">
+                    <option value="client">Клиент (Покупатель)</option>
+                    <option value="manager">Менеджер (Админ)</option>
+                    <option value="superadmin">Суперадмин</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Новый пароль (оставьте пустым, чтобы не менять)</label>
+                <input type="password" id="userPass" placeholder="Минимум 6 символов">
+            </div>
+            <div style="text-align: right;">
+                <button class="btn" onclick="closeModal()">Отмена</button>
+                <button class="btn btn-edit" onclick="saveUser()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadUsers() {
+            const search = document.getElementById('userSearch').value;
+            const res = await fetch(`/api/superadmin/users?search=${encodeURIComponent(search)}`);
+            const data = await res.json();
+
+            if (data.success) {
+                const tbody = document.getElementById('userTableBody');
+                tbody.innerHTML = data.users.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.name} ${u.surname}</td>
+                        <td>${u.email}<br><small>${u.phone || ''}</small></td>
+                        <td><span class="role-badge role-${u.role}">${u.role.toUpperCase()}</span></td>
+                        <td>
+                            <button class="btn btn-edit" onclick='editUser(${JSON.stringify(u)})'>⚙️</button>
+                            <button class="btn btn-delete" onclick="deleteUser(${u.id})">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function openModal() {
+            document.getElementById('userId').value = '';
+            document.getElementById('userName').value = '';
+            document.getElementById('userSurname').value = '';
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userPhone').value = '';
+            document.getElementById('userRole').value = 'client';
+            document.getElementById('userPass').value = '';
+            document.getElementById('modalTitle').innerText = 'Новый пользователь';
+            document.getElementById('userModal').style.display = 'block';
+        }
+
+        function editUser(user) {
+            document.getElementById('userId').value = user.id;
+            document.getElementById('userName').value = user.name;
+            document.getElementById('userSurname').value = user.surname;
+            document.getElementById('userEmail').value = user.email;
+            document.getElementById('userPhone').value = user.phone;
+            document.getElementById('userRole').value = user.role;
+            document.getElementById('userPass').value = '';
+            document.getElementById('modalTitle').innerText = 'Редактирование';
+            document.getElementById('userModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+
+        async function saveUser() {
+            const payload = {
+                id: document.getElementById('userId').value,
+                name: document.getElementById('userName').value,
+                surname: document.getElementById('userSurname').value,
+                email: document.getElementById('userEmail').value,
+                phone: document.getElementById('userPhone').value,
+                role: document.getElementById('userRole').value,
+                password: document.getElementById('userPass').value
+            };
+
+            const res = await fetch('/api/superadmin/user/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                closeModal();
+                loadUsers();
+            } else {
+                alert("Ошибка: " + data.error);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm("Вы уверены, что хотите удалить этот аккаунт?")) return;
+
+            const res = await fetch('/api/superadmin/user/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id})
+            });
+            const data = await res.json();
+            if (data.success) loadUsers();
+            else alert(data.error);
+        }
+
+        // Начальная загрузка
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>

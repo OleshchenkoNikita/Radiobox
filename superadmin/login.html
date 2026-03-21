@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Вход | SuperAdmin RadioBox</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        body { background: #f0f2f5; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        .login-card h2 { margin-bottom: 25px; color: #1a1a1a; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .btn-login { background: #c62828; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        .btn-login:hover { background: #b71c1c; }
+        #errorMessage { color: #d32f2f; margin-top: 15px; font-size: 14px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>SuperAdmin Access</h2>
+        <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="admin@radiobox.in.ua">
+        </div>
+        <div class="input-group">
+            <label>Пароль</label>
+            <input type="password" id="password" placeholder="••••••••">
+        </div>
+        <button class="btn-login" onclick="performLogin()">Войти в систему</button>
+        <div id="errorMessage"></div>
+    </div>
+
+    <script>
+        async function performLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errDiv = document.getElementById('errorMessage');
+
+            errDiv.style.display = 'none';
+
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                if (data.user.role === 'superadmin') {
+                    window.location.href = '/superadmin';
+                } else {
+                    errDiv.innerText = "Ошибка: недостаточно прав суперадмина";
+                    errDiv.style.display = 'block';
+                }
+            } else {
+                errDiv.innerText = data.error;
+                errDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
