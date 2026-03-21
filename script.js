@@ -1704,6 +1704,11 @@ function renderOrdersPage() {
             </div>
         `).join('');
 
+        let displayPayStatus = order.payment_status || '—';
+        if (displayPayStatus === 'paid') displayPayStatus = 'Оплачено';
+        else if (displayPayStatus === 'unpaid') displayPayStatus = isUA ? 'Не сплачено' : 'Не оплачено';
+        else if (displayPayStatus === 'waiting') displayPayStatus = isUA ? 'Очікує оплати' : 'Ожидает оплаты';
+
         // --- ВЫВОД АККОРДЕОНА ---
         return `
         <div class="order-block" id="order-${order.id}">
@@ -1728,7 +1733,7 @@ function renderOrdersPage() {
                     </div>
                     <div>
                         <p><strong>${isUA ? 'Оплата:' : 'Оплата:'}</strong> ${order.payment_method || '—'}</p>
-                        <p><strong>${isUA ? 'Статус оплати:' : 'Статус оплаты:'}</strong> ${order.payment_status || '—'}</p>
+                        <p><strong>${isUA ? 'Статус оплати:' : 'Статус оплаты:'}</strong> ${displayPayStatus}</p>
                         <div style="margin-top:10px;">${cancelBtnHtml}</div>
                     </div>
                 </div>
