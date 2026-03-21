@@ -440,6 +440,8 @@ def register():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
+    session.clear()
+
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -839,6 +841,7 @@ def admin_login_lang(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/login')
     error = None
     if request.method == 'POST':
+        session.clear()
         email = request.form.get('login') # В форме это поле называется 'login'
         password = request.form.get('password')
 
@@ -2833,6 +2836,19 @@ def superadmin_delete_user():
             return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/user/status')
+def get_user_status():
+    if 'user_id' in session:
+        return jsonify({
+            "is_logged_in": True,
+            "user": {
+                "id": session.get('user_id'),
+                "email": session.get('email'),
+                "role": session.get('role')
+            }
+        })
+    return jsonify({"is_logged_in": False})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

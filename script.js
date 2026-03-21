@@ -1418,10 +1418,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Глобальная функция выхода
-    window.rbLogout = () => {
+    window.rbLogout = async () => {
+        const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
         if(confirm(isUA ? "Ви дійсно хочете вийти?" : "Вы действительно хотите выйти?")) {
-            Session.end();
-            location.reload();
+            try {
+                // Ждем, пока сервер реально очистит сессию
+                await fetch('/admin/logout');
+            } catch (e) {
+                console.error("Ошибка при выходе на сервере:", e);
+            }
+
+            // Только после ответа сервера удаляем локальные данные
+            localStorage.removeItem('rb_session_v1');
+
+            // Теперь переходим на главную
+            location.href = isUA ? '/ua/index.html' : '/ru/index.html';
         }
     };
 });
@@ -1510,12 +1521,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Кнопка Выйти
         const btnLogout = document.getElementById('btnLogout');
         if (btnLogout) {
-            btnLogout.addEventListener('click', () => {
-                if(confirm(TEXT.logoutConfirm)) {
-                    localStorage.removeItem('rb_session_v1');
-                    if (window.rbLogout) window.rbLogout();
-                    window.location.href = 'index.html';
-                }
+            btnLogout.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (window.rbLogout) window.rbLogout();
             });
         }
 
@@ -2054,6 +2062,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ФУНКЦИЯ ОЖИВЛЕНИЯ ШАПКИ ---
     function initHeaderInteractivity() {
+
+        syncSessionWithLocalStorage();
+
         const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
 
         // 1. === СЧЕТЧИК ОТЗЫВОВ (С СЕРВЕРА) ===
@@ -2644,5 +2655,38 @@ async function loadHomeCategories() {
         }
     } catch (e) {
         console.error("Ошибка загрузки категорий:", e);
+    }
+}
+
+// === СИНХРОНИЗАЦИЯ СЕССИИ СЕРВЕРА И БРАУЗЕРА ===
+async function syncSessionWithLocalStorage() {
+    const SESSION_KEY = 'rb_session_v1';
+    try {
+        const res = await fetch('/api/user/status');
+        const data = await res.json();
+
+        let localUser = null;
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            localUser = raw ? JSON.parse(raw) : null;
+        } catch(e) {}
+
+        if (data.is_logged_in) {
+            // Если на сервере сессия есть, а в браузере пусто ИЛИ ID не совпадает
+            if (!localUser || localUser.id !== data.user.id) {
+                console.log("Синхронизация: данные сессии обновлены.");
+                localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+                location.reload();
+            }
+        } else {
+            // Если на сервере сессия пуста (вышли), а в браузере мы "в аккаунте"
+            if (localUser) {
+                console.log("Синхронизация: сессия завершена.");
+                localStorage.removeItem(SESSION_KEY);
+                location.reload();
+            }
+        }
+    } catch (e) {
+        console.error("Sync error:", e);
     }
 }
