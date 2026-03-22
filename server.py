@@ -191,7 +191,7 @@ def init_db():
         default_settings = {
             'site_url': 'https://radiobox.in.ua',
             'google_verification': '',
-            'robots_txt': 'User-agent: *\nDisallow: /admin\nDisallow: /cart\nDisallow: /api\nDisallow: *?search=\nAllow: /',
+            'robots_txt': 'User-agent: *\nDisallow: /admin\nDisallow: /superadmin\nDisallow: /cart\nDisallow: /api\nDisallow: *?search=\nAllow: /',
             'crm_api_key': '',
             'nova_poshta_api_key': 'ВАШ_ТЕКУЩИЙ_КЛЮЧ_ИЗ_КОДА',  # Перенесите сюда ключ из кода
             'privatbank_merchant_id': '',
@@ -2849,6 +2849,17 @@ def get_user_status():
             }
         })
     return jsonify({"is_logged_in": False})
+
+@app.route('/api/public/contacts', methods=['GET'])
+def get_public_contacts():
+    # Получаем JSON строку из настроек
+    phones_json = get_setting('site_phones')
+    # Если настроек еще нет, возвращаем пустой список
+    try:
+        phones = json.loads(phones_json) if phones_json else []
+    except:
+        phones = []
+    return jsonify({"success": True, "phones": phones})
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

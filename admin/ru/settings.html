@@ -92,6 +92,7 @@
             <button class="tab-btn" onclick="AdminSettings.openTab('backups')">Бэкапы и База</button>
             <button class="tab-btn" onclick="AdminSettings.openTab('crm')">Интеграции</button>
             <button class="tab-btn" onclick="AdminSettings.openTab('billing')">Реквизиты и IBAN</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('contacts_manage')">Телефоны</button>
         </div>
 
         <div id="tab-seo" class="tab-content active">
@@ -179,6 +180,19 @@
                     <input type="text" id="s_beneficiary" class="form-input">
                 </div>
                 <button class="btn-save" onclick="AdminSettings.save()">Сохранить реквизиты</button>
+            </div>
+        </div>
+
+        <div id="tab-contacts_manage" class="tab-content">
+            <div class="settings-card">
+                <h3>Управление номерами телефонов</h3>
+                <div id="phonesListContainer" style="margin-bottom: 20px;">
+                    </div>
+                <button class="btn-restore" onclick="AdminSettings.addPhoneField()" style="margin-bottom: 20px; border-color: #189BFF; color: #189BFF;">
+                    + Добавить номер
+                </button>
+                <br>
+                <button class="btn-save" onclick="AdminSettings.save()">Сохранить контакты</button>
             </div>
         </div>
 

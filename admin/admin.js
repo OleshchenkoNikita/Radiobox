@@ -1892,8 +1892,11 @@ const AdminSidebar = {
 
 // === НАСТРОЙКИ И БЭКАПЫ ===
 const AdminSettings = {
+    phones: [],
+
     init: function() {
-        if (!document.getElementById('s_site_url')) return;
+        // Если мы не на странице настроек (нет хотя бы одного поля), ничего не делаем
+        if (!document.getElementById('s_site_url') && !document.getElementById('phonesListContainer')) return;
         this.load();
         this.loadBackups();
     },
@@ -1902,15 +1905,14 @@ const AdminSettings = {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
-        document.getElementById(`tab-${tabName}`).classList.add('active');
-        // Находим кнопку, на которую нажали (по тексту или onclick, но проще перебором)
-        // В данном простом варианте подсветим нужную кнопку по индексу или просто логикой в HTML
-        // Упростим:
+        const targetTab = document.getElementById(`tab-${tabName}`);
+        if (targetTab) targetTab.classList.add('active');
+
         const btns = document.querySelectorAll('.tab-btn');
-        if(tabName === 'seo') btns[0].classList.add('active');
-        if(tabName === 'backups') btns[1].classList.add('active');
-        if(tabName === 'crm') btns[2].classList.add('active');
-        if(tabName === 'billing') btns[3].classList.add('active');
+        const tabIndices = { 'seo': 0, 'backups': 1, 'crm': 2, 'billing': 3, 'contacts_manage': 4 };
+        if (tabIndices[tabName] !== undefined) {
+            btns[tabIndices[tabName]]?.classList.add('active');
+        }
     },
 
     load: async function() {
@@ -1919,32 +1921,89 @@ const AdminSettings = {
             const data = await res.json();
             if (data.success) {
                 const s = data.settings;
-                if(document.getElementById('s_site_url')) document.getElementById('s_site_url').value = s.site_url || '';
-                if(document.getElementById('s_google_ver')) document.getElementById('s_google_ver').value = s.google_verification || '';
-                if(document.getElementById('s_robots')) document.getElementById('s_robots').value = s.robots_txt || '';
-                if(document.getElementById('s_crm_key')) document.getElementById('s_crm_key').value = s.crm_api_key || '';
-                if(document.getElementById('s_np_key')) document.getElementById('s_np_key').value = s.nova_poshta_api_key || '';
-                if(document.getElementById('s_pb_id')) document.getElementById('s_pb_id').value = s.privatbank_merchant_id || '';
-                if(document.getElementById('s_pb_pass')) document.getElementById('s_pb_pass').value = s.privatbank_password || '';
-                if(document.getElementById('s_iban')) document.getElementById('s_iban').value = s.iban_details || '';
-                if(document.getElementById('s_edrpou')) document.getElementById('s_edrpou').value = s.edrpou_details || '';
-                if(document.getElementById('s_beneficiary')) document.getElementById('s_beneficiary').value = s.beneficiary_details || '';
+
+                // Безопасная загрузка полей
+                const mapping = {
+                    's_site_url': s.site_url,
+                    's_google_ver': s.google_verification,
+                    's_robots': s.robots_txt,
+                    's_crm_key': s.crm_api_key,
+                    's_np_key': s.nova_poshta_api_key,
+                    's_pb_id': s.privatbank_merchant_id,
+                    's_pb_pass': s.privatbank_password,
+                    's_iban': s.iban_details,
+                    's_edrpou': s.edrpou_details,
+                    's_beneficiary': s.beneficiary_details
+                };
+
+                for (let id in mapping) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = mapping[id] || '';
+                }
+
+                // Загрузка телефонов
+                if (s.site_phones) {
+                    try {
+                        this.phones = JSON.parse(s.site_phones);
+                    } catch(e) { this.phones = []; }
+                } else {
+                    this.phones = [];
+                }
+                this.renderPhones();
             }
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error("Ошибка загрузки настроек:", e); }
+    },
+
+    renderPhones: function() {
+        const container = document.getElementById('phonesListContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+        this.phones.forEach((p, index) => {
+            container.innerHTML += `
+                <div class="form-group" style="display:flex; gap:10px; align-items:center; background:#f8fafc; padding:10px; border-radius:8px; margin-bottom:10px;">
+                    <input type="text" class="form-input" value="${p.number}" placeholder="Номер (н-р: +380...)" onchange="AdminSettings.updatePhone(${index}, 'number', this.value)">
+                    <label style="margin:0; font-size:12px; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                        <input type="checkbox" ${p.is_viber ? 'checked' : ''} onchange="AdminSettings.updatePhone(${index}, 'is_viber', this.checked)"> Viber
+                    </label>
+                    <button type="button" onclick="AdminSettings.removePhone(${index})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:18px;">&times;</button>
+                </div>
+            `;
+        });
+    },
+
+    addPhoneField: function() {
+        this.phones.push({ number: '', is_viber: false });
+        this.renderPhones();
+    },
+
+    updatePhone: function(index, key, value) {
+        if (this.phones[index]) {
+            this.phones[index][key] = value;
+        }
+    },
+
+    removePhone: function(index) {
+        this.phones.splice(index, 1);
+        this.renderPhones();
     },
 
     save: async function() {
+        // Сбор данных с проверкой на существование элементов
+        const getVal = (id) => document.getElementById(id)?.value || '';
+
         const data = {
-            site_url: document.getElementById('s_site_url').value,
-            google_verification: document.getElementById('s_google_ver').value,
-            robots_txt: document.getElementById('s_robots').value,
-            crm_api_key: document.getElementById('s_crm_key').value,
-            nova_poshta_api_key: document.getElementById('s_np_key').value,
-            privatbank_merchant_id: document.getElementById('s_pb_id').value,
-            privatbank_password: document.getElementById('s_pb_pass').value,
-            iban_details: document.getElementById('s_iban').value,
-            edrpou_details: document.getElementById('s_edrpou').value,
-            beneficiary_details: document.getElementById('s_beneficiary').value
+            site_url: getVal('s_site_url'),
+            google_verification: getVal('s_google_ver'),
+            robots_txt: getVal('s_robots'),
+            crm_api_key: getVal('s_crm_key'),
+            nova_poshta_api_key: getVal('s_np_key'),
+            privatbank_merchant_id: getVal('s_pb_id'),
+            privatbank_password: getVal('s_pb_pass'),
+            iban_details: getVal('s_iban'),
+            edrpou_details: getVal('s_edrpou'),
+            beneficiary_details: getVal('s_beneficiary'),
+            site_phones: JSON.stringify(this.phones)
         };
 
         try {
@@ -1954,9 +2013,15 @@ const AdminSettings = {
                 body: JSON.stringify(data)
             });
             const ans = await res.json();
-            if(ans.success) alert('Настройки сохранены!');
-            else alert('Ошибка');
-        } catch(e) { alert('Ошибка сети'); }
+            if(ans.success) {
+                alert('Настройки сохранены!');
+            } else {
+                alert('Ошибка сервера: ' + (ans.error || 'Неизвестная ошибка'));
+            }
+        } catch(e) {
+            console.error(e);
+            alert('Ошибка сети или сбой скрипта');
+        }
     },
 
     loadBackups: async function() {
@@ -1970,9 +2035,7 @@ const AdminSettings = {
             if(data.success && data.backups.length > 0) {
                 list.innerHTML = data.backups.map(file => `
                     <li class="backup-item">
-                        <div>
-                            <strong>${file}</strong>
-                        </div>
+                        <strong>${file}</strong>
                         <button class="btn-restore" onclick="AdminSettings.restore('${file}')">Восстановить</button>
                     </li>
                 `).join('');
@@ -1983,7 +2046,7 @@ const AdminSettings = {
     },
 
     restore: async function(filename) {
-        if(!confirm(`ВНИМАНИЕ! \nВсе текущие изменения в базе (заказы, товары) будут потеряны и заменены версией от ${filename}.\n\nВы уверены?`)) return;
+        if(!confirm(`ВНИМАНИЕ! \nВсе текущие изменения в базе будут потеряны. Вы уверены?`)) return;
 
         try {
             const res = await fetch('/api/admin/backup/restore', {
@@ -1993,10 +2056,8 @@ const AdminSettings = {
             });
             const data = await res.json();
             if(data.success) {
-                alert('База восстановлена! Страница будет перезагружена.');
+                alert('База восстановлена!');
                 location.reload();
-            } else {
-                alert('Ошибка: ' + data.error);
             }
         } catch(e) { alert('Ошибка сети'); }
     }

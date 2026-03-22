@@ -311,6 +311,10 @@ document.addEventListener("DOMContentLoaded", () => {
         viber.append(idleImg, hoverImg);
         document.body.appendChild(viber);
     }
+
+    if (window.location.pathname.includes('contacts.html')) {
+        loadDynamicContacts();
+    }
 });
 
 // ===== MODAL "График работы" =====
@@ -2313,6 +2317,8 @@ async function loadSidebar() {
         const html = await response.text();
         target.innerHTML = html;
 
+        loadDynamicContacts()
+
         // 3. Загружаем категории из Админки и вставляем их в раздел "Товары"
         await loadDynamicCategories();
 
@@ -2688,5 +2694,46 @@ async function syncSessionWithLocalStorage() {
         }
     } catch (e) {
         console.error("Sync error:", e);
+    }
+}
+
+// Добавить в конец script.js
+async function loadDynamicContacts() {
+    try {
+        const res = await fetch('/api/public/contacts');
+        const data = await res.json();
+
+        if (!data.success || !data.phones || data.phones.length === 0) return;
+
+        // 1. Обновляем телефоны в Сайдбаре
+        const sidebarCont = document.getElementById('sidebar-phones-list');
+        if (sidebarCont) {
+            sidebarCont.innerHTML = data.phones.map(p => `
+                <div>
+                    <span class="ci ci-phone"></span>
+                    <a href="tel:${p.number.replace(/\D/g, '')}">${p.number}</a>
+                    ${p.is_viber ? `<img src="../assets/icons/viber_under_cursor.png" width="14" style="margin-left:5px; vertical-align:middle;">` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 2. Обновляем таблицу на странице Контактов
+        const pageCont = document.getElementById('page-phones-list');
+        if (pageCont) {
+            pageCont.innerHTML = data.phones.map(p => `
+                <a href="tel:${p.number.replace(/\D/g, '')}">${p.number} ${p.is_viber ? '(Viber)' : ''}</a>
+            `).join('');
+        }
+
+        // 3. Обновляем номер во всех ссылках viber:// (включая плавающую кнопку)
+        const viberEntry = data.phones.find(p => p.is_viber);
+        if (viberEntry) {
+            const cleanNumber = viberEntry.number.replace(/\D/g, '');
+            document.querySelectorAll('a[href^="viber://"]').forEach(link => {
+                link.href = `viber://chat?number=%2B${cleanNumber}`;
+            });
+        }
+    } catch (e) {
+        console.error("Ошибка при динамической загрузке контактов:", e);
     }
 }
