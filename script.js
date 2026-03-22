@@ -312,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.appendChild(viber);
     }
 
-    if (window.location.pathname.includes('contacts.html')) {
+    if (window.location.pathname.includes('contacts.html') || window.location.pathname.includes('checkout.html')) {
         loadDynamicContacts();
     }
 });
@@ -2697,41 +2697,54 @@ async function syncSessionWithLocalStorage() {
     }
 }
 
-// Добавить в конец script.js
 async function loadDynamicContacts() {
     try {
         const res = await fetch('/api/public/contacts');
         const data = await res.json();
 
-        if (!data.success || !data.phones || data.phones.length === 0) return;
+        if (!data.success) return;
 
-        // 1. Обновляем телефоны в Сайдбаре
-        const sidebarCont = document.getElementById('sidebar-phones-list');
-        if (sidebarCont) {
-            sidebarCont.innerHTML = data.phones.map(p => `
-                <div>
-                    <span class="ci ci-phone"></span>
-                    <a href="tel:${p.number.replace(/\D/g, '')}">${p.number}</a>
-                    ${p.is_viber ? `<img src="../assets/icons/viber_under_cursor.png" width="14" style="margin-left:5px; vertical-align:middle;">` : ''}
-                </div>
-            `).join('');
-        }
+        // Определяем язык (украинский или русский)
+        const isUA = (document.documentElement.getAttribute("lang") || "").toLowerCase().startsWith("uk") || /\/ua\//i.test(location.pathname);
+        const currentAddress = isUA ? data.address_ua : data.address_ru;
 
-        // 2. Обновляем таблицу на странице Контактов
-        const pageCont = document.getElementById('page-phones-list');
-        if (pageCont) {
-            pageCont.innerHTML = data.phones.map(p => `
-                <a href="tel:${p.number.replace(/\D/g, '')}">${p.number} ${p.is_viber ? '(Viber)' : ''}</a>
-            `).join('');
-        }
+        // --- 1. ОБНОВЛЯЕМ АДРЕС (Сайдбар, Контакты, Чекаут) ---
+        const addrIds = ['sidebar-address', 'page-address', 'checkout-pickup-address'];
+        addrIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = currentAddress;
+        });
 
-        // 3. Обновляем номер во всех ссылках viber:// (включая плавающую кнопку)
-        const viberEntry = data.phones.find(p => p.is_viber);
-        if (viberEntry) {
-            const cleanNumber = viberEntry.number.replace(/\D/g, '');
-            document.querySelectorAll('a[href^="viber://"]').forEach(link => {
-                link.href = `viber://chat?number=%2B${cleanNumber}`;
-            });
+        // --- 2. ОБНОВЛЯЕМ ТЕЛЕФОНЫ ---
+        if (data.phones && data.phones.length > 0) {
+            // В сайдбаре
+            const sidebarCont = document.getElementById('sidebar-phones-list');
+            if (sidebarCont) {
+                sidebarCont.innerHTML = data.phones.map(p => `
+                    <div>
+                        <span class="ci ci-phone"></span>
+                        <a href="tel:${p.number.replace(/\D/g, '')}">${p.number}</a>
+                        ${p.is_viber ? `<img src="../assets/icons/viber_under_cursor.png" width="14" style="margin-left:5px; vertical-align:middle;">` : ''}
+                    </div>
+                `).join('');
+            }
+
+            // На странице Контактов
+            const pageCont = document.getElementById('page-phones-list');
+            if (pageCont) {
+                pageCont.innerHTML = data.phones.map(p => `
+                    <a href="tel:${p.number.replace(/\D/g, '')}">${p.number} ${p.is_viber ? '(Viber)' : ''}</a>
+                `).join('');
+            }
+
+            // --- 3. ОБНОВЛЯЕМ VIBER ---
+            const viberEntry = data.phones.find(p => p.is_viber);
+            if (viberEntry) {
+                const cleanNumber = viberEntry.number.replace(/\D/g, '');
+                document.querySelectorAll('a[href^="viber://"]').forEach(link => {
+                    link.href = `viber://chat?number=%2B${cleanNumber}`;
+                });
+            }
         }
     } catch (e) {
         console.error("Ошибка при динамической загрузке контактов:", e);

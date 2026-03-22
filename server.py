@@ -2850,16 +2850,25 @@ def get_user_status():
         })
     return jsonify({"is_logged_in": False})
 
+
 @app.route('/api/public/contacts', methods=['GET'])
 def get_public_contacts():
-    # Получаем JSON строку из настроек
     phones_json = get_setting('site_phones')
-    # Если настроек еще нет, возвращаем пустой список
+    # Достаем адреса из базы (или ставим значения по умолчанию)
+    address_ru = get_setting('site_address_ru') or "г. Шостка, Украина"
+    address_ua = get_setting('site_address_ua') or "м. Шостка, Україна"
+
     try:
         phones = json.loads(phones_json) if phones_json else []
     except:
         phones = []
-    return jsonify({"success": True, "phones": phones})
+
+    return jsonify({
+        "success": True,
+        "phones": phones,
+        "address_ru": address_ru,
+        "address_ua": address_ua
+    })
 
 if __name__ == '__main__':
     init_db() # Это создаст новые таблицы и бэкап

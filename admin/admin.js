@@ -1950,6 +1950,9 @@ const AdminSettings = {
                     this.phones = [];
                 }
                 this.renderPhones();
+
+                if(document.getElementById('s_address_ru')) document.getElementById('s_address_ru').value = s.site_address_ru || '';
+                if(document.getElementById('s_address_ua')) document.getElementById('s_address_ua').value = s.site_address_ua || '';
             }
         } catch(e) { console.error("Ошибка загрузки настроек:", e); }
     },
@@ -2003,6 +2006,8 @@ const AdminSettings = {
             iban_details: getVal('s_iban'),
             edrpou_details: getVal('s_edrpou'),
             beneficiary_details: getVal('s_beneficiary'),
+            site_address_ru: document.getElementById('s_address_ru')?.value || '',
+            site_address_ua: document.getElementById('s_address_ua')?.value || '',
             site_phones: JSON.stringify(this.phones)
         };
 

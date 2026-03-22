@@ -91,7 +91,7 @@
             <button class="tab-btn" onclick="AdminSettings.openTab('backups')">Бекапи та База</button>
             <button class="tab-btn" onclick="AdminSettings.openTab('crm')">Інтеграції</button>
             <button class="tab-btn" onclick="AdminSettings.openTab('billing')">Реквізити та IBAN</button>
-            <button class="tab-btn" onclick="AdminSettings.openTab('contacts_manage')">Телефони</button>
+            <button class="tab-btn" onclick="AdminSettings.openTab('contacts_manage')">Контакти</button>
         </div>
 
         <div id="tab-seo" class="tab-content active">
@@ -181,14 +181,29 @@
 
         <div id="tab-contacts_manage" class="tab-content">
             <div class="settings-card">
-                <h3>Керування номерами телефонів</h3>
+                <h3>Адреса магазину</h3>
+                <div class="form-group">
+                    <label>Адреса (RU версія)</label>
+                    <input type="text" id="s_address_ru" class="form-input" placeholder="г. Шостка, Украина">
+                </div>
+                <div class="form-group">
+                    <label>Адреса (UA версія)</label>
+                    <input type="text" id="s_address_ua" class="form-input" placeholder="м. Шостка, Україна">
+                </div>
+
+                <button class="btn-save" onclick="AdminSettings.save()" style="margin-bottom: 25px;">Зберегти адреси</button>
+
+                <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">
+
+                <h3>Номери телефонів</h3>
                 <div id="phonesListContainer" style="margin-bottom: 20px;">
                     </div>
-                <button class="btn-restore" onclick="AdminSettings.addPhoneField()" style="margin-bottom: 20px; border-color: #189BFF; color: #189BFF;">
+                <button class="btn-restore" type="button" onclick="AdminSettings.addPhoneField()" style="margin-bottom: 20px; border-color: #189BFF; color: #189BFF;">
                     + Додати номер
                 </button>
                 <br>
-                <button class="btn-save" onclick="AdminSettings.save()">Зберегти контакти</button>
+
+                <button class="btn-save" onclick="AdminSettings.save()">Зберегти всі контакти</button>
             </div>
         </div>
 
