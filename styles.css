@@ -2403,3 +2403,242 @@ video::-webkit-media-controls-panel {
     font-size: 13px;
     text-transform: uppercase;
 }
+
+/* ==================================================
+   ЭТАП 1: АДАПТИВ ДЛЯ ПЛАНШЕТОВ И ТЕЛЕФОНОВ
+   ================================================== */
+@media (max-width: 1024px) {
+
+    /* 1. Убираем боковые декоративные изображения */
+    .side-art {
+        display: none !important;
+    }
+
+    /* 2. Прячем лишние части хэдера (оставляем только белую полосу позже) */
+    .b-head-control-panel__container,
+    .b-contacts-bar,
+    .site-header {
+        display: none !important;
+    }
+
+    /* 3. Скрываем левую колонку (меню и контакты) */
+    /* Мы вернем их позже в виде выездного бургер-меню */
+    .home-left {
+        display: none !important;
+    }
+
+    /* 4. Перестраиваем основную сетку в одну колонку */
+    .home-layout {
+        display: block; /* Отменяем Grid */
+        grid-template-columns: 1fr;
+        margin: 10px auto;
+        padding: 0;
+    }
+
+    /* 5. Растягиваем правую часть с контентом на всю ширину */
+    .home-right {
+        width: 100%;
+        padding: 0;
+    }
+
+    /* 6. Корректируем отступы основного контейнера */
+    .container {
+        max-width: 100%;
+        padding: 0 15px; /* Уменьшаем боковые поля, чтобы контент не прилипал */
+    }
+
+    /* 7. Адаптируем белую полосу хэдера (лого, поиск, корзина) */
+    .white-inner {
+        grid-template-columns: 1fr; /* На мобильных все элементы в ряд или друг под другом */
+        gap: 10px;
+        padding: 10px;
+        text-align: center;
+    }
+
+    .brand {
+        justify-content: center;
+    }
+
+    .search-wide {
+        order: 3; /* Поиск опускаем вниз в блоке хэдера для удобства */
+        margin-top: 5px;
+    }
+}
+
+/* ==================================================
+   БАЗОВЫЙ СКРЫТЫЙ РЕЖИМ (ДЛЯ ПК)
+   ================================================== */
+/* Прячем кнопку бургера на компьютерах */
+.mobile-menu-btn {
+    display: none !important;
+}
+
+/* Прячем мобильное меню на компьютерах */
+.menu-drawer {
+    display: none;
+}
+
+/* ==================================================
+   ЭТАП 2: АДАПТИВ (ТОЛЬКО ДЛЯ МОБИЛЬНЫХ И ПЛАНШЕТОВ)
+   ================================================== */
+@media (max-width: 1024px) {
+
+    /* 1. Показываем кнопку бургера только тут */
+    .mobile-menu-btn {
+        display: flex !important;
+        flex-direction: column;
+        justify-content: space-around;
+        width: 30px;
+        height: 22px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        margin-right: 15px;
+    }
+    .mobile-menu-btn span {
+        width: 100%;
+        height: 3px;
+        background: #0d2b4e;
+        border-radius: 2px;
+    }
+
+    /* 2. Показываем панель меню */
+    .menu-drawer {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        visibility: hidden;
+        pointer-events: none;
+    }
+    .menu-drawer.is-open { visibility: visible; pointer-events: auto; }
+
+    /* Фону и панели нужны стили только здесь */
+    .menu-drawer__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); opacity: 0; transition: opacity .3s; }
+    .menu-drawer.is-open .menu-drawer__backdrop { opacity: 1; }
+
+    .menu-drawer__panel {
+        position: absolute; top: 0; left: 0; width: 280px; height: 100%;
+        background: #fff; transform: translateX(-100%); transition: transform .3s ease;
+        display: flex; flex-direction: column; box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+    }
+    .menu-drawer.is-open .menu-drawer__panel { transform: translateX(0); }
+
+    /* Остальные стили внутренностей меню... */
+    .menu-drawer__header { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .menu-drawer__title { margin: 0; font-size: 18px; font-weight: 800; color: #0d2b4e; }
+    .menu-drawer__close { border: none; background: none; font-size: 30px; cursor: pointer; line-height: 1; }
+    .menu-drawer__body { padding: 20px; flex: 1; overflow-y: auto; }
+    .mobile-nav ul { list-style: none; padding: 0; margin: 0; }
+    .mobile-nav li { margin-bottom: 15px; }
+    .mobile-nav a { font-size: 18px; font-weight: 700; color: #0f172a; }
+
+    /* 3. Исправляем белую полосу на мобильных */
+    .white-inner {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .search-wide { width: 100%; order: 3; margin-top: 10px; }
+
+    /* --- Адаптация Checkout --- */
+
+    /* 1. Делаем сетку вертикальной */
+    .co-grid {
+        display: flex !important;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    /* 2. Блок с итогами заказа (Summary) на мобильных опускаем вниз */
+    .co-right {
+        order: 2; /* Опускаем после формы */
+        margin-top: 20px;
+        width: 100% !important;
+    }
+
+    .co-left {
+        order: 1;
+        width: 100% !important;
+    }
+
+    /* Сама кнопка в футере чекаута */
+    .checkout-footer {
+        flex-direction: column !important; /* Кнопки друг под другом */
+        order: 3; /* Самый низ страницы */
+    }
+
+    /* 3. Увеличиваем поля ввода для удобства (Finger-friendly) */
+    .co-field input,
+    .co-field select,
+    .co-field textarea {
+        height: 48px !important; /* Стандарт для мобильных */
+        font-size: 16px !important; /* Предотвращает зум на iPhone при клике */
+    }
+
+    /* 4. Карточки выбора доставки */
+    .co-radio-card {
+        padding: 12px !important;
+    }
+
+    .co-radio-head {
+        flex-wrap: wrap; /* Чтобы цена не наезжала на текст */
+    }
+
+    .co-radio-price {
+        width: 100%;
+        text-align: left;
+        margin-top: 5px;
+        font-weight: 800;
+    }
+
+    /* --- Адаптация Order-Success --- */
+    .success-container {
+        padding: 40px 15px !important;
+        text-align: center;
+    }
+
+    .success-icon {
+        width: 60px !important;
+        height: 60px !important;
+    }
+
+    .success-title {
+        font-size: 24px !important;
+    }
+
+    .co-header {
+        padding: 10px 0 !important;
+    }
+
+    .co-title {
+        font-size: 18px !important;
+    }
+
+    .co-back-btn {
+        font-size: 14px;
+    }
+}
+
+/* 1. Таблицы (График работы и прочее) */
+    .hours-table, .orders-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto; /* Появится скролл, если таблица шире экрана */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 3. Сетка товаров (2 в ряд) */
+    .products-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important; /* Ровно два столбца */
+        gap: 10px !important;
+    }
+
+    /* 4. Кнопки в карточке товара */
+    .product-card .btn-buy {
+        padding: 12px 5px !important;
+        font-size: 14px !important;
+    }

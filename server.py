@@ -258,12 +258,6 @@ def init_db():
                 # Ошибка возникает, если колонка уже есть. Это нормально, просто пропускаем.
                 pass
 
-        try:
-            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'client'")
-            print("[Migration] Добавлена колонка role в таблицу users")
-        except sqlite3.OperationalError:
-            pass  # Колонка уже существует
-
             # === ДОБАВИТЬ ВОТ ЭТО (ЛЕЧЕНИЕ NULL) ===
         try:
             cursor.execute("UPDATE products SET on_index = 0 WHERE on_index IS NULL")
@@ -1761,7 +1755,9 @@ def admin_get_banners():
 def admin_upload_banner():
     if 'file' not in request.files: return jsonify({"success": False, "error": "No file"})
     file = request.files['file']
-    css_style = request.form.get('css_style', '')  # <--- ПОЛУЧАЕМ СТИЛЬ
+    # ПРИНИМАЕМ ТИП УСТРОЙСТВА И СТИЛЬ
+    device_type = request.form.get('device_type', 'pc')
+    css_style = request.form.get('css_style', '')
 
     if file.filename == '': return jsonify({"success": False, "error": "Empty filename"})
 
@@ -1790,8 +1786,8 @@ def admin_upload_banner():
 
         # Сохраняем css_style
         cursor.execute(
-            "INSERT INTO banners (filename, file_type, position, is_visible, created_at, css_style) VALUES (?, ?, ?, ?, ?, ?)",
-            (web_path, file_type, pos, 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), css_style))
+            "INSERT INTO banners (filename, file_type, position, is_visible, created_at, css_style, device_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (web_path, 'video' if filename.endswith(('mp4', 'webm')) else 'image', pos, 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), css_style, device_type))
         conn.commit()
 
     return jsonify({"success": True})
@@ -1801,7 +1797,11 @@ def admin_upload_banner():
 def admin_banner_update_style():
     data = request.json
     with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("UPDATE banners SET css_style = ? WHERE id = ?", (data['css_style'], data['id']))
+        conn.execute("""
+                    UPDATE banners 
+                    SET css_style = ?, device_type = ? 
+                    WHERE id = ?
+                """, (data['css_style'], data.get('device_type', 'pc'), data['id']))
         conn.commit()
     return jsonify({"success": True})
 
@@ -1859,8 +1859,13 @@ def admin_banner_reorder():
 def public_get_banners():
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
-        # ВАЖНО: Добавили css_style в выборку
-        rows = conn.execute("SELECT filename, file_type, css_style FROM banners WHERE is_visible = 1 ORDER BY position ASC").fetchall()
+        # ДОБАВИЛИ device_type В SELECT
+        rows = conn.execute("""
+            SELECT filename, file_type, css_style, device_type 
+            FROM banners 
+            WHERE is_visible = 1 
+            ORDER BY position ASC
+        """).fetchall()
         banners = [dict(r) for r in rows]
     return jsonify({"success": True, "banners": banners})
 

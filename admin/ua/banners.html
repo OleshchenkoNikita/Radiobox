@@ -82,7 +82,7 @@
 
                 <input type="file" id="bannerUpload" style="display:none" accept="image/*,video/mp4,video/webm" onchange="AdminBanners.handleFileSelect(this)">
 
-                <button class="btn-primary" onclick="document.getElementById('bannerUpload').click()">+ Завантажити</button>
+                <button class="btn-primary" onclick="openBannerModal()">+ Завантажити (Фото/Відео)</button>
             </div>
         </div>
 
@@ -95,18 +95,46 @@
         </div>
     </main>
 
-    <div id="cropModal" class="modal">
-        <div class="modal-content">
-            <h2 style="margin-top:0">Обрізка / Вибір області</h2>
+    <div id="cropModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="modal-content" style="background: white; padding: 25px; border-radius: 12px; max-width: 900px; width: 95%; position: relative; max-height: 95vh; overflow-y: auto;">
+            <h2 style="margin-top:0">Редагування банера</h2>
 
-            <div class="crop-container">
-                <img id="cropImage" src="" style="max-width: 100%;">
-            </div>
+            <form id="addBannerForm">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Для якого пристрою? <span class="req">*</span></label>
+                    <select name="device_type" id="deviceTypeSelect" class="form-control" required style="width: 100%; padding: 8px;">
+                        <option value="pc">Комп'ютер (PC) — 1920x600</option>
+                        <option value="tablet">Планшет (Tablet) — 1200x800</option>
+                        <option value="mobile">Телефон (Mobile) — 800x1200</option>
+                    </select>
+                </div>
 
-            <div class="modal-actions">
-                <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="AdminBanners.closeCropModal()">Скасувати</button>
-                <button type="button" class="btn-primary" onclick="AdminBanners.confirmCrop()">ОК, Застосувати</button>
-            </div>
+                <div id="fileInputGroup" class="form-group" style="margin-bottom: 15px;">
+                    <label>Виберіть файл <span class="req">*</span></label>
+                    <input type="file" id="bannerFileInput" name="file" accept="image/*,video/*" style="width: 100%;">
+                </div>
+
+                <div id="cropWrapper" style="display:none; margin-bottom: 15px;">
+                    <label>Налаштуйте область (Кроппер):</label>
+                    <div style="max-height: 600px; overflow: hidden; border: 1px solid #ddd; background: #f8f8f8; display: flex; justify-content: center;">
+                        <img id="cropImage" src="" style="max-width: 100%; display: block;">
+                    </div>
+                </div>
+
+                <div class="alert alert-info" style="font-size: 13px; margin-top: 15px; background: #eef6ff; border: 1px solid #d0e3ff; padding: 10px; border-radius: 6px;">
+                    <strong>Рекомендовані роздільні здатності:</strong>
+                    <ul style="margin: 5px 0 0 15px; padding: 0;">
+                        <li><b>PC:</b> 1920x600 пікселів (широкий)</li>
+                        <li><b>Tablet:</b> 1200x800 пікселів (альбомний)</li>
+                        <li><b>Mobile:</b> 800x1200 пікселів (вертикальний)</li>
+                    </ul>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155; border:none;" onclick="closeBannerModal()">Скасувати</button>
+                    <button type="submit" class="btn-primary">Зберегти банер</button>
+                </div>
+            </form>
         </div>
     </div>
 

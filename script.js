@@ -102,12 +102,27 @@
         try {
             const r = await fetch('/api/banners');
             const data = await r.json();
-            if (data.success && data.banners.length > 0) {
-                return data.banners;
-            }
-        } catch (e) { console.error("Banner API Error:", e); }
 
-        // Если API не ответил, возвращаем пустой массив (или можно оставить старый фоллбэк)
+            if (data.success && data.banners.length > 0) {
+                const width = window.innerWidth;
+                let currentDevice = 'pc';
+
+                if (width <= 640) currentDevice = 'mobile';
+                else if (width <= 1024) currentDevice = 'tablet';
+
+                // 1. Пытаемся найти баннеры именно для текущего устройства
+                let filtered = data.banners.filter(b => b.device_type === currentDevice);
+
+                // 2. Если для мобилы/планшета ничего не залили, берем PC-версию (чтобы слайдер не был пустым)
+                if (filtered.length === 0) {
+                    filtered = data.banners.filter(b => b.device_type === 'pc');
+                }
+
+                return filtered;
+            }
+        } catch (e) {
+            console.error("Ошибка загрузки баннеров:", e);
+        }
         return [];
     }
 
@@ -2749,4 +2764,13 @@ async function loadDynamicContacts() {
     } catch (e) {
         console.error("Ошибка при динамической загрузке контактов:", e);
     }
+}
+
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobileMenu');
+    if (!menu) return;
+
+    const isOpen = menu.classList.toggle('is-open');
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    menu.setAttribute('aria-hidden', !isOpen);
 }

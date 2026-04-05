@@ -1399,10 +1399,64 @@ const AdminBanners = {
         if (!document.getElementById('bannersGrid')) return;
         this.lang = document.documentElement.lang === 'uk' ? 'ua' : 'ru';
         this.load();
+
+        // Слушаем выбор файла
+        document.getElementById('bannerFileInput')?.addEventListener('change', (e) => this.handleFileSelect(e.target));
+
+        // ДОБАВЬ ЭТО: Слушаем отправку формы
+        document.getElementById('addBannerForm')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.confirmSave(); // Вызываем сохранение
+        });
+    },
+
+    confirmSave: function() {
+        const deviceType = document.getElementById('deviceTypeSelect').value;
+
+        if (this.isEditMode) {
+            // РЕЖИМ ПРАВКИ: Обновляем только стили (область) через API update_style
+            this.saveVirtualCrop(deviceType);
+        } else {
+            // РЕЖИМ ЗАГРУЗКИ: Шлем новый файл на сервер
+            if (!this.currentFile) return alert("Выберите файл");
+
+            if (this.cropper && this.currentFile.type.startsWith('image/')) {
+                this.cropper.getCroppedCanvas().toBlob((blob) => {
+                    const ext = this.currentFile.name.split('.').pop();
+                    const file = new File([blob], "banner." + ext, { type: this.currentFile.type });
+                    this.uploadFile(file, deviceType);
+                });
+            } else {
+                this.uploadFile(this.currentFile, deviceType);
+            }
+        }
+    },
+
+    saveVirtualCrop: async function(deviceType) {
+        if (!this.cropper) return;
+        const data = this.cropper.getData();
+        const imgData = this.cropper.getImageData();
+
+        // Формируем CSS (зум и сдвиг)
+        const widthPct = (imgData.naturalWidth / data.width) * 100;
+        const heightPct = (imgData.naturalHeight / data.height) * 100;
+        const xPct = (data.x / imgData.naturalWidth) * 100;
+        const yPct = (data.y / imgData.naturalHeight) * 100;
+
+        const cssStyle = `width:${widthPct.toFixed(2)}%!important;height:${heightPct.toFixed(2)}%!important;transform:translate(-${xPct.toFixed(2)}%,-${yPct.toFixed(2)}%)!important;transform-origin:0 0!important;object-fit:fill!important;max-width:none!important;`;
+
+        try {
+            await fetch('/api/admin/banner/update_style', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id: this.editId, css_style: cssStyle, device_type: deviceType })
+            });
+            this.closeBannerModal();
+            this.load(); // Перезагружаем список
+        } catch(e) { console.error(e); }
     },
 
     load: async function() {
-        const container = document.getElementById('bannersGrid');
         try {
             const res = await fetch('/api/admin/banners');
             const data = await res.json();
@@ -1458,7 +1512,7 @@ const AdminBanners = {
                         ${visBadge}
                     </div>
                     <div class="action-group">
-                        <button class="btn-icon" title="${btnEditTitle}" onclick="AdminBanners.editCrop(${b.id}, '${b.filename}', '${b.file_type}')">✂️</button>
+                        <button class="btn-icon" title="${btnEditTitle}" onclick="AdminBanners.editCrop(${b.id}, '${b.filename}', '${b.file_type}', '${b.device_type}')">✂️</button>
                         <button class="btn-icon" onclick="AdminBanners.toggleVis(${b.id}, ${b.is_visible})">${b.is_visible ? '👁️' : '🙈'}</button>
                         <button class="btn-icon red" onclick="AdminBanners.delete(${b.id})">🗑️</button>
                     </div>
@@ -1475,40 +1529,49 @@ const AdminBanners = {
     },
 
     // === 1. ЗАГРУЗКА НОВОГО ФАЙЛА ===
-    handleFileSelect: async function(input) {
+    // 1. Когда выбрали файл - показываем его в Кроппере
+    handleFileSelect: function(input) {
         if (!input.files || !input.files[0]) return;
         this.currentFile = input.files[0];
-        this.isEditMode = false;
 
-        const isVideo = this.currentFile.type.startsWith('video/');
+        const wrapper = document.getElementById('cropWrapper');
+        const image = document.getElementById('cropImage');
 
-        if (isVideo) {
-            // Для видео: извлекаем кадр для Кроппера
-            await this.openVideoCropper(this.currentFile);
-        } else {
-            // Для фото: обычный ридер
+        if (this.currentFile.type.startsWith('image/')) {
             const reader = new FileReader();
-            reader.onload = (e) => this.initCropper(e.target.result, false);
+            reader.onload = (e) => {
+                image.src = e.target.result;
+                wrapper.style.display = 'block';
+                this.initCropper(image);
+            };
             reader.readAsDataURL(this.currentFile);
+        } else {
+            // Для видео кроп не делаем (пока), просто прячем превью
+            wrapper.style.display = 'none';
         }
-        input.value = '';
     },
 
     // === 2. РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕГО ===
-    editCrop: async function(id, src, type) {
+    editCrop: function(id, src, type, deviceType) {
         this.isEditMode = true;
         this.editId = id;
 
-        if (type === 'video') {
-            // Грузим видео как Blob (чтобы захватить кадр), или пробуем captureVideoFrame по URL
-            // Упростим: просто создадим видео элемент с src
-            this.captureFrameFromUrl(src);
-        } else {
-            // Для картинок редактирование кропа невозможно без оригинала.
-            // Но пользователь просил "править".
-            // Если картинка уже обрезана, мы можем только обрезать её ЕЩЕ раз.
-            this.initCropper(src, false);
+        const modal = document.getElementById('cropModal');
+        modal.style.display = 'flex';
+
+        // ПРЕДУСТАНОВКА ЗНАЧЕНИЯ: теперь при открытии будет стоять правильное устройство
+        const select = document.getElementById('deviceTypeSelect');
+        if (select && deviceType) {
+            select.value = deviceType;
         }
+
+        document.getElementById('fileInputGroup').style.display = 'none';
+
+        const image = document.getElementById('cropImage');
+        image.src = src;
+        document.getElementById('cropWrapper').style.display = 'block';
+
+        setTimeout(() => this.initCropper(image), 100);
     },
 
     // --- ЛОГИКА ВИДЕО: Получить кадр ---
@@ -1542,99 +1605,37 @@ const AdminBanners = {
     },
 
     // --- ЗАПУСК КРОППЕРА (ОБЩИЙ) ---
-    initCropper: function(imgSrc, isVideoContext) {
-        const image = document.getElementById('cropImage');
-        image.src = imgSrc;
-        this.isVideoContext = isVideoContext;
-
-        document.getElementById('cropModal').classList.add('active');
-
-        // Удаляем старый, если был
+    initCropper: function(image) {
         if (this.cropper) this.cropper.destroy();
-
         this.cropper = new Cropper(image, {
-            viewMode: 1, // Ограничить рамками
-            autoCropArea: 0.8,
-            zoomable: true,
-            movable: true,
-            // Для видео свободный аспект (или можно задать 3/1 как у баннера)
-            aspectRatio: NaN,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 1,
+            restore: false,
+            guides: true,
+            center: true,
+            highlight: false,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false,
         });
     },
 
     // === 3. ПОДТВЕРЖДЕНИЕ ===
     confirmCrop: function() {
-        if (!this.cropper) return;
+        const deviceType = document.getElementById('deviceTypeSelect').value;
 
-        // A) Если это КАРТИНКА и мы грузим НОВУЮ -> Физическая обрезка
-        if (!this.isVideoContext && !this.isEditMode) {
+        if (this.cropper && this.currentFile.type.startsWith('image/')) {
+            // Если это картинка - обрезаем физически
             this.cropper.getCroppedCanvas().toBlob((blob) => {
-                const ext = this.currentFile.name.split('.').pop() || 'jpg';
-                const newFile = new File([blob], "banner." + ext, { type: "image/" + ext });
-                this.uploadFile(newFile, ''); // Стиль пустой, так как файл обрезан
-                this.closeCropModal();
+                const ext = this.currentFile.name.split('.').pop();
+                const croppedFile = new File([blob], "banner." + ext, { type: this.currentFile.type });
+                this.uploadFile(croppedFile, deviceType);
             });
-            return;
-        }
-
-        // B) Если это ВИДЕО или РЕДАКТИРОВАНИЕ -> Виртуальная обрезка (CSS)
-        // Считаем проценты
-        const data = this.cropper.getData(); // x, y, width, height (px)
-        const imgData = this.cropper.getImageData(); // naturalWidth, naturalHeight
-
-        // Формула CSS для зума в точку:
-        // Контейнер (на сайте) имеет overflow:hidden.
-        // Видео внутри должно быть растянуто так, чтобы видимая зона заполнила контейнер.
-
-        // 1. Считаем Scale (насколько кроп меньше оригинала)
-        // scale = naturalWidth / cropWidth
-        const scaleX = imgData.naturalWidth / data.width;
-        const scaleY = imgData.naturalHeight / data.height;
-        // Берем максимальный скейл, чтобы заполнить (обычно cover)
-        // Но для точного позиционирования:
-
-        // Простой CSS метод:
-        // width: (100 * scaleX)%
-        // transform: translate( -x_percent%, -y_percent% )
-
-        const widthPct = (imgData.naturalWidth / data.width) * 100;
-        const heightPct = (imgData.naturalHeight / data.height) * 100;
-
-        const xPct = (data.x / imgData.naturalWidth) * 100;
-        const yPct = (data.y / imgData.naturalHeight) * 100;
-
-        // Чтобы сместить правильно при увеличенной ширине:
-        // margin-left = - (x / crop_width) * 100% ... это сложно для margin.
-        // Используем object-position? Нет, он не зумит (только позиционирует внутри cover).
-        // Используем transform: scale и transform-origin?
-
-        // САМЫЙ НАДЕЖНЫЙ ВАРИАНТ:
-        // width: ${widthPct}%;
-        // height: ${heightPct}%;
-        // margin-left: -${xPct * (widthPct/100)}%;  <-- нет, это от родителя
-        // transform: translate(-${(data.x / data.width) * 100}%, -${(data.y / data.height) * 100}%) <-- нет, это от самого элемента
-
-        // Давайте проще:
-        // Мы растягиваем видео до widthPct.
-        // И сдвигаем его влево на data.x (в процентах от НОВОЙ ширины).
-
-        const cssStyle = `
-            width: ${widthPct.toFixed(2)}% !important;
-            height: ${heightPct.toFixed(2)}% !important;
-            max-width: none !important;
-            transform: translate(-${((data.x / imgData.naturalWidth)*100).toFixed(2)}%, -${((data.y / imgData.naturalHeight)*100).toFixed(2)}%) !important;
-            transform-origin: 0 0 !important;
-            object-fit: fill !important;
-        `;
-
-        if (this.isEditMode) {
-            // Просто обновляем стиль в БД
-            this.updateStyle(this.editId, cssStyle);
         } else {
-            // Грузим файл + стиль
-            this.uploadFile(this.currentFile, cssStyle);
+            // Если видео - шлем как есть
+            this.uploadFile(this.currentFile, deviceType);
         }
-        this.closeCropModal();
     },
 
     closeCropModal: function() {
@@ -1643,22 +1644,26 @@ const AdminBanners = {
     },
 
     // --- API ЗАПРОСЫ ---
-    uploadFile: async function(file, cssStyle) {
+    uploadFile: async function(file, deviceType) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('css_style', cssStyle);
-
-        const btn = document.querySelector('.btn-primary');
-        const oldText = btn.textContent;
-        btn.textContent = '⏳...'; btn.disabled = true;
+        formData.append('device_type', deviceType); // ПЕРЕДАЕМ ТИП
 
         try {
             const res = await fetch('/api/admin/banner/upload', { method: 'POST', body: formData });
-            const d = await res.json();
-            if (d.success) this.load();
-            else alert('Error: ' + d.error);
+            const data = await res.json();
+            if (data.success) {
+                this.closeBannerModal();
+                this.load();
+            } else {
+                alert("Ошибка: " + data.error);
+            }
         } catch(e) { console.error(e); }
-        btn.textContent = oldText; btn.disabled = false;
+    },
+
+    closeBannerModal: function() {
+        document.getElementById('cropModal').style.display = 'none';
+        if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
     },
 
     updateStyle: async function(id, cssStyle) {
@@ -2067,3 +2072,60 @@ const AdminSettings = {
         } catch(e) { alert('Ошибка сети'); }
     }
 };
+
+// 1. Открываем саму модалку
+function openBannerModal() {
+    const modal = document.getElementById('cropModal');
+    if (modal) {
+        modal.style.display = 'flex';
+
+        // Сбрасываем флаги, чтобы скрипт понимал: это НОВЫЙ баннер
+        AdminBanners.isEditMode = false;
+        AdminBanners.editId = null;
+
+        // Сбрасываем форму
+        document.getElementById('addBannerForm').reset();
+
+        // ВОТ ЭТА СТРОКА: принудительно показываем блок выбора файла
+        const fileGroup = document.getElementById('fileInputGroup');
+        if (fileGroup) fileGroup.style.display = 'block';
+
+        document.getElementById('cropWrapper').style.display = 'none';
+    }
+}
+
+// 2. Закрываем модалку
+function closeBannerModal() {
+    const modal = document.getElementById('cropModal');
+    if (modal) {
+        modal.style.display = 'none';
+
+        // Очищаем картинку в кроппере, чтобы она не "мелькала" при следующем открытии
+        const image = document.getElementById('cropImage');
+        if (image) image.src = '';
+
+        if (AdminBanners.cropper) {
+            AdminBanners.cropper.destroy();
+            AdminBanners.cropper = null;
+        }
+    }
+}
+
+// 3. Обработка выбора файла (показ превью)
+document.getElementById('bannerFileInput')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const wrapper = document.getElementById('cropWrapper');
+    const img = document.getElementById('cropImage');
+
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            img.src = event.target.result;
+            wrapper.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Если это видео, просто скрываем превью (или можно добавить иконку видео)
+        wrapper.style.display = 'none';
+    }
+});
