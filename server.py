@@ -17,6 +17,7 @@ from email.mime.text import MIMEText
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user
 from dotenv import load_dotenv
 from flask_limiter import Limiter
@@ -25,6 +26,12 @@ from flask_limiter.util import get_remote_address
 load_dotenv()
 
 app = Flask(__name__, static_folder='.', static_url_path='')
+
+# Учим Flask доверять заголовкам прокси-серверов (Cloudflare, Nginx)
+# Цифра 1 означает, что мы доверяем одному слою прокси перед нами
+app.wsgi_app = ProxyFix(
+    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+)
 
 # === НАСТРОЙКИ БЕЗОПАСНОСТИ FLASK ===
 
