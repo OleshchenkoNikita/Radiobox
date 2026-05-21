@@ -1,3 +1,14 @@
+// === ФУНКЦИЯ ДЛЯ ЗАЩИТЫ ОТ XSS ===
+window.escapeHTML = function(str) {
+    if (str === null || str === undefined) return '';
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 // ===== BANNER SLIDER (Поддержка БД и ВИДЕО) =====
 (function () {
     const root = document.getElementById('bannerSlider');
@@ -494,12 +505,12 @@ document.addEventListener('DOMContentLoaded', () => {
             wrap.insertAdjacentHTML('beforeend', `
             <article class="rev-card">
               <header class="rev-head">
-                <div class="rev-author">${r.author}</div>
-                <div class="rev-date">${r.date}</div>
+                <div class="rev-author">${window.escapeHTML(r.author)}</div>
+                <div class="rev-date">${window.escapeHTML(r.date)}</div>
                 <div class="rev-stars" aria-label="Рейтинг: ${r.rating} ${OF_FIVE}">${stars}</div>
                 <div class="rev-grade">${getGradeText(r.rating)}</div>
               </header>
-              <div class="rev-text">${r.comment || ""}</div>
+              <div class="rev-text">${window.escapeHTML(r.comment || "")}</div>
               ${replyHtml}
             </article>
           `);

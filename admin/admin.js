@@ -1,3 +1,14 @@
+// === ФУНКЦИЯ ДЛЯ ЗАЩИТЫ ОТ XSS В АДМИНКЕ ===
+window.escapeHTML = function(str) {
+    if (str === null || str === undefined) return '';
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 const Admin = {
     lang: 'ru',
 
@@ -183,7 +194,7 @@ const Admin = {
             }).join('');
         } else { itemsHtml = '<span style="color:#ccc;">—</span>'; }
 
-        const commentHtml = order.comment ? `<div style="margin-top:8px; padding:10px; background:#fff7ed; border:1px solid #ffedd5; border-radius:4px; font-size:14px; color:#9a3412;">💬 ${order.comment}</div>` : '';
+        const commentHtml = order.comment ? `<div style="margin-top:8px; padding:10px; background:#fff7ed; border:1px solid #ffedd5; border-radius:4px; font-size:14px; color:#9a3412;">💬 ${window.escapeHTML(order.comment)}</div>` : '';
 
         // --- ДОСТАВКА (Перевод) ---
         const deliveryMap = {
@@ -876,6 +887,13 @@ const AdminProducts = {
 
         try {
             const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+
+            if (res.status === 413) {
+                alert(this.lang === 'ua' ? 'Файл занадто великий! Максимум 10 МБ.' : 'Файл слишком большой! Максимум 10 МБ.');
+                input.value = ''; // Сбрасываем инпут
+                return;
+            }
+
             const data = await res.json();
             if(data.success) {
                 document.getElementById('path_main').value = data.path;
@@ -1651,6 +1669,14 @@ const AdminBanners = {
 
         try {
             const res = await fetch('/api/admin/banner/upload', { method: 'POST', body: formData });
+
+            if (res.status === 413) {
+                alert(this.lang === 'ua' ? 'Файл занадто великий! Максимум 10 МБ.' : 'Файл слишком большой! Максимум 10 МБ.');
+                btn.textContent = oldText; btn.disabled = false;
+                return;
+            }
+            if (!res.ok) throw new Error('HTTP error ' + res.status);
+
             const data = await res.json();
             if (data.success) {
                 this.closeBannerModal();
@@ -1768,12 +1794,12 @@ const AdminReviews = {
             <div class="rev-admin-card ${isHiddenClass}" id="arev-${r.id}">
                 <div class="ra-head">
                     <div>
-                        <span class="ra-author">${r.author}</span>
+                        <span class="ra-author">${window.escapeHTML(r.author)}</span>
                         <span style="color:#f59e0b; margin-left:8px;">${stars}</span>
                     </div>
                     <div class="ra-date">${r.date}</div>
                 </div>
-                <div class="ra-text">${r.comment}</div>
+                <div class="ra-text">${window.escapeHTML(r.comment)}</div>
 
                 <div class="ra-reply-box">
                     <label class="ra-reply-label">${TEXT.replyLabel}</label>

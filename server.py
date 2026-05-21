@@ -18,8 +18,52 @@ from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import current_user
+from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+load_dotenv()
 
 app = Flask(__name__, static_folder='.', static_url_path='')
+
+# === НАСТРОЙКИ БЕЗОПАСНОСТИ FLASK ===
+
+# 1. Ограничение размера загружаемого файла (например, 10 Мегабайт)
+# Защитит сервер от зависания при загрузке огромных файлов
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+
+# 2. Безопасность сессионных Cookie
+app.config['SESSION_COOKIE_HTTPONLY'] = True # Запрещает JavaScript читать куки (защита от XSS)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Защита от CSRF-атак (межсайтовой подделки запросов)
+
+# ВАЖНО: Если у тебя на боевом сервере прикручен HTTPS (SSL-сертификат),
+# обязательно раскомментируй эту строку перед релизом:
+# app.config['SESSION_COOKIE_SECURE'] = True
+
+# Инициализация защиты от спама (Limiter)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["500 per day", "100 per hour"], # Базовый лимит для всех страниц (чтобы не парсили сайт)
+    storage_uri="memory://" # Храним счетчики в оперативной памяти
+)
+
+# ЗАГОЛОВКИ БЕЗОПАСНОСТИ
+@app.after_request
+def add_security_headers(response):
+    # Защита от Clickjacking: разрешает встраивать сайт в iframe только на том же домене
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+
+    # Запрещает браузеру "угадывать" тип файла (защита от подмены скриптов под видом картинок)
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+
+    # Базовая защита от XSS на уровне браузера
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+
+    # Строгая политика Referrer (чтобы не передавать чужим сайтам полные URL твоей админки)
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+    return response
 
 # === СЛОВАРЬ ДЛЯ ИСПРАВЛЕНИЯ РАСКЛАДКИ (QWERTY -> ЙЦУКЕН) ===
 ENG_TO_RUS_MAP = {
@@ -68,16 +112,17 @@ def fix_layout(text):
     return "".join([ENG_TO_RUS_MAP.get(char, char) for char in text])
 
 # ==================================================
-# НАСТРОЙКИ ПОЧТЫ (ЗАПОЛНИ ЗАНОВО!)
+# НАСТРОЙКИ ПОЧТЫ И СЕКРЕТЫ
 # ==================================================
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_SENDER = "oleshchenko.nikita@gmail.com"
-EMAIL_PASSWORD = "test"
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+EMAIL_SENDER = os.getenv("EMAIL_SENDER", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 # ==================================================
 
 DB_NAME = "radiobox.db"
-app.secret_key = 'super_secret_key_radiobox_123'
+# Берем ключ из .env, а если его там нет — генерируем случайный (для безопасности)
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
 
 def cleanup_deleted_products():
     """Удаляет товары из корзины старше 30 дней"""
@@ -432,6 +477,7 @@ def register():
 
 
 @app.route('/api/login', methods=['POST'])
+@limiter.limit("3 per minute")
 def login():
     data = request.json
     session.clear()
@@ -466,6 +512,7 @@ def login():
 
 # ОТПРАВКА КОДА (ТОЛЬКО EMAIL)
 @app.route('/api/recover/send-code', methods=['POST'])
+@limiter.limit("3 per minute") # Не больше 3 писем в минуту
 def send_code():
     data = request.json
     email = data.get('email')  # Теперь ждем только email
@@ -595,6 +642,7 @@ def update_db_structure():
 
 
 @app.route('/create_order', methods=['POST'])
+@limiter.limit("2 per hour") # Максимум 2 заказа в час с одного IP
 def create_order():
     # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
@@ -831,6 +879,7 @@ def admin_root():
 
 # 2. Универсальный ВХОД (Логин)
 @app.route('/admin/<lang>/login', methods=['GET', 'POST'])
+@limiter.limit("3 per minute") # Сюда тоже ставим лимит
 def admin_login_lang(lang):
     if lang not in ['ru', 'ua']: return redirect('/admin/ru/login')
     error = None
@@ -1871,6 +1920,7 @@ def public_get_banners():
 
 # === API: ОТЗЫВЫ (ПУБЛИЧНЫЕ) ===
 @app.route('/api/reviews', methods=['GET'])
+@limiter.limit("5 per hour") # Не больше 5 отзывов в час с одного IP
 @role_required('client', 'manager', 'superadmin')
 def get_public_reviews():
     # Получаем список видимых отзывов
@@ -2875,7 +2925,12 @@ def get_public_contacts():
         "address_ua": address_ua
     })
 
+
 if __name__ == '__main__':
-    init_db() # Это создаст новые таблицы и бэкап
+    init_db()
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
-    app.run(debug=True, port=5000)
+
+    # Читаем режим отладки из .env. Если там True - будет True, иначе False.
+    is_debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
+
+    app.run(debug=is_debug, port=5000)
