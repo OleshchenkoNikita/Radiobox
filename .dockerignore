@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+venv/
+.git/
+.idea/
+radiobox.db
+backups/

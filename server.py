@@ -2932,12 +2932,11 @@ def get_public_contacts():
         "address_ua": address_ua
     })
 
+init_db()
 
 if __name__ == '__main__':
-    init_db()
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
 
     # Читаем режим отладки из .env. Если там True - будет True, иначе False.
     is_debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
-
     app.run(debug=is_debug, port=5000)

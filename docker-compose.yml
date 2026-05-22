@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: radiobox_web
+    restart: always  # Автоматический перезапуск при сбое или перезагрузке сервера
+    ports:
+      - "5000:5000"
+    volumes:
+      # Сохраняем базу данных и файлы на сервере, чтобы они не пропадали
+      - ./radiobox.db:/app/radiobox.db
+      - ./assets/products:/app/assets/products
+      - ./assets/banners:/app/assets/banners
+      - ./backups:/app/backups
+    env_file:
+      - .env
