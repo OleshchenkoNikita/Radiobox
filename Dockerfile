@@ -17,5 +17,5 @@ RUN mkdir -p assets/products assets/banners backups
 # Открываем порт 5000
 EXPOSE 5000
 
-# Запускаем приложение через Gunicorn (4 воркера для лучшей производительности)
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "server:app"]
+# Запускаем приложение через Gunicorn
+CMD ["gunicorn", "-w", "1", "--threads", "4", "-b", "0.0.0.0:5000", "server:app"]

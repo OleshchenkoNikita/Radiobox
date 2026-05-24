@@ -4,14 +4,24 @@ services:
   web:
     build: .
     container_name: radiobox_web
-    restart: always  # Автоматический перезапуск при сбое или перезагрузке сервера
-    ports:
-      - "5000:5000"
+    restart: always
+    expose:
+      - "5000"
     volumes:
-      # Сохраняем базу данных и файлы на сервере, чтобы они не пропадали
       - ./radiobox.db:/app/radiobox.db
       - ./assets/products:/app/assets/products
       - ./assets/banners:/app/assets/banners
       - ./backups:/app/backups
     env_file:
       - .env
+
+  nginx:
+    image: nginx:latest
+    container_name: radiobox_nginx
+    restart: always
+    ports:
+      - "80:80" # А вот Nginx будет смотреть в интернет и встречать посетителей
+    volumes:
+      - ./nginx:/etc/nginx/conf.d # Пробрасываем папку с конфигом, которую ты только что создал
+    depends_on:
+      - web # Nginx запустится только после того, как запустится твой Python-сервер
