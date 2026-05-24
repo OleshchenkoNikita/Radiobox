@@ -20,8 +20,10 @@ services:
     container_name: radiobox_nginx
     restart: always
     ports:
-      - "80:80" # А вот Nginx будет смотреть в интернет и встречать посетителей
+      - "80:80"
+      - "443:443" # Добавили порт HTTPS
     volumes:
-      - ./nginx:/etc/nginx/conf.d # Пробрасываем папку с конфигом, которую ты только что создал
+      - ./nginx:/etc/nginx/conf.d
+      - ./certbot/conf:/etc/letsencrypt # Даем Nginx доступ к сертификатам
     depends_on:
-      - web # Nginx запустится только после того, как запустится твой Python-сервер
+      - web
