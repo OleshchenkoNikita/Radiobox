@@ -31,12 +31,9 @@
         .item-title { font-weight: 700; color: #0f172a; font-size: 15px; }
         .item-sku { font-size: 12px; color: #64748b; margin-top: 2px; }
 
-        .sort-controls { display: flex; flex-direction: column; gap: 4px; }
-        .btn-sort {
-            width: 30px; height: 30px; border: 1px solid #cbd5e1; background: #fff; border-radius: 4px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center; color: #475569;
-        }
-        .btn-sort:hover { background: #f1f5f9; color: #189BFF; border-color: #189BFF; }
+        /* Стили для ручки перетаскивания (которых не хватало в RU версии) */
+        .drag-handle:hover { color: #189BFF !important; }
+        .sortable-ghost { opacity: 0.5; background: #f0f9ff; border: 1px dashed #189BFF; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="/admin/admin.js" defer></script>
@@ -66,12 +63,14 @@
                     <a href="/admin/ru/showcase.html" style="text-decoration:underline; color:#0f172a;">RU</a>
                     <a href="/admin/ua/showcase.html" style="text-decoration:none; color:#94a3b8; margin-left:8px;">UA</a>
                 </div>
-                <button class="btn-primary" onclick="AdminShowcase.saveOrder()">💾 Сохранить порядок</button>
+                <span style="color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 14px;">
+                    ✅ Автосохранение включено
+                </span>
             </div>
         </div>
 
         <div style="margin-bottom:20px; color:#64748b; text-align:center;">
-            Используйте стрелки, чтобы менять порядок товаров на главной странице. <br>
+            Перетягивайте товар, зажав левую кнопку мыши на точки <b>:::</b> слева от картинки товара, чтобы изменить их порядок на главной странице.<br>
             Товары, которые выше в списке, будут отображаться первыми.
         </div>
 

@@ -1056,14 +1056,17 @@ const AdminShowcase = {
         container.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
 
         // Запрашиваем ВСЕ товары, но потом отфильтруем только витрину
-        // (Или можно сделать отдельный API, но используем существующий для простоты)
         try {
             const res = await fetch('/api/admin/products?sort_by=def&sort_dir=asc');
             const data = await res.json();
             if (data.success) {
                 // Берем только те, что on_index == 1
-                // И сортируем их по позиции (backend уже отдал их отсортированными по position ASC)
                 this.items = data.products.filter(p => p.on_index == 1);
+
+                // ИСПРАВЛЕНИЕ: Принудительно сортируем по позиции на стороне клиента,
+                // чтобы серверная группировка по категориям не ломала витрину
+                this.items.sort((a, b) => a.position - b.position);
+
                 this.render();
             }
         } catch(e) { console.error(e); }
