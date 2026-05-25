@@ -603,6 +603,32 @@ p {
 .footer-contacts p{ margin:0 0 6px; font-size:13px; color:#374151; }
 .footer-contacts a{ text-decoration:underline; text-underline-offset:2px; }
 
+/* Делаем небольшой отступ от навигации до копирайта и цвет чуть темнее серого для читаемости */
+.footer-inline-nav {
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #374151;
+}
+
+/* Стили для самих ссылок и палочек между ними */
+.footer-inline-nav a {
+    display: inline-block; /* Чтобы на мобилках переносилось аккуратными блоками */
+    margin: 0 6px;
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.15s ease;
+}
+
+.footer-inline-nav a:hover {
+    color: #189BFF; /* Фирменный синий цвет при наведении (из твоего стиля) */
+    text-decoration: underline;
+}
+
+/* Сам текст копирайта остаётся со старыми стилями */
+.footer-copyright {
+    color: #6b7280; /* Тот самый оригинальный серый цвет */
+}
+
 .copy{
   border-top:1px solid #eef1f5; /* дополнительная тонкая линия внутри подвала */
   padding:10px 20px;
