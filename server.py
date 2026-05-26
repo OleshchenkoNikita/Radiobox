@@ -329,6 +329,12 @@ def init_db():
             except sqlite3.OperationalError:
                 pass  # Колонка уже есть
 
+            try:
+                cursor.execute("ALTER TABLE banners ADD COLUMN target_lang TEXT DEFAULT 'all'")
+                print("✅ Added target_lang column to banners")
+            except sqlite3.OperationalError:
+                pass  # Колонка уже есть
+
         for table, col, dtype in columns_to_add:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
@@ -1814,6 +1820,7 @@ def admin_upload_banner():
     # ПРИНИМАЕМ ТИП УСТРОЙСТВА И СТИЛЬ
     device_type = request.form.get('device_type', 'pc')
     css_style = request.form.get('css_style', '')
+    target_lang = request.form.get('target_lang', 'all')
 
     if file.filename == '': return jsonify({"success": False, "error": "Empty filename"})
 
@@ -1840,10 +1847,10 @@ def admin_upload_banner():
         res = cursor.fetchone()
         pos = (res[0] + 1) if (res and res[0] is not None) else 0
 
-        # Сохраняем css_style
+        # Сохраняем css_style и target_lang
         cursor.execute(
-            "INSERT INTO banners (filename, file_type, position, is_visible, created_at, css_style, device_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (web_path, 'video' if filename.endswith(('mp4', 'webm')) else 'image', pos, 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), css_style, device_type))
+            "INSERT INTO banners (filename, file_type, position, is_visible, created_at, css_style, device_type, target_lang) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (web_path, 'video' if filename.endswith(('mp4', 'webm')) else 'image', pos, 1, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), css_style, device_type, target_lang))
         conn.commit()
 
     return jsonify({"success": True})
@@ -1855,9 +1862,9 @@ def admin_banner_update_style():
     with sqlite3.connect(DB_NAME) as conn:
         conn.execute("""
                     UPDATE banners 
-                    SET css_style = ?, device_type = ? 
+                    SET css_style = ?, device_type = ?, target_lang = ? 
                     WHERE id = ?
-                """, (data['css_style'], data.get('device_type', 'pc'), data['id']))
+                """, (data['css_style'], data.get('device_type', 'pc'), data.get('target_lang', 'all'), data['id']))
         conn.commit()
     return jsonify({"success": True})
 
@@ -1915,13 +1922,13 @@ def admin_banner_reorder():
 def public_get_banners():
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
-        # ДОБАВИЛИ device_type В SELECT
+        # ДОБАВИЛИ device_type и target_lang В SELECT
         rows = conn.execute("""
-            SELECT filename, file_type, css_style, device_type 
-            FROM banners 
-            WHERE is_visible = 1 
-            ORDER BY position ASC
-        """).fetchall()
+                    SELECT filename, file_type, css_style, device_type, target_lang 
+                    FROM banners 
+                    WHERE is_visible = 1 
+                    ORDER BY position ASC
+                """).fetchall()
         banners = [dict(r) for r in rows]
     return jsonify({"success": True, "banners": banners})
 

@@ -121,15 +121,23 @@ window.escapeHTML = function(str) {
                 if (width <= 640) currentDevice = 'mobile';
                 else if (width <= 1024) currentDevice = 'tablet';
 
-                // 1. Пытаемся найти баннеры именно для текущего устройства
-                let filtered = data.banners.filter(b => b.device_type === currentDevice);
+                // Определяем текущий язык магазина
+                const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+                const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || window.location.pathname.includes('/ua/');
+                const currentLang = isUA ? 'ua' : 'ru';
 
-                // 2. Если для мобилы/планшета ничего не залили, берем PC-версию (чтобы слайдер не был пустым)
-                if (filtered.length === 0) {
-                    filtered = data.banners.filter(b => b.device_type === 'pc');
+                // 1. Фильтруем по языку (все баннеры, где target_lang === 'all' ИЛИ совпадает с текущим языком)
+                let langFiltered = data.banners.filter(b => !b.target_lang || b.target_lang === 'all' || b.target_lang === currentLang);
+
+                // 2. Пытаемся найти баннеры именно для текущего устройства
+                let deviceFiltered = langFiltered.filter(b => b.device_type === currentDevice);
+
+                // 3. Если для мобилы/планшета ничего не залили, берем PC-версию
+                if (deviceFiltered.length === 0) {
+                    deviceFiltered = langFiltered.filter(b => b.device_type === 'pc');
                 }
 
-                return filtered;
+                return deviceFiltered;
             }
         } catch (e) {
             console.error("Ошибка загрузки баннеров:", e);

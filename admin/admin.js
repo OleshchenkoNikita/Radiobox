@@ -1433,27 +1433,26 @@ const AdminBanners = {
 
     confirmSave: function() {
         const deviceType = document.getElementById('deviceTypeSelect').value;
+        const targetLang = document.getElementById('targetLangSelect').value; // НОВОЕ
 
         if (this.isEditMode) {
-            // РЕЖИМ ПРАВКИ: Обновляем только стили (область) через API update_style
-            this.saveVirtualCrop(deviceType);
+            this.saveVirtualCrop(deviceType, targetLang);
         } else {
-            // РЕЖИМ ЗАГРУЗКИ: Шлем новый файл на сервер
             if (!this.currentFile) return alert("Выберите файл");
 
             if (this.cropper && this.currentFile.type.startsWith('image/')) {
                 this.cropper.getCroppedCanvas().toBlob((blob) => {
                     const ext = this.currentFile.name.split('.').pop();
                     const file = new File([blob], "banner." + ext, { type: this.currentFile.type });
-                    this.uploadFile(file, deviceType);
+                    this.uploadFile(file, deviceType, targetLang);
                 });
             } else {
-                this.uploadFile(this.currentFile, deviceType);
+                this.uploadFile(this.currentFile, deviceType, targetLang);
             }
         }
     },
 
-    saveVirtualCrop: async function(deviceType) {
+    saveVirtualCrop: async function(deviceType, targetLang) {
         if (!this.cropper) return;
         const data = this.cropper.getData();
         const imgData = this.cropper.getImageData();
@@ -1470,7 +1469,7 @@ const AdminBanners = {
             await fetch('/api/admin/banner/update_style', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ id: this.editId, css_style: cssStyle, device_type: deviceType })
+                body: JSON.stringify({ id: this.editId, css_style: cssStyle, device_type: deviceType, target_lang: targetLang })
             });
             this.closeBannerModal();
             this.load(); // Перезагружаем список
@@ -1533,7 +1532,7 @@ const AdminBanners = {
                         ${visBadge}
                     </div>
                     <div class="action-group">
-                        <button class="btn-icon" title="${btnEditTitle}" onclick="AdminBanners.editCrop(${b.id}, '${b.filename}', '${b.file_type}', '${b.device_type}')">✂️</button>
+                        <button class="btn-icon" title="${btnEditTitle}" onclick="AdminBanners.editCrop(${b.id}, '${b.filename}', '${b.file_type}', '${b.device_type}', '${b.target_lang}')">✂️</button>
                         <button class="btn-icon" onclick="AdminBanners.toggleVis(${b.id}, ${b.is_visible})">${b.is_visible ? '👁️' : '🙈'}</button>
                         <button class="btn-icon red" onclick="AdminBanners.delete(${b.id})">🗑️</button>
                     </div>
@@ -1573,18 +1572,19 @@ const AdminBanners = {
     },
 
     // === 2. РЕДАКТИРОВАНИЕ СУЩЕСТВУЮЩЕГО ===
-    editCrop: function(id, src, type, deviceType) {
+    editCrop: function(id, src, type, deviceType, targetLang) {
         this.isEditMode = true;
         this.editId = id;
 
         const modal = document.getElementById('cropModal');
         modal.style.display = 'flex';
 
-        // ПРЕДУСТАНОВКА ЗНАЧЕНИЯ: теперь при открытии будет стоять правильное устройство
-        const select = document.getElementById('deviceTypeSelect');
-        if (select && deviceType) {
-            select.value = deviceType;
-        }
+        const selectDevice = document.getElementById('deviceTypeSelect');
+        if (selectDevice && deviceType) selectDevice.value = deviceType;
+
+        // ПРЕДУСТАНОВКА ЯЗЫКА
+        const selectLang = document.getElementById('targetLangSelect');
+        if (selectLang && targetLang) selectLang.value = targetLang;
 
         document.getElementById('fileInputGroup').style.display = 'none';
 
@@ -1665,10 +1665,11 @@ const AdminBanners = {
     },
 
     // --- API ЗАПРОСЫ ---
-    uploadFile: async function(file, deviceType) {
+    uploadFile: async function(file, deviceType, targetLang) {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('device_type', deviceType); // ПЕРЕДАЕМ ТИП
+        formData.append('device_type', deviceType);
+        formData.append('target_lang', targetLang);
 
         try {
             const res = await fetch('/api/admin/banner/upload', { method: 'POST', body: formData });
