@@ -20,3 +20,5 @@ backups/
 /workspace.xml
 
 certbot/
+
+.idea/

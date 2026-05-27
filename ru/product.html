@@ -3,9 +3,39 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RadioBox — Товар</title>
+
+    <title>{{ product.name }} | Radiobox</title>
+    <meta name="description" content="Купить {{ product.name }} по цене {{ product.price }} грн. Быстрая доставка, гарантия качества в интернет-магазине Radiobox.">
+
+    <link rel="canonical" href="{{ request.base_url }}" />
+
     <link rel="stylesheet" href="../styles.css" />
     <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+
+    <meta property="og:title" content="{{ product.name }}">
+    <meta property="og:description" content="Цена: {{ product.price }} грн. Заходите и заказывайте!">
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}">
+    <meta property="og:site_name" content="Radiobox">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "{{ product.name }}",
+      "image": "{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}",
+      "description": "Товар {{ product.name }} в интернет-магазине Radiobox.",
+      "sku": "{{ product.id }}",
+      "offers": {
+        "@type": "Offer",
+        "url": "{{ request.url }}",
+        "priceCurrency": "UAH",
+        "price": "{{ product.price }}",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
 </head>
 <body>
 

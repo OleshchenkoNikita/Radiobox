@@ -3,9 +3,44 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>RadioBox — Товар</title>
+
+    <!-- SEO: Title та Description -->
+    <title>{{ product.name }} | Radiobox</title>
+    <meta name="description" content="Купити {{ product.name }} за ціною {{ product.price }} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.">
+
+    <!-- Канонічне посилання для запобігання дублям -->
+    <link rel="canonical" href="{{ request.base_url }}" />
+
+    <!-- Стилі -->
     <link rel="stylesheet" href="../styles.css" />
     <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
+
+    <!-- Open Graph (для гарних посилань у Telegram/Viber) -->
+    <meta property="og:title" content="{{ product.name }}">
+    <meta property="og:description" content="Ціна: {{ product.price }} грн. Заходьте та замовляйте!">
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:image" content="{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}">
+    <meta property="og:site_name" content="Radiobox">
+
+    <!-- Schema.org (для розширених сніпетів Google) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": "{{ product.name }}",
+      "image": "{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}",
+      "description": "Товар {{ product.name }} в інтернет-магазині Radiobox.",
+      "sku": "{{ product.id }}",
+      "offers": {
+        "@type": "Offer",
+        "url": "{{ request.url }}",
+        "priceCurrency": "UAH",
+        "price": "{{ product.price }}",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+    </script>
 </head>
 <body>
 

@@ -42,10 +42,7 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 # 2. Безопасность сессионных Cookie
 app.config['SESSION_COOKIE_HTTPONLY'] = True # Запрещает JavaScript читать куки (защита от XSS)
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' # Защита от CSRF-атак (межсайтовой подделки запросов)
-
-# ВАЖНО: Если у тебя на боевом сервере прикручен HTTPS (SSL-сертификат),
-# обязательно раскомментируй эту строку перед релизом:
-# app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = True
 
 # Инициализация защиты от спама (Limiter)
 limiter = Limiter(
@@ -769,42 +766,21 @@ def pay_order_api():
     data = request.json
     order_id = data.get('order_id')
 
-    if not order_id: return jsonify({"success": False, "error": "No ID"})
+    if not order_id:
+        return jsonify({"success": False, "error": "No ID"})
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
             cursor = conn.cursor()
-            # Обновляем статус оплаты и общий статус заказа
-            cursor.execute(
-                "UPDATE orders SET payment_status = 'paid', status = 'Оплаченный', status_ua = 'Оплачено' WHERE id = ?",
-                (order_id,))
-
-            # Добавляем запись в логи профиля
-            cursor.execute("INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
-                           (order_id, "Оплачено через LiqPay", "Оплачено через LiqPay",
-                            datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-            # Получаем crm_id для обновления в KeepinCRM
-            cursor.execute("SELECT crm_id FROM orders WHERE id = ?", (order_id,))
+            # Просто проверяем, успел ли уже выполниться фоновый callback от серверов банка
+            cursor.execute("SELECT payment_status FROM orders WHERE id = ?", (order_id,))
             row = cursor.fetchone()
-            crm_id = row[0] if row else None
 
-            conn.commit()
-
-        # Синхронизация с KeepinCRM
-        if crm_id:
-            api_token = get_setting('crm_api_key')
-            if api_token:
-                url = f'https://api.keepincrm.com/v1/agreements/{crm_id}'
-                headers = {
-                    'X-Auth-Token': api_token.strip(),
-                    'Content-Type': 'application/json'
-                }
-                # stage_id: 8 - это этап "Оплачено" из твоего CRM_STAGE_MAP
-                payload = {'stage_id': 8}
-                requests.patch(url, json=payload, headers=headers, timeout=10)
-
-        return jsonify({"success": True})
+            if row and row[0] in ['paid', 'Оплачено']:
+                return jsonify({"success": True, "message": "Payment verified by server"})
+            else:
+                # Если сервер еще не получил callback от банка, возвращаем статус ожидания
+                return jsonify({"success": False, "error": "Payment pending confirmation"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -2789,7 +2765,7 @@ def liqpay_generate():
             "description": f"Оплата заказа №{order_id}",
             "order_id": str(order_id),
             "language": "ru",
-            # "server_url": "https://radiobox.in.ua/api/liqpay/callback"
+            "server_url": "https://radio-box.com.ua/api/liqpay/callback"
         }
 
         # Выводим в консоль сервера для проверки (поможет понять, есть ли ключ)
@@ -2807,6 +2783,93 @@ def liqpay_generate():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/liqpay/callback', methods=['POST'])
+def liqpay_callback():
+    # 1. Получаем зашифрованные данные и подпись от серверов LiqPay
+    incoming_data = request.form.get('data')
+    incoming_signature = request.form.get('signature')
+
+    if not incoming_data or not incoming_signature:
+        print("[-] Критично: Callback от LiqPay не содержит data или signature")
+        return "Missing data or signature", 400
+
+    # 2. Получаем секретный приватный ключ из настроек базы данных
+    LIQPAY_PRIVATE_KEY = get_setting('privatbank_password') or get_setting('pb_pass')
+    if not LIQPAY_PRIVATE_KEY:
+        print("[-] Критично: Приватный ключ LiqPay не найден в настройках БД")
+        return "Server configuration error", 500
+
+    # 3. Валидация подписи (Проверяем, что запрос пришел именно от LiqPay)
+    # Формула LiqPay: base64(sha1(private_key + data + private_key))
+    sign_str = LIQPAY_PRIVATE_KEY + incoming_data + LIQPAY_PRIVATE_KEY
+    expected_signature = base64.b64encode(hashlib.sha1(sign_str.encode('utf-8')).digest()).decode('utf-8')
+
+    if incoming_signature != expected_signature:
+        print("[-] Предупреждение: Невалидная подпись в callback LiqPay!")
+        return "Invalid signature", 400
+
+    try:
+        # 4. Расшифровываем payload
+        decoded_bytes = base64.b64decode(incoming_data)
+        payment_info = json.loads(decoded_bytes.decode('utf-8'))
+
+        status = payment_info.get('status')
+        order_id = payment_info.get('order_id')
+
+        print(f"[*] Callback обработан для заказа №{order_id}. Статус платежа: {status}")
+
+        # 5. Проверяем успешность платежа
+        # success - успешная оплата, wait_secure - платеж на проверке в банке (тоже обрабатываем как успех)
+        # sandbox - для тестового режима (если будете тестировать)
+        if status in ['success', 'wait_secure', 'sandbox']:
+            with sqlite3.connect(DB_NAME) as conn:
+                cursor = conn.cursor()
+
+                # Проверяем текущий статус оплаты заказа в базе, чтобы не дублировать логи
+                cursor.execute("SELECT payment_status, crm_id FROM orders WHERE id = ?", (order_id,))
+                order_row = cursor.fetchone()
+
+                if order_row and order_row[0] != 'Оплачено':
+                    crm_id = order_row[1]
+
+                    # Обновляем статусы локально
+                    cursor.execute(
+                        "UPDATE orders SET payment_status = 'paid', status = 'Оплаченный', status_ua = 'Оплачено' WHERE id = ?",
+                        (order_id,)
+                    )
+
+                    # Фиксируем операцию в логах заказа
+                    log_msg = f"Оплата успешно подтверждена сервером LiqPay (Статус: {status})"
+                    cursor.execute(
+                        "INSERT INTO order_logs (order_id, message_ru, message_ua, created_at) VALUES (?, ?, ?, ?)",
+                        (order_id, log_msg, log_msg, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    )
+                    conn.commit()
+
+                    # 6. Синхронизация статуса с KeepinCRM (перевод на этап 8 - "Оплачено")
+                    if crm_id:
+                        api_token = get_setting('crm_api_key')
+                        if api_token:
+                            url = f'https://api.keepincrm.com/v1/agreements/{crm_id}'
+                            headers = {
+                                'X-Auth-Token': api_token.strip(),
+                                'Content-Type': 'application/json'
+                            }
+                            payload = {'stage_id': 8}  # Этап "Оплачено"
+                            try:
+                                requests.patch(url, json=payload, headers=headers, timeout=10)
+                                print(f"[+] Статус сделки {crm_id} в KeepinCRM успешно обновлен на этап Оплачено")
+                            except Exception as crm_err:
+                                print(f"[-] Ошибка отправки статуса в CRM: {crm_err}")
+
+        # Возвращаем LiqPay статус 200 OK, чтобы он знал, что уведомление доставлено успешно
+        return "OK", 200
+
+    except Exception as e:
+        print(f"[-] Ошибка внутри liqpay_callback: {e}")
+        return "Internal server error", 500
 
 @app.route('/superadmin')
 @role_required('superadmin')

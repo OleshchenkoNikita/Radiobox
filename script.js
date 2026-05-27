@@ -1921,14 +1921,27 @@ window.payOrderLiqPay = async function(orderId, btnElement) {
                 mode: "popup"
             }).on("liqpay.callback", function(callbackData){
                 if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
-                    fetch('/api/pay_order', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ order_id: orderId })
-                    }).then(() => {
-                        alert(isUA ? "Оплата пройшла успішно!" : "Оплата прошла успешно!");
-                        window.location.reload();
-                    });
+                    // Делаем небольшую задержку в 1.5 секунды, чтобы сервер успел принять прямой callback от LiqPay
+                    setTimeout(async () => {
+                        try {
+                            const checkRes = await fetch('/api/pay_order', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            });
+                            const checkData = await checkRes.json();
+
+                            if (checkData.success) {
+                                alert(isUA ? "Оплата пройшла успішно!" : "Оплата прошла успешно!");
+                            } else {
+                                // Если транзакция обрабатывается банком чуть дольше обычного
+                                alert(isUA ? "Платіж обробляється банком. Статус оновиться в кабінеті найближчим часом." : "Платеж обрабатывается банком. Статус обновится в кабинете в ближайшее время.");
+                            }
+                            window.location.reload();
+                        } catch (err) {
+                            window.location.reload();
+                        }
+                    }, 1500);
                 } else if (['error', 'failure'].includes(callbackData.status)) {
                     alert(isUA ? "Помилка при оплаті. Спробуйте ще раз." : "Ошибка при оплате. Попробуйте еще раз.");
                 }
