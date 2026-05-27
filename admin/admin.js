@@ -1109,7 +1109,7 @@ const AdminShowcase = {
         });
     },
 
-    // Функция авто-сохранения (только режим ожидания обновления сайта)
+    // Функция авто-сохранения (адаптировано под задержки боевого сервера)
     saveRealTime: async function() {
         const container = document.getElementById('showcaseContainer');
         const ids = Array.from(container.querySelectorAll('.showcase-item')).map(el => el.getAttribute('data-id'));
@@ -1117,7 +1117,6 @@ const AdminShowcase = {
         const statusEl = document.getElementById('saveStatus');
         const isUA = document.documentElement.lang === 'uk';
 
-        // Сразу показываем процесс обновления сайта
         if (statusEl) {
             statusEl.style.color = '#f59e0b';
             statusEl.textContent = isUA ? '⏳ Оновлення вітрини на сайті...' : '⏳ Обновление витрины на сайте...';
@@ -1130,8 +1129,8 @@ const AdminShowcase = {
                 body: JSON.stringify({ ids: ids })
             });
 
-            // Ждем 2.5 секунды с запасом на кэш
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            // Ждем 4.5 секунды (4500 мс) — реальное время синхронизации боевого сервера
+            await new Promise(resolve => setTimeout(resolve, 4500));
 
             if (statusEl) {
                 statusEl.style.color = '#10b981';
