@@ -706,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const N = (p) => ({id: ++idCounter, ...p});
 
     // --- 4. Запрос к серверу за свежими данными ---
-    fetch('/api/products')
+    fetch('/api/products?v=' + new Date().getTime())
         .then(r => r.json())
         .then(data => {
             if(data.success) {
@@ -724,6 +724,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     subcategory: it.subcategory,
                     images: it.images,
 
+                    on_index: it.on_index,
+                    position: it.position,
+
                     // ГЛАВНОЕ: Формируем title для текущего языка
                     title: IS_UA ? (it.title_ua || it.title_ru) : it.title_ru,
 
@@ -738,11 +741,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Сохраняем актуальную версию
                 saveToLS(CURRENT_KEY, items);
 
-                // === ВЫЗЫВАЕМ ПЕРЕРИСОВКУ (Теперь это сработает, т.к. мы добавили window.renderCatalog) ===
+                // === ВЫЗЫВАЕМ ПЕРЕРИСОВКУ КАТАЛОГА ===
                 if(window.renderCatalog) {
                     console.log("[Seed] Данные получены, обновляем каталог.");
                     window.renderCatalog();
                 }
+
+                // === ПЕРЕРИСОВКА ВИТРИНЫ ===
+                // Вызываем функции рендера витрины, если они существуют
+                if(window.renderShowcase) window.renderShowcase(items);
+                if(window.renderVitrine) window.renderVitrine(items);
+
+                // Создаем глобальное событие на случай, если логика витрины прописана прямо в HTML
+                document.dispatchEvent(new CustomEvent('catalogUpdated', { detail: items }));
             }
         })
         .catch(err => console.error("Ошибка загрузки товаров:", err));

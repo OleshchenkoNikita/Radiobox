@@ -1624,7 +1624,6 @@ def admin_product_index_toggle():
 @role_required('manager', 'superadmin')
 def admin_reorder_general():
     data = request.json
-    # Фронт пришлет нам: items = [{ 'id': 10, 'cat': 'meas' }, { 'id': 5, 'cat': 'solder' } ...]
     items = data.get('items', [])
 
     if not items:
@@ -1634,6 +1633,7 @@ def admin_reorder_general():
             with sqlite3.connect(DB_NAME) as conn:
                 for idx, pid in enumerate(old_ids):
                     conn.execute("UPDATE products SET position = ? WHERE id = ?", (idx, pid))
+                conn.commit() # <--- ДОБАВИТЬ ЯВНЫЙ КОММИТ
             return jsonify({"success": True})
         return jsonify({"success": True})
 
@@ -1642,20 +1642,16 @@ def admin_reorder_general():
 
         for index, item in enumerate(items):
             pid = item.get('id')
-            new_cat = item.get('cat')  # Новая категория (slug)
+            new_cat = item.get('cat')
 
-            # Обновляем позицию И категорию
-            # Если категория пустая (товар улетел выше всех заголовков), не меняем её (Coalesce или логика питона)
             if new_cat:
                 cursor.execute("UPDATE products SET position = ?, category = ? WHERE id = ?", (index, new_cat, pid))
             else:
-                # Если вдруг не определили категорию, обновляем только позицию
                 cursor.execute("UPDATE products SET position = ? WHERE id = ?", (index, pid))
 
         conn.commit()
 
     return jsonify({"success": True})
-
 
 # === API: ПОЛУЧИТЬ КАТЕГОРИИ (ДЕРЕВОМ) ===
 @app.route('/api/categories', methods=['GET'])

@@ -1109,16 +1109,45 @@ const AdminShowcase = {
         });
     },
 
-    // Функция авто-сохранения для витрины
+    // Функция авто-сохранения (только режим ожидания обновления сайта)
     saveRealTime: async function() {
         const container = document.getElementById('showcaseContainer');
         const ids = Array.from(container.querySelectorAll('.showcase-item')).map(el => el.getAttribute('data-id'));
 
-        await fetch('/api/admin/reorder', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ ids: ids })
-        });
+        const statusEl = document.getElementById('saveStatus');
+        const isUA = document.documentElement.lang === 'uk';
+
+        // Сразу показываем процесс обновления сайта
+        if (statusEl) {
+            statusEl.style.color = '#f59e0b';
+            statusEl.textContent = isUA ? '⏳ Оновлення вітрини на сайті...' : '⏳ Обновление витрины на сайте...';
+        }
+
+        try {
+            await fetch('/api/admin/reorder', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ ids: ids })
+            });
+
+            // Ждем 2.5 секунды с запасом на кэш
+            await new Promise(resolve => setTimeout(resolve, 2500));
+
+            if (statusEl) {
+                statusEl.style.color = '#10b981';
+                statusEl.textContent = isUA ? '✅ Готово! Можна перевіряти' : '✅ Готово! Можно проверять';
+
+                setTimeout(() => {
+                    statusEl.textContent = isUA ? '✅ Автозбереження увімкнено' : '✅ Автосохранение включено';
+                }, 3000);
+            }
+        } catch(e) {
+            console.error(e);
+            if (statusEl) {
+                statusEl.style.color = '#ef4444';
+                statusEl.textContent = isUA ? '❌ Помилка збереження' : '❌ Ошибка сохранения';
+            }
+        }
     }
 };
 

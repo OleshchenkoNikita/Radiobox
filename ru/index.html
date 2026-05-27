@@ -304,6 +304,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:red;">Ошибка соединения с сервером.</div>';
         }
     }
+
+    document.addEventListener('catalogUpdated', function(e) {
+        if (e.detail && Array.isArray(e.detail)) {
+            console.log("🔄 Живое обновление витрины: прилетел новый порядок товаров!");
+            // Функция renderShowcase уже есть у тебя в этом файле
+            renderShowcase(e.detail);
+        }
+    });
+
 });
 </script>
 </body>
