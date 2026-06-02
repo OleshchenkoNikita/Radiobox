@@ -3046,8 +3046,10 @@ def init_chat():
         if row:
             ticket_id = row['id']
         else:
-            # Создаем новый тикет
-            cursor.execute("INSERT INTO tickets (client_id) VALUES (?)", (client_id,))
+            # Создаем новый тикет с правильным локальным временем
+            local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute("INSERT INTO tickets (client_id, created_at, updated_at) VALUES (?, ?, ?)",
+                           (client_id, local_time, local_time))
             conn.commit()
             ticket_id = cursor.lastrowid
 
@@ -3076,34 +3078,32 @@ def on_join(data):
     if room:
         join_room(room)
 
-
 @socketio.on('send_message')
 def handle_message(data):
     """Обработка нового сообщения"""
     ticket_id = data.get('ticket_id')
     sender = data.get('sender')  # 'client' или 'manager'
     text = data.get('text')
-    lang = data.get('lang', 'ru')  # Для автоответа
+    lang = data.get('lang', 'ru')
 
     if not ticket_id or not text:
         return
 
-    with sqlite3.connect(DB_NAME) as conn:
-        cursor = conn.cursor()
-        # Сохраняем сообщение
-        cursor.execute(
-            "INSERT INTO messages (ticket_id, sender, text) VALUES (?, ?, ?)",
-            (ticket_id, sender, text)
-        )
-        conn.commit()
-
-        # Обновляем время тикета, чтобы он всплыл наверх в админке
-        cursor.execute("UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (ticket_id,))
-        conn.commit()
-
+    # Генерируем локальное киевское время
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Рассылаем сообщение в комнату тикета (чтобы его увидел и клиент, и менеджер)
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # ЯВНО передаем created_at в базу
+        cursor.execute(
+            "INSERT INTO messages (ticket_id, sender, text, created_at) VALUES (?, ?, ?, ?)",
+            (ticket_id, sender, text, created_at)
+        )
+        # ЯВНО обновляем время тикета
+        cursor.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (created_at, ticket_id))
+        conn.commit()
+
+    # Рассылаем сообщение в комнату
     emit('receive_message', {
         'ticket_id': ticket_id,
         'sender': sender,
@@ -3113,27 +3113,26 @@ def handle_message(data):
 
     # --- Логика автоответа в нерабочее время ---
     if sender == 'client':
-        current_hour = datetime.now().hour
-        # Настраиваем рабочие часы: с 9:00 до 18:00 (можешь поменять под себя)
+        current_hour = datetime.now().hour  # Теперь здесь будет правильное киевское время!
         if current_hour < 9 or current_hour >= 18:
             auto_text = "Сообщение отправлено! Ответ придёт в рабочее время (см. <a href='#' class='open-schedule-modal'>График работы</a>)."
             if lang == 'ua':
                 auto_text = "Повідомлення відправлено! Відповідь надійде в робочий час (див. <a href='#' class='open-schedule-modal'>Графік роботи</a>)."
 
-            # Сохраняем автоответ от менеджера в базу
+            auto_created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
             with sqlite3.connect(DB_NAME) as conn:
                 conn.execute(
-                    "INSERT INTO messages (ticket_id, sender, text) VALUES (?, 'manager', ?)",
-                    (ticket_id, auto_text)
+                    "INSERT INTO messages (ticket_id, sender, text, created_at) VALUES (?, 'manager', ?, ?)",
+                    (ticket_id, auto_text, auto_created_at)
                 )
                 conn.commit()
 
-            # Отправляем автоответ обратно клиенту
             emit('receive_message', {
                 'ticket_id': ticket_id,
                 'sender': 'manager',
                 'text': auto_text,
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                'created_at': auto_created_at
             }, to=str(ticket_id))
 
 # === СТРАНИЦА ЧАТА (АДМИН) ===
