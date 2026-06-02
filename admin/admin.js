@@ -2199,25 +2199,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Сразу проверяем непрочитанные при загрузке страницы
         checkUnreadTickets();
 
-        // Звук уведомления
-        const notifySound = new Audio('/assets/sounds/new_message.mp3');
-
-        // --- НЕВИДИМАЯ РАЗБЛОКИРОВКА ЗВУКА ---
-        function unlockAudio() {
-            // Пытаемся "вхолостую" проиграть звук и сразу ставим на паузу
-            notifySound.play().then(() => {
-                notifySound.pause();
-                notifySound.currentTime = 0;
-            }).catch(() => {});
-
-            // Удаляем слушатель после первого же клика
-            document.removeEventListener('click', unlockAudio);
-        }
-
-        // Слушаем самый первый клик в ЛЮБОМ месте страницы
-        document.addEventListener('click', unlockAudio);
-        // -------------------------------------------
-
         // 2. Динамически подгружаем Socket.IO для фонового прослушивания
         const script = document.createElement('script');
         script.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
@@ -2231,9 +2212,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Слушаем специальное событие о новом сообщении
             globalSocket.on('admin_new_message', () => {
-                // Пытаемся проиграть звук
-                notifySound.play().catch(e => console.warn('Аудио заблокировано браузером', e));
-                // Обновляем цифру в меню
+                // Только обновляем цифру в меню (без звука)
                 checkUnreadTickets();
             });
         };

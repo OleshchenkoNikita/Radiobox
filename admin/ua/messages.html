@@ -113,22 +113,6 @@
             let socket = io();
             let activeTicketId = null;
 
-            // Звук уведомления (системный короткий писк)
-            const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-
-            // --- НЕВИДИМАЯ РАЗБЛОКИРОВКА ЗВУКА ---
-            function unlockAudio() {
-                notifySound.play().then(() => {
-                    notifySound.pause();
-                    notifySound.currentTime = 0;
-                }).catch(() => {});
-
-                document.removeEventListener('click', unlockAudio);
-            }
-
-            document.addEventListener('click', unlockAudio);
-            // -------------------------------------------
-
             // 1. Загрузка списка тикетов
             async function loadTickets() {
                 try {
@@ -255,11 +239,6 @@
                     if (msg.sender === 'client') {
                         fetch(`/api/admin/chat/read/${activeTicketId}`, { method: 'POST' });
                     }
-                }
-
-                // Проигрываем звук, если пишет клиент
-                if (msg.sender === 'client') {
-                    notifySound.play().catch(e => console.warn('Аудио заблокировано браузером', e));
                 }
 
                 // Обновляем список (появится бейдж, и тикет всплывет наверх)
