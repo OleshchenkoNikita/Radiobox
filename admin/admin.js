@@ -2199,8 +2199,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Сразу проверяем непрочитанные при загрузке страницы
         checkUnreadTickets();
 
-        // Звук уведомления (системный короткий писк)
-        const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+        // Звук уведомления
+        const notifySound = new Audio('/assets/sounds/new_message.mp3');
 
         // --- НЕВИДИМАЯ РАЗБЛОКИРОВКА ЗВУКА ---
         function unlockAudio() {
