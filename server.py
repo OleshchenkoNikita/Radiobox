@@ -22,6 +22,7 @@ from flask_login import current_user
 from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
 load_dotenv()
 
@@ -127,6 +128,7 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 DB_NAME = "radiobox.db"
 # Берем ключ из .env, а если его там нет — генерируем случайный (для безопасности)
 app.secret_key = os.getenv("SECRET_KEY", os.urandom(24))
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 def cleanup_deleted_products():
     """Удаляет товары из корзины старше 30 дней"""
@@ -235,6 +237,29 @@ def init_db():
                 created_at TEXT
             )
         ''')
+
+        # 8. ЧАТ: Тикеты (Диалоги)
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS tickets (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_id TEXT NOT NULL, -- Может быть email авторизованного пользователя или уникальный токен сессии
+                        status TEXT DEFAULT 'open', -- 'open' (активен) или 'closed' (завершен)
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''')
+
+        # 9. ЧАТ: Сообщения
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        ticket_id INTEGER NOT NULL,
+                        sender TEXT NOT NULL, -- Кто написал: 'client' или 'manager'
+                        text TEXT NOT NULL,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE
+                    )
+                ''')
 
         # Заполним дефолтными, если пусто
         default_settings = {
@@ -2998,6 +3023,142 @@ def get_public_contacts():
         "address_ua": address_ua
     })
 
+
+# === API ЧАТА (REST) ===
+
+@app.route('/api/chat/init', methods=['POST'])
+def init_chat():
+    """Создает новый тикет или возвращает существующий по client_id"""
+    data = request.json
+    client_id = data.get('client_id')  # Это сгенерированный ID на клиенте или email
+
+    if not client_id:
+        return jsonify({"success": False, "error": "No client_id"})
+
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Ищем открытый тикет для этого клиента
+        cursor.execute("SELECT id FROM tickets WHERE client_id = ? AND status = 'open'", (client_id,))
+        row = cursor.fetchone()
+
+        if row:
+            ticket_id = row['id']
+        else:
+            # Создаем новый тикет
+            cursor.execute("INSERT INTO tickets (client_id) VALUES (?)", (client_id,))
+            conn.commit()
+            ticket_id = cursor.lastrowid
+
+    return jsonify({"success": True, "ticket_id": ticket_id})
+
+
+@app.route('/api/chat/history/<int:ticket_id>', methods=['GET'])
+def get_chat_history(ticket_id):
+    """Возвращает историю сообщений для конкретного тикета"""
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT sender, text, created_at FROM messages WHERE ticket_id = ? ORDER BY id ASC",
+                       (ticket_id,))
+        messages = [dict(row) for row in cursor.fetchall()]
+
+    return jsonify({"success": True, "messages": messages})
+
+
+# === ЧАТ (WebSockets) ===
+
+@socketio.on('join')
+def on_join(data):
+    """Подключение к комнате конкретного тикета"""
+    room = str(data.get('ticket_id'))
+    if room:
+        join_room(room)
+
+
+@socketio.on('send_message')
+def handle_message(data):
+    """Обработка нового сообщения"""
+    ticket_id = data.get('ticket_id')
+    sender = data.get('sender')  # 'client' или 'manager'
+    text = data.get('text')
+    lang = data.get('lang', 'ru')  # Для автоответа
+
+    if not ticket_id or not text:
+        return
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Сохраняем сообщение
+        cursor.execute(
+            "INSERT INTO messages (ticket_id, sender, text) VALUES (?, ?, ?)",
+            (ticket_id, sender, text)
+        )
+        conn.commit()
+
+        # Обновляем время тикета, чтобы он всплыл наверх в админке
+        cursor.execute("UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (ticket_id,))
+        conn.commit()
+
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Рассылаем сообщение в комнату тикета (чтобы его увидел и клиент, и менеджер)
+    emit('receive_message', {
+        'ticket_id': ticket_id,
+        'sender': sender,
+        'text': text,
+        'created_at': created_at
+    }, to=str(ticket_id))
+
+    # --- Логика автоответа в нерабочее время ---
+    if sender == 'client':
+        current_hour = datetime.now().hour
+        # Настраиваем рабочие часы: с 9:00 до 18:00 (можешь поменять под себя)
+        if current_hour < 9 or current_hour >= 18:
+            auto_text = "Сообщение отправлено! Ответ придёт в рабочее время (см. <a href='#' class='open-schedule-modal'>График работы</a>)."
+            if lang == 'ua':
+                auto_text = "Повідомлення відправлено! Відповідь надійде в робочий час (див. <a href='#' class='open-schedule-modal'>Графік роботи</a>)."
+
+            # Сохраняем автоответ от менеджера в базу
+            with sqlite3.connect(DB_NAME) as conn:
+                conn.execute(
+                    "INSERT INTO messages (ticket_id, sender, text) VALUES (?, 'manager', ?)",
+                    (ticket_id, auto_text)
+                )
+                conn.commit()
+
+            # Отправляем автоответ обратно клиенту
+            emit('receive_message', {
+                'ticket_id': ticket_id,
+                'sender': 'manager',
+                'text': auto_text,
+                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }, to=str(ticket_id))
+
+# === СТРАНИЦА ЧАТА (АДМИН) ===
+@app.route('/admin/<lang>/messages')
+@role_required('manager', 'superadmin')
+def admin_messages_page(lang):
+    if lang not in ['ru', 'ua']: return redirect('/admin/ru/messages')
+    try:
+        with open(f'admin/{lang}/messages.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    except FileNotFoundError:
+        return f"Error: File admin/{lang}/messages.html not found!"
+
+# === API: ПОЛУЧИТЬ СПИСОК ТИКЕТОВ ===
+@app.route('/api/admin/chat/tickets', methods=['GET'])
+@role_required('manager', 'superadmin')
+def admin_get_tickets():
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        # Сортируем так, чтобы тикеты с новыми сообщениями были сверху
+        cursor.execute("SELECT * FROM tickets ORDER BY updated_at DESC")
+        tickets = [dict(row) for row in cursor.fetchall()]
+    return jsonify({"success": True, "tickets": tickets})
+
 init_db()
 
 if __name__ == '__main__':
@@ -3005,4 +3166,5 @@ if __name__ == '__main__':
 
     # Читаем режим отладки из .env. Если там True - будет True, иначе False.
     is_debug = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "t")
-    app.run(debug=is_debug, port=5000)
+    # Измененный запуск для поддержки WebSockets
+    socketio.run(app, debug=is_debug, port=5000, allow_unsafe_werkzeug=True)

@@ -2817,3 +2817,160 @@ function toggleMobileMenu() {
     document.body.style.overflow = isOpen ? 'hidden' : '';
     menu.setAttribute('aria-hidden', !isOpen);
 }
+
+
+// ============================================
+// ЧАТ С МЕНЕДЖЕРОМ (WebSockets)
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Ждем, пока подгрузится footer.html
+    const observer = new MutationObserver((mutations, obs) => {
+        const chatToggleBtn = document.getElementById('chat-toggle-btn');
+        if (chatToggleBtn) {
+            initChatWidget();
+            obs.disconnect(); // Останавливаем наблюдение, когда нашли кнопку
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    function initChatWidget() {
+        const chatWidget = document.getElementById('chat-widget');
+        const chatToggleBtn = document.getElementById('chat-toggle-btn');
+        const chatCloseBtn = document.getElementById('chat-close-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendBtn = document.getElementById('chat-send-btn');
+
+        let socket = null;
+        let ticketId = null;
+        let isSocketLoaded = false;
+
+        let clientId = localStorage.getItem('chat_client_id');
+        if (!clientId) {
+            clientId = 'client_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('chat_client_id', clientId);
+        }
+
+        const currentLang = window.location.pathname.includes('/ua/') ? 'ua' : 'ru';
+
+        // Открытие/Закрытие чата
+        chatToggleBtn.addEventListener('click', () => {
+            chatWidget.classList.toggle('hidden');
+            if (!chatWidget.classList.contains('hidden') && !socket) {
+                loadSocketIOAndConnect();
+            }
+        });
+
+        chatCloseBtn.addEventListener('click', () => {
+            chatWidget.classList.add('hidden');
+        });
+
+        // Динамическая загрузка Socket.IO
+        function loadSocketIOAndConnect() {
+            if (isSocketLoaded) return;
+            chatMessages.innerHTML = '<div style="text-align:center; padding:10px; color:#888;">Подключение...</div>';
+
+            const script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
+            script.onload = () => {
+                isSocketLoaded = true;
+                startChatSession();
+            };
+            document.head.appendChild(script);
+        }
+
+        async function startChatSession() {
+            try {
+                const response = await fetch('/api/chat/init', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id: clientId })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    ticketId = data.ticket_id;
+                    await loadHistory(ticketId);
+                    connectSocket();
+                }
+            } catch (error) {
+                console.error("Ошибка инициализации чата:", error);
+                chatMessages.innerHTML = '<div style="color:red; text-align:center;">Ошибка подключения</div>';
+            }
+        }
+
+        async function loadHistory(id) {
+            const res = await fetch(`/api/chat/history/${id}`);
+            const data = await res.json();
+            if (data.success) {
+                chatMessages.innerHTML = '';
+                if (data.messages.length === 0) {
+                    const welcomeTxt = currentLang === 'ua' ? 'Напишіть нам, якщо у вас є запитання!' : 'Напишите нам, если у вас есть вопросы!';
+                    chatMessages.innerHTML = `<div style="text-align:center; color:#888; font-size:12px; margin-top:10px;">${welcomeTxt}</div>`;
+                } else {
+                    data.messages.forEach(msg => appendMessage(msg));
+                }
+                scrollToBottom();
+            }
+        }
+
+        function connectSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                socket.emit('join', { ticket_id: ticketId });
+            });
+
+            socket.on('receive_message', (msg) => {
+                if (String(msg.ticket_id) === String(ticketId)) {
+                    // Убираем приветственное сообщение, если оно есть
+                    if (chatMessages.innerHTML.includes('Напишите нам')) chatMessages.innerHTML = '';
+                    appendMessage(msg);
+                    scrollToBottom();
+                }
+            });
+        }
+
+        function appendMessage(msg) {
+            const div = document.createElement('div');
+            div.className = `chat-bubble ${msg.sender === 'client' ? 'client' : 'manager'}`;
+            div.innerHTML = `<p>${msg.text}</p><span class="time">${msg.created_at.substring(11, 16)}</span>`;
+            chatMessages.appendChild(div);
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text || !socket) return;
+
+            socket.emit('send_message', {
+                ticket_id: ticketId,
+                sender: 'client',
+                text: text,
+                lang: currentLang
+            });
+
+            chatInput.value = '';
+        }
+
+        chatSendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Перехват клика по ссылке "График работы" из автоответа
+        chatMessages.addEventListener('click', (e) => {
+            if (e.target.classList.contains('open-schedule-modal')) {
+                e.preventDefault();
+                const workModal = document.querySelector('.hours-modal');
+                if (workModal) {
+                    workModal.classList.add('is-open');
+                    document.body.classList.add('is-hours-open');
+                }
+            }
+        });
+    }
+});
