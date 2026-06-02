@@ -59,8 +59,8 @@
         <ul class="nav-links">
             <li><a href="/admin/ru/dashboard">Заказы</a></li>
             <li><a href="/admin/ru/products">Товары</a></li>
-            <li><a href="/admin/ru/messages" class="active">Сообщения (Чат)</a></li>
             <li><a href="/admin/ru/reviews">Отзывы</a></li>
+            <li><a href="/admin/ru/messages" class="active">Сообщения (Чат)</a></li>
             <li><a href="/admin/ru/showcase.html">Витрина (Сортировка)</a></li>
             <li><a href="/admin/ru/banners">Баннеры</a></li>
             <li><a href="/admin/ru/settings">Настройки</a></li>
@@ -81,7 +81,10 @@
             </div>
 
             <div class="chat-window" id="chatArea" style="display: none;">
-                <div class="chat-window-header" id="chatHeaderTitle">Диалог</div>
+                <div class="chat-window-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="chatHeaderTitle">Диалог</span>
+                    <button id="deleteTicketBtn" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">Удалить чат</button>
+                </div>
                 <div class="chat-messages" id="messagesBox"></div>
                 <div class="chat-input-box">
                     <input type="text" id="msgInput" placeholder="Введите ответ...">
@@ -105,9 +108,26 @@
             const chatHeaderTitle = document.getElementById('chatHeaderTitle');
             const msgInput = document.getElementById('msgInput');
             const sendBtn = document.getElementById('sendBtn');
+            const deleteTicketBtn = document.getElementById('deleteTicketBtn');
 
             let socket = io();
             let activeTicketId = null;
+
+            // Звук уведомления (системный короткий писк)
+            const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+
+            // --- НЕВИДИМАЯ РАЗБЛОКИРОВКА ЗВУКА ---
+            function unlockAudio() {
+                notifySound.play().then(() => {
+                    notifySound.pause();
+                    notifySound.currentTime = 0;
+                }).catch(() => {});
+
+                document.removeEventListener('click', unlockAudio);
+            }
+
+            document.addEventListener('click', unlockAudio);
+            // -------------------------------------------
 
             // 1. Загрузка списка тикетов
             async function loadTickets() {
@@ -117,22 +137,38 @@
 
                     if (data.success) {
                         ticketsBox.innerHTML = '';
+                        let totalUnread = 0; // Счетчик новых сообщений
+
                         if (data.tickets.length === 0) {
-                            ticketsBox.innerHTML = '<div style="padding:15px; text-align:center; color:#888;">Нет диалогов</div>';
-                            return;
+                            const emptyText = document.documentElement.lang === 'uk' ? 'Немає діалогів' : 'Нет диалогов';
+                            ticketsBox.innerHTML = `<div style="padding:15px; text-align:center; color:#888;">${emptyText}</div>`;
+                        } else {
+                            data.tickets.forEach(ticket => {
+                                const isUnread = ticket.unread_admin === 1;
+                                if (isUnread) totalUnread++;
+
+                                const div = document.createElement('div');
+                                div.className = `ticket-item ${ticket.id === activeTicketId ? 'active' : ''} ${isUnread ? 'unread' : ''}`;
+
+                                const ticketText = document.documentElement.lang === 'uk' ? 'Тікет' : 'Тикет';
+                                const newText = document.documentElement.lang === 'uk' ? 'Нове' : 'Новое';
+
+                                div.innerHTML = `
+                                    <div class="ticket-id">${ticketText} #${ticket.id} ${isUnread ? '<span class="unread-badge">' + newText + '</span>' : ''}</div>
+                                    <div class="ticket-client">${ticket.client_id}</div>
+                                    <div class="ticket-date">${ticket.updated_at.substring(0, 16)}</div>
+                                `;
+                                div.onclick = (e) => openTicket(ticket.id, ticket.client_id, e, isUnread);
+                                ticketsBox.appendChild(div);
+                            });
                         }
 
-                        data.tickets.forEach(ticket => {
-                            const div = document.createElement('div');
-                            div.className = `ticket-item ${ticket.id === activeTicketId ? 'active' : ''}`;
-                            div.innerHTML = `
-                                <div class="ticket-id">Тикет #${ticket.id}</div>
-                                <div class="ticket-client">${ticket.client_id}</div>
-                                <div class="ticket-date">${ticket.updated_at.substring(0, 16)}</div>
-                            `;
-                            div.onclick = () => openTicket(ticket.id, ticket.client_id);
-                            ticketsBox.appendChild(div);
-                        });
+                        // Обновляем визуальный счетчик в боковом меню (возле слова "Сообщения (Чат)")
+                        const navLink = document.querySelector('.nav-links a[href*="/messages"]');
+                        if (navLink) {
+                            const linkText = document.documentElement.lang === 'uk' ? 'Повідомлення (Чат)' : 'Сообщения (Чат)';
+                            navLink.innerHTML = `${linkText} ${totalUnread > 0 ? '<span class="unread-badge">' + totalUnread + '</span>' : ''}`;
+                        }
                     }
                 } catch (e) {
                     console.error("Ошибка загрузки тикетов", e);
@@ -140,19 +176,31 @@
             }
 
             // 2. Открытие конкретного диалога
-            async function openTicket(id, clientName) {
+            async function openTicket(id, clientName, event, isUnread) {
                 activeTicketId = id;
                 chatPlaceholder.style.display = 'none';
                 chatArea.style.display = 'flex';
-                chatHeaderTitle.textContent = `Диалог с: ${clientName}`;
-                messagesBox.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">Загрузка истории...</div>';
+
+                const dialogText = document.documentElement.lang === 'uk' ? 'Діалог з:' : 'Диалог с:';
+                const loadText = document.documentElement.lang === 'uk' ? 'Завантаження історії...' : 'Загрузка истории...';
+
+                chatHeaderTitle.textContent = `${dialogText} ${clientName}`;
+                messagesBox.innerHTML = `<div style="text-align:center; padding:20px; color:#888;">${loadText}</div>`;
 
                 // Подсветка активного тикета
                 document.querySelectorAll('.ticket-item').forEach(el => el.classList.remove('active'));
-                event.currentTarget.classList.add('active');
+                if (event && event.currentTarget) {
+                    event.currentTarget.classList.add('active');
+                }
 
-                // Подключаемся к комнате (чтобы получать новые сообщения именно в этот чат)
+                // Подключаемся к комнате
                 socket.emit('join', { ticket_id: id });
+
+                // Если диалог был непрочитанным, сбрасываем статус в БД и обновляем список
+                if (isUnread) {
+                    await fetch(`/api/admin/chat/read/${id}`, { method: 'POST' });
+                    loadTickets();
+                }
 
                 // Грузим историю
                 const res = await fetch(`/api/chat/history/${id}`);
@@ -168,7 +216,6 @@
             // 3. Отрисовка сообщения
             function appendMessage(msg) {
                 const div = document.createElement('div');
-                // Если отправитель менеджер, применяем класс msg-manager, иначе msg-client
                 div.className = `msg-bubble ${msg.sender === 'manager' ? 'msg-manager' : 'msg-client'}`;
                 div.innerHTML = `<p>${msg.text}</p><span class="time">${msg.created_at.substring(11, 16)}</span>`;
                 messagesBox.appendChild(div);
@@ -190,7 +237,6 @@
                 });
 
                 msgInput.value = '';
-                // Обновляем список тикетов, чтобы время обновилось
                 setTimeout(loadTickets, 500);
             }
 
@@ -199,15 +245,52 @@
                 if (e.key === 'Enter') sendMessage();
             });
 
-            // 5. Прием новых сообщений по WebSockets
+            // 5. Прием новых сообщений
             socket.on('receive_message', (msg) => {
-                // Если сообщение пришло в текущий открытый диалог
                 if (activeTicketId && String(msg.ticket_id) === String(activeTicketId)) {
                     appendMessage(msg);
                     scrollToBottom();
+
+                    // Если сообщение пришло в открытый прямо сейчас диалог от клиента, сразу помечаем его прочитанным
+                    if (msg.sender === 'client') {
+                        fetch(`/api/admin/chat/read/${activeTicketId}`, { method: 'POST' });
+                    }
                 }
-                // В любом случае обновляем список слева, чтобы поднять тикет наверх
+
+                // Проигрываем звук, если пишет клиент
+                if (msg.sender === 'client') {
+                    notifySound.play().catch(e => console.warn('Аудио заблокировано браузером', e));
+                }
+
+                // Обновляем список (появится бейдж, и тикет всплывет наверх)
                 loadTickets();
+            });
+
+            // 6. Удаление тикета
+            deleteTicketBtn.addEventListener('click', async () => {
+                if (!activeTicketId) return;
+
+                const confirmMsg = document.documentElement.lang === 'uk'
+                    ? 'Точно видалити цей діалог та всю його історію?'
+                    : 'Точно удалить этот диалог и всю его историю?';
+
+                if (!confirm(confirmMsg)) return;
+
+                try {
+                    const res = await fetch(`/api/admin/chat/ticket/${activeTicketId}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        activeTicketId = null;
+                        chatArea.style.display = 'none';
+                        chatPlaceholder.style.display = 'flex';
+                        loadTickets();
+                    }
+                } catch (e) {
+                    console.error("Ошибка при удалении", e);
+                }
             });
 
             // Стартовая загрузка

@@ -2917,16 +2917,39 @@ document.addEventListener('DOMContentLoaded', () => {
         function connectSocket() {
             socket = io();
 
+            // Подключение и вход в комнату
             socket.on('connect', () => {
                 socket.emit('join', { ticket_id: ticketId });
             });
 
+            // Прием новых сообщений
             socket.on('receive_message', (msg) => {
                 if (String(msg.ticket_id) === String(ticketId)) {
                     // Убираем приветственное сообщение, если оно есть
-                    if (chatMessages.innerHTML.includes('Напишите нам')) chatMessages.innerHTML = '';
+                    if (chatMessages.innerHTML.includes('Напишите нам') || chatMessages.innerHTML.includes('Напишіть нам')) {
+                        chatMessages.innerHTML = '';
+                    }
                     appendMessage(msg);
                     scrollToBottom();
+                }
+            });
+
+            // Слушаем событие удаления чата менеджером
+            socket.on('ticket_deleted', (data) => {
+                if (String(data.ticket_id) === String(ticketId)) {
+                    const deletedMsg = currentLang === 'ua'
+                        ? 'Чат завершено та видалено менеджером.'
+                        : 'Чат завершен и удален менеджером.';
+
+                    chatMessages.innerHTML = `<div style="text-align:center; padding:15px; color:#ef4444; font-weight:bold; font-size:12px;">${deletedMsg}</div>`;
+
+                    // Сбрасываем ID. Если клиент напишет снова, создастся новый тикет
+                    ticketId = null;
+                    localStorage.removeItem('chat_client_id'); // Очищаем старый ID из памяти
+
+                    // Генерируем новый ID на будущее
+                    clientId = 'client_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('chat_client_id', clientId);
                 }
             });
         }

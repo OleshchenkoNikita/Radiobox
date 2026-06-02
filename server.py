@@ -371,6 +371,12 @@ def init_db():
             cursor.execute("INSERT INTO admins (login, password) VALUES (?, ?)", ("admin", pw_hash))
             print("[Init] Создан админ по умолчанию: admin / admin123")
 
+        # Обновляем таблицу tickets (если она уже создана)
+        try:
+            cursor.execute("ALTER TABLE tickets ADD COLUMN unread_admin INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Колонка уже существует
+
         # === МАССОВОЕ ОБНОВЛЕНИЕ СТАТУСОВ ===
         # Если заказ оплачен, но статус не "Оплаченный" — исправляем
         try:
@@ -3099,8 +3105,11 @@ def handle_message(data):
             "INSERT INTO messages (ticket_id, sender, text, created_at) VALUES (?, ?, ?, ?)",
             (ticket_id, sender, text, created_at)
         )
-        # ЯВНО обновляем время тикета
-        cursor.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (created_at, ticket_id))
+        # ЯВНО обновляем время тикета и флаг непрочитанности
+        if sender == 'client':
+            cursor.execute("UPDATE tickets SET updated_at = ?, unread_admin = 1 WHERE id = ?", (created_at, ticket_id))
+        else:
+            cursor.execute("UPDATE tickets SET updated_at = ? WHERE id = ?", (created_at, ticket_id))
         conn.commit()
 
     # Рассылаем сообщение в комнату
@@ -3111,13 +3120,16 @@ def handle_message(data):
         'created_at': created_at
     }, to=str(ticket_id))
 
+    if sender == 'client':
+        emit('admin_new_message', {}, to='admin_global')
+
     # --- Логика автоответа в нерабочее время ---
     if sender == 'client':
         current_hour = datetime.now().hour  # Теперь здесь будет правильное киевское время!
         if current_hour < 9 or current_hour >= 18:
-            auto_text = "Сообщение отправлено! Ответ придёт в рабочее время (см. <a href='#' class='open-schedule-modal'>График работы</a>)."
+            auto_text = "Сообщение отправлено! Ответ придёт в рабочее время."
             if lang == 'ua':
-                auto_text = "Повідомлення відправлено! Відповідь надійде в робочий час (див. <a href='#' class='open-schedule-modal'>Графік роботи</a>)."
+                auto_text = "Повідомлення відправлено! Відповідь надійде в робочий час."
 
             auto_created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -3157,6 +3169,29 @@ def admin_get_tickets():
         cursor.execute("SELECT * FROM tickets ORDER BY updated_at DESC")
         tickets = [dict(row) for row in cursor.fetchall()]
     return jsonify({"success": True, "tickets": tickets})
+
+
+@app.route('/api/admin/chat/ticket/<int:ticket_id>', methods=['DELETE'])
+@role_required('manager', 'superadmin')
+def admin_delete_ticket(ticket_id):
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+        # Удаляем тикет. Каскадное удаление автоматически сотрет все сообщения из таблицы messages.
+        cursor.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+        conn.commit()
+
+    # Уведомляем клиента по WebSocket, что этот чат удален
+    socketio.emit('ticket_deleted', {'ticket_id': ticket_id}, to=str(ticket_id))
+
+    return jsonify({"success": True})
+
+@app.route('/api/admin/chat/read/<int:ticket_id>', methods=['POST'])
+@role_required('manager', 'superadmin')
+def admin_mark_read(ticket_id):
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.execute("UPDATE tickets SET unread_admin = 0 WHERE id = ?", (ticket_id,))
+        conn.commit()
+    return jsonify({"success": True})
 
 init_db()
 

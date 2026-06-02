@@ -2187,3 +2187,86 @@ document.getElementById('bannerFileInput')?.addEventListener('change', function(
         wrapper.style.display = 'none';
     }
 });
+
+// ==========================================
+// ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ О НОВЫХ СООБЩЕНИЯХ (ЧАТ)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Проверяем, не находимся ли мы уже на странице чата
+    const isMessagesPage = window.location.pathname.includes('/messages');
+
+    if (!isMessagesPage) {
+        // 1. Сразу проверяем непрочитанные при загрузке страницы
+        checkUnreadTickets();
+
+        // Звук уведомления (системный короткий писк)
+        const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+
+        // --- НЕВИДИМАЯ РАЗБЛОКИРОВКА ЗВУКА ---
+        function unlockAudio() {
+            // Пытаемся "вхолостую" проиграть звук и сразу ставим на паузу
+            notifySound.play().then(() => {
+                notifySound.pause();
+                notifySound.currentTime = 0;
+            }).catch(() => {});
+
+            // Удаляем слушатель после первого же клика
+            document.removeEventListener('click', unlockAudio);
+        }
+
+        // Слушаем самый первый клик в ЛЮБОМ месте страницы
+        document.addEventListener('click', unlockAudio);
+        // -------------------------------------------
+
+        // 2. Динамически подгружаем Socket.IO для фонового прослушивания
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js";
+        script.onload = () => {
+            const globalSocket = io();
+
+            globalSocket.on('connect', () => {
+                // Заходим в глобальную комнату админов
+                globalSocket.emit('join', { ticket_id: 'admin_global' });
+            });
+
+            // Слушаем специальное событие о новом сообщении
+            globalSocket.on('admin_new_message', () => {
+                // Пытаемся проиграть звук
+                notifySound.play().catch(e => console.warn('Аудио заблокировано браузером', e));
+                // Обновляем цифру в меню
+                checkUnreadTickets();
+            });
+        };
+        document.head.appendChild(script);
+    }
+
+    async function checkUnreadTickets() {
+        try {
+            const res = await fetch('/api/admin/chat/tickets');
+            const data = await res.json();
+
+            if (data.success) {
+                let totalUnread = 0;
+                data.tickets.forEach(t => {
+                    if (t.unread_admin === 1) totalUnread++;
+                });
+
+                // Ищем ссылку на чат в боковом меню
+                const navLink = document.querySelector('.nav-links a[href*="/messages"]');
+                if (navLink) {
+                    const isUa = window.location.pathname.includes('/ua/');
+                    const linkText = isUa ? 'Повідомлення (Чат)' : 'Сообщения (Чат)';
+
+                    // Обновляем текст и бейдж
+                    if (totalUnread > 0) {
+                        navLink.innerHTML = `${linkText} <span style="background: #ef4444; color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: bold; margin-left: 8px;">${totalUnread}</span>`;
+                    } else {
+                        navLink.innerHTML = linkText;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка проверки тикетов', e);
+        }
+    }
+});
