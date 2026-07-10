@@ -1153,8 +1153,11 @@ const AdminShowcase = {
 // === УПРАВЛЕНИЕ КАТЕГОРИЯМИ ===
 const AdminCats = {
     allCats: [],
+    lang: 'ru', // Устанавливаем по умолчанию
 
     init: function() {
+        // Определяем язык по тегу <html> (uk) или по URL
+        this.lang = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/') ? 'ua' : 'ru';
         this.load();
     },
 
@@ -1230,15 +1233,15 @@ const AdminCats = {
                                         </div>
                                     </div>`;
                                 }).join('')}
-                                <button onclick="AdminCats.openEditModal(null, '${sub.slug}')" style="background:none; border:none; color:#189BFF; font-size:11px; cursor:pointer; padding:0;">+ подподкатегория</button>
+                                <button onclick="AdminCats.openEditModal(null, '${sub.slug}')" style="background:none; border:none; color:#189BFF; font-size:11px; cursor:pointer; padding:0;">${isUA ? '+ Підпідрозділ' : '+ подподкатегория'}</button>
                             </div>
                         </div>`;
                     }).join('')}
-                    <button onclick="AdminCats.openEditModal(null, '${root.slug}')" style="margin-top:5px; background:none; border:1px dashed #cbd5e1; color:#64748b; font-size:12px; padding:4px 10px; border-radius:4px; cursor:pointer;">+ Подкатегория</button>
+                    <button onclick="AdminCats.openEditModal(null, '${root.slug}')" style="margin-top:5px; background:none; border:1px dashed #cbd5e1; color:#64748b; font-size:12px; padding:4px 10px; border-radius:4px; cursor:pointer;">${isUA ? '+ Підрозділ' : '+ Подкатегория'}</button>
                 </div>
             </div>`;
         });
-        container.innerHTML = html || 'Категории не созданы';
+        container.innerHTML = html || (isUA ? 'Категорії не створені' : 'Категории не созданы');
 
         // 1. Сортировка РОДИТЕЛЕЙ (Уровень 1)
         new Sortable(container, {
@@ -1324,6 +1327,7 @@ const AdminCats = {
 
     // Редактирование / Создание
     openEditModal: function(id, parentSlug = null) {
+        const isUA = this.lang === 'ua';
         const modal = document.getElementById('catEditModal');
         const form = modal.querySelector('form');
         form.reset();
@@ -1346,11 +1350,11 @@ const AdminCats = {
                 img.style.display = 'block';
                 document.getElementById('c_img_placeholder').style.display = 'none';
             }
-            document.getElementById('catModalTitle').textContent = 'Редактирование';
+            document.getElementById('catModalTitle').textContent = isUA ? 'Редагування' : 'Редактирование';
         } else {
             document.getElementById('c_id').value = '';
             document.getElementById('c_parent').value = parentSlug || '';
-            document.getElementById('catModalTitle').textContent = 'Новая группа';
+            document.getElementById('catModalTitle').textContent = isUA ? 'Нова група' : 'Новая группа';
         }
         modal.classList.add('active');
     },
@@ -1397,7 +1401,10 @@ const AdminCats = {
     },
 
     delete: async function(id) {
-        if(!confirm('Удалить категорию? Товары могут остаться без группы.')) return;
+        const isUA = this.lang === 'ua';
+        const msg = isUA ? 'Видалити категорію? Товари можуть залишитись без групи.' : 'Удалить категорию? Товары могут остаться без группы.';
+        if(!confirm(msg)) return;
+
         await fetch('/api/admin/category/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id}) });
         this.load();
     },
