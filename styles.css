@@ -3062,33 +3062,3 @@ video::-webkit-media-controls-panel {
         width: 48px !important;
     }
 }
-
-/* Контейнер баннера */
-.banner-wrapper {
-    width: 100%;
-    height: 400px; /* Базовая высота для десктопа */
-    overflow: hidden;
-}
-
-/* Изображение или видео внутри контейнера */
-.banner-wrapper img,
-.banner-wrapper video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center; /* Фокусирует внимание на центре изображения при обрезке краев */
-}
-
-/* Адаптация под планшеты */
-@media (max-width: 1024px) {
-    .banner-wrapper {
-        height: 300px; /* Уменьшенная высота для планшетов */
-    }
-}
-
-/* Адаптация под мобильные телефоны */
-@media (max-width: 768px) {
-    .banner-wrapper {
-        height: 200px; /* Оптимальная высота для телефонов */
-    }
-}
