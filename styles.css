@@ -3062,3 +3062,15 @@ video::-webkit-media-controls-panel {
         width: 48px !important;
     }
 }
+
+/* Скрываем навигацию с "Главная, Товары..." на мобильных */
+@media (max-width: 1024px) {
+    .site-header {
+        display: none !important;
+    }
+
+    /* Если после этого остался лишний белый отступ, обнуляем его */
+    .b-white-bar {
+        border-bottom: none !important; /* Убираем лишнюю линию */
+    }
+}
