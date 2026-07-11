@@ -365,7 +365,7 @@ def init_db():
                 cursor.execute("ALTER TABLE products ADD COLUMN brand TEXT DEFAULT NULL")
                 print("✅ Колонка 'brand' успешно добавлена в таблицу 'products'")
             except sqlite3.OperationalError:
-                print("ℹ️ Колонка 'brand' уже существует")
+                pass  # Колонка уже есть
 
         for table, col, dtype in columns_to_add:
             try:
