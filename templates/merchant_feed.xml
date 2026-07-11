@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+<channel>
+    <title>Інтернет-магазин «RadioBox»</title>
+    <link>https://radio-box.com.ua/</link>
+    <g:description>RSS 2.0 product data feed</g:description>
+
+    {% for item in products %}
+    <item>
+        <g:id>{{ item['id'] }}</g:id>
+        <g:title>{{ item['title'] }}</g:title>
+
+        <!-- Оборачиваем описание в CDATA и добавляем фильтр safe -->
+        <g:description><![CDATA[{{ item['description'] | safe }}]]></g:description>
+
+        <g:link>https://radio-box.com.ua/{{ lang }}/p{{ item['id'] }}.html?source=merchant_center</g:link>
+        <g:ads_redirect>https://radio-box.com.ua/{{ lang }}/p{{ item['id'] }}.html?source=merchant_center</g:ads_redirect>
+
+        <g:image_link>{{ item['image_url'] }}</g:image_link>
+        <g:availability>{{ 'in stock' if item['in_stock'] else 'out of stock' }}</g:availability>
+
+        <!-- Форматируем цену до двух знаков после точки -->
+        <g:price>{{ "%.2f"|format(item['price']) }} UAH</g:price>
+
+        {% if item['category_name'] %}
+        <g:product_type>{{ item['category_name'] }}</g:product_type>
+        {% endif %}
+
+        {% if item['brand'] %}
+        <g:brand>{{ item['brand'] }}</g:brand>
+        {% endif %}
+
+        <g:identifier_exists>no</g:identifier_exists>
+        <g:condition>new</g:condition>
+
+        {% if item['unit_type'] %}
+        <g:product_detail>
+            <g:attribute_name>Одиниця_виміру</g:attribute_name>
+            <g:attribute_value>{{ item['unit_type'] }}</g:attribute_value>
+        </g:product_detail>
+        {% endif %}
+    </item>
+    {% endfor %}
+</channel>
+</rss>

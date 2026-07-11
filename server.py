@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, render_template_string, url_for
+from flask import Response, render_template
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import current_user
@@ -1344,6 +1345,7 @@ def admin_save_product_api():
     sku = data.get('sku')
     title_ru = data.get('title_ru')
     title_ua = data.get('title_ua') or title_ru
+    brand = data.get('brand', '')
     desc_ru = data.get('description_ru', '')
     desc_ua = data.get('description_ua', '')
     price = float(data.get('price', 0))
@@ -1370,14 +1372,14 @@ def admin_save_product_api():
                 sku=?, title_ru=?, title_ua=?, description_ru=?, description_ua=?, 
                 price=?, in_stock=?, quantity=?, qty_stock=?, category=?, subcategory=?, 
                 images_json=?, on_index=?, seo_title=?, seo_description=?, 
-                seo_title_ua=?, seo_description_ua=?, unit_type=?
+                seo_title_ua=?, seo_description_ua=?, unit_type=?, brand=?
                 WHERE id=?
             ''', (
                 sku, title_ru, title_ua, desc_ru, desc_ua,
                 price, in_stock, qty, qty, category, subcategory,
                 images, on_index, seo_title, seo_desc,
                 data.get('seo_title_ua'), data.get('seo_description_ua'),
-                unit_type, pid
+                unit_type, brand, pid
             ))
         else:
             # При создании нового товара
@@ -1391,9 +1393,9 @@ def admin_save_product_api():
                     sku, title_ru, title_ua, description_ru, description_ua, 
                     price, in_stock, quantity, qty_stock, category, subcategory, 
                     images_json, on_index, position, created_at, seo_title, 
-                    seo_description, unit_type
+                    seo_description, unit_type, brand
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 sku, title_ru, title_ua, desc_ru, desc_ua,
                 price, in_stock, qty, qty, category, subcategory,
@@ -3194,6 +3196,80 @@ def admin_mark_read(ticket_id):
     return jsonify({"success": True})
 
 init_db()
+
+
+def get_feed_data(lang):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Убрали image_url, оставили то, что есть в init_db
+    query = f'''
+            SELECT 
+                id, 
+                title_{lang} AS title, 
+                description_{lang} AS description, 
+                images_json, 
+                in_stock, 
+                price, 
+                unit_type,
+                category AS category_slug,
+                brand
+            FROM products
+            WHERE is_visible = 1 AND deleted_at IS NULL
+        '''
+    cursor.execute(query)
+    rows = cursor.fetchall()
+
+    # Подтягиваем названия категорий из таблицы categories
+    cursor.execute("SELECT slug, title_ru, title_ua FROM categories")
+    cat_rows = cursor.fetchall()
+    cat_map = {c['slug']: (c['title_ua'] if lang == 'ua' else c['title_ru']) for c in cat_rows}
+
+    conn.close()
+
+    products = []
+    domain = "https://radio-box.com.ua"
+
+    for row in rows:
+        item = dict(row)
+
+        # Получаем категорию по слагу
+        item['category_name'] = cat_map.get(item['category_slug'], 'General')
+
+        # Обрабатываем JSON с картинками
+        image_url = ""
+        if item['images_json']:
+            try:
+                images = json.loads(item['images_json'])
+                if images and isinstance(images, list) and len(images) > 0:
+                    img_path = images[0]
+                    if img_path.startswith('http'):
+                        image_url = img_path
+                    else:
+                        img_path = img_path.lstrip('/')
+                        image_url = f"{domain}/{img_path}"
+            except:
+                pass
+
+        item['image_url'] = image_url
+        products.append(item)
+
+    return products
+
+
+@app.route('/feed/merchant_ua.xml')
+def merchant_feed_ua():
+    products = get_feed_data('ua')
+    xml_content = render_template('merchant_feed.xml', products=products, lang='ua')
+    return Response(xml_content, mimetype='application/xml')
+
+
+@app.route('/feed/merchant_ru.xml')
+def merchant_feed_ru():
+    products = get_feed_data('ru')
+    xml_content = render_template('merchant_feed.xml', products=products, lang='ru')
+    return Response(xml_content, mimetype='application/xml')
 
 if __name__ == '__main__':
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")

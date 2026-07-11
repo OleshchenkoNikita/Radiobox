@@ -789,6 +789,7 @@ const AdminProducts = {
             document.getElementById('p_unit').value = product.unit_type || 'pcs';
             document.getElementById('p_category').value = product.category;
             document.getElementById('p_stock').value = product.in_stock;
+            document.getElementById('p_brand').value = product.brand || '';
             document.getElementById('p_desc_ru').value = product.description_ru || '';
             document.getElementById('p_desc_ua').value = product.description_ua || '';
             document.getElementById('p_on_index').checked = (product.on_index == 1);
@@ -858,6 +859,7 @@ const AdminProducts = {
             unit_type: document.getElementById('p_unit').value,
             category: document.getElementById('p_category').value,
             in_stock: document.getElementById('p_stock').value,
+            brand: document.getElementById('p_brand').value,
             description_ru: document.getElementById('p_desc_ru').value,
             description_ua: document.getElementById('p_desc_ua').value,
             on_index: document.getElementById('p_on_index').checked ? 1 : 0,
