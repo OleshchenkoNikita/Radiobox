@@ -358,6 +358,15 @@ def init_db():
             except sqlite3.OperationalError:
                 pass  # Колонка уже есть
 
+        # Добавление колонки brand в таблицу products
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("ALTER TABLE products ADD COLUMN brand TEXT DEFAULT NULL")
+                print("✅ Колонка 'brand' успешно добавлена в таблицу 'products'")
+            except sqlite3.OperationalError:
+                print("ℹ️ Колонка 'brand' уже существует")
+
         for table, col, dtype in columns_to_add:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
