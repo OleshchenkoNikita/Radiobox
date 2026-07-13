@@ -2183,6 +2183,7 @@ def admin_import_prom():
                 image = row.get('Посилання_зображення')
                 cat_name = row.get('Назва_групи')
                 qty_str = row.get('Кількість', '0')
+                brand = row.get('Виробник') or row.get('Бренд') or row.get('Производитель') or ""
 
                 # Очистка цены (убрать пробелы)
                 try:
@@ -2213,14 +2214,14 @@ def admin_import_prom():
                 if exists:
                     cursor.execute("""
                         UPDATE products SET 
-                        price=?, quantity=?, title_ru=?, description_ru=?, image=?
+                        price=?, quantity=?, title_ru=?, description_ru=?, image=?, brand=?
                         WHERE id=?
-                    """, (price, qty, title, desc, image, pid))
+                    """, (price, qty, title, desc, image, brand, pid))
                 else:
                     cursor.execute("""
-                        INSERT INTO products (id, category, title_ru, price, image, description_ru, quantity, date)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (pid, category, title, price, image, desc, qty, datetime.now()))
+                        INSERT INTO products (id, category, title_ru, price, image, description_ru, quantity, date, brand)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (pid, category, title, price, image, desc, qty, datetime.now(), brand))
 
                 count += 1
 
@@ -2436,6 +2437,8 @@ def admin_import_keepincrm_xlsx():
                 if group_id in crm_group_map:
                     cat_slug = crm_group_map[group_id]
 
+                brand = str(get_p(row, ['Бренд', 'Виробник', 'Производитель', 'Brand']) or "").strip()
+
                 # Картинки
                 image_url = get_p(row, ['Посилання_зображення', 'Ссылка_изображения', 'Ссылка_на_изображение', 'Image'])
                 images = []
@@ -2451,11 +2454,11 @@ def admin_import_keepincrm_xlsx():
                         price=?, quantity=?, qty_stock=?, in_stock=?, images_json=?, category=?,
                         unit_type=?, 
                         seo_title=?, seo_description=?,
-                        seo_title_ua=?, seo_description_ua=?
+                        seo_title_ua=?, seo_description_ua=?, brand=?
                         WHERE sku=?
                     """, (
                     title_ru, title_ua, desc_ru, desc_ua, price, qty, qty, in_stock, images_json, cat_slug, unit_type,
-                    seo_title, seo_desc, seo_title_ua, seo_desc_ua, sku))
+                    seo_title, seo_desc, seo_title_ua, seo_desc_ua, brand, sku))
                     updated_count += 1
                 else:
                     cursor.execute("""
@@ -2463,12 +2466,12 @@ def admin_import_keepincrm_xlsx():
                             sku, title_ru, title_ua, description_ru, description_ua, 
                             price, quantity, qty_stock, in_stock, images_json, 
                             category, unit_type, created_at, on_index, is_visible,
-                            seo_title, seo_description, seo_title_ua, seo_description_ua
+                            seo_title, seo_description, seo_title_ua, seo_description_ua, brand
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, ?, ?)
                     """, (sku, title_ru, title_ua, desc_ru, desc_ua, price, qty, qty, in_stock, images_json, cat_slug,
                           unit_type, datetime.now(),
-                          seo_title, seo_desc, seo_title_ua, seo_desc_ua))
+                          seo_title, seo_desc, seo_title_ua, seo_desc_ua, brand))
                     created_count += 1
 
             conn.commit()
