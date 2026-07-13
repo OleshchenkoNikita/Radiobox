@@ -104,12 +104,15 @@
                 <button class="btn-primary" style="background:#8b5cf6; margin-left:10px;" onclick="AdminProducts.syncCrm()">
                     🔄 Сінхронізація з CRM
                 </button>
-                <button class="btn-primary" style="background:#2563eb; margin-left:10px;" onclick="document.getElementById('importKeepinInput').click()">
+                <button class="btn-primary" style="background:#16a34a; margin-left:10px;" onclick="document.getElementById('importKeepinXlsx').click()">
                     📊 Імпорт фіда з Прому (.xlsx)
                 </button>
+                <input type="file" id="importKeepinXlsx" style="display:none" accept=".xlsx" onchange="uploadKeepinXlsx(this)">
+
                 <button class="btn-primary" style="background:#16a34a; margin-left:10px;" onclick="document.getElementById('importInput').click()">
                     Імпорт фіда з Прому (.csv)
                 </button>
+                <input type="file" id="importInput" style="display:none" accept=".csv" onchange="uploadPromCsv(this)">
             </div>
         </div>
 
@@ -370,22 +373,48 @@
     </div>
 
 <script>
-async function uploadKeepinCsv(input) {
+// Обработка загрузки CSV (Пром)
+async function uploadPromCsv(input) {
     if(!input.files[0]) return;
 
     const formData = new FormData();
     formData.append('file', input.files[0]);
 
-    if(!confirm("Завантажити файл експорту з KeepinCRM?")) return;
+    if(!confirm("Завантажити товари з CSV? Це може зайняти час.")) return;
 
-    // Блокируем интерфейс, чтобы показать работу
-    const btn = document.querySelector('button[onclick*="importKeepinInput"]');
+    try {
+        const res = await fetch('/api/admin/import_prom', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if(data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert("Помилка: " + data.error);
+        }
+    } catch(e) {
+        alert("Помилка мережі");
+    }
+}
+
+// Обработка загрузки XLSX (KeepinCRM)
+async function uploadKeepinXlsx(input) {
+    if(!input.files[0]) return;
+
+    const formData = new FormData();
+    formData.append('file', input.files[0]);
+
+    if(!confirm("Завантажити XLSX файл з KeepinCRM?")) return;
+
+    const btn = document.querySelector('button[onclick*="importKeepinXlsx"]');
     const oldText = btn.textContent;
     btn.textContent = "⏳ Імпорт...";
     btn.disabled = true;
 
     try {
-        const res = await fetch('/api/admin/import_keepincrm_csv', {
+        const res = await fetch('/api/admin/import_keepincrm_xlsx', {
             method: 'POST',
             body: formData
         });
@@ -393,7 +422,7 @@ async function uploadKeepinCsv(input) {
 
         btn.textContent = oldText;
         btn.disabled = false;
-        input.value = ''; // Сброс
+        input.value = '';
 
         if(data.success) {
             alert(data.message);
