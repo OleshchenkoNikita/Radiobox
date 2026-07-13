@@ -8,8 +8,23 @@
     <title>{{ product.name }} | Radiobox</title>
     <meta name="description" content="Купити {{ product.name }} за ціною {{ product.price }} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.">
 
-    <!-- Канонічне посилання для запобігання дублям -->
-    <link rel="canonical" href="{{ request.base_url }}" />
+    <!-- Каноническая ссылка для Google Merchant -->
+    <script>
+      (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+
+        if (productId) {
+          // Собираем чистый URL: домен + путь к файлу + только ID товара
+          const cleanUrl = window.location.origin + window.location.pathname + '?id=' + productId;
+
+          let canonicalLink = document.createElement('link');
+          canonicalLink.setAttribute('rel', 'canonical');
+          canonicalLink.setAttribute('href', cleanUrl);
+          document.head.appendChild(canonicalLink);
+        }
+      })();
+    </script>
 
     <!-- Стилі -->
     <link rel="stylesheet" href="../styles.css" />

@@ -1372,6 +1372,9 @@ def admin_save_product_api():
     seo_title = data.get('seo_title', '')
     seo_desc = data.get('seo_description', '')
 
+    seo_title_ua = data.get('seo_title_ua', '')
+    seo_desc_ua = data.get('seo_description_ua', '')
+
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         if pid:
@@ -1387,7 +1390,7 @@ def admin_save_product_api():
                 sku, title_ru, title_ua, desc_ru, desc_ua,
                 price, in_stock, qty, qty, category, subcategory,
                 images, on_index, seo_title, seo_desc,
-                data.get('seo_title_ua'), data.get('seo_description_ua'),
+                seo_title_ua, seo_desc_ua,
                 unit_type, brand, pid
             ))
         else:

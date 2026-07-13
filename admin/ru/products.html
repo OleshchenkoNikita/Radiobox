@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Товары — RadioBox Admin</title>
     <link rel="stylesheet" href="/styles.css">
+    <script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script>
     <style>
         body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .sidebar { width: 250px; background: #0d2b4e; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
@@ -66,6 +67,9 @@
         .admin-lang { font-size:14px; font-weight:600; margin-right: 20px; }
         .admin-lang a { text-decoration:none; color:#94a3b8; margin-left:8px; }
         .admin-lang a.active { color:#0f172a; text-decoration:underline; }
+
+        /* Скрываем назойливые уведомления CKEditor */
+        .cke_notifications_area { display: none !important; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="/admin/admin.js" defer></script>
@@ -266,11 +270,11 @@
 
                     <div class="form-group full">
                         <label>Описание (RU)</label>
-                        <textarea id="p_desc_ru"></textarea>
+                        <textarea id="p_desc_ru" style="min-height: 250px;"></textarea>
                     </div>
                     <div class="form-group full">
-                        <label>Опис (UA)</label>
-                        <textarea id="p_desc_ua"></textarea>
+                        <label>Описание (UA)</label>
+                        <textarea id="p_desc_ua" style="min-height: 250px;"></textarea>
                     </div>
 
                     <div class="form-group">
@@ -312,12 +316,20 @@
                         <label style="font-size:15px; color:#1e293b;">🔎 SEO (Для поисковиков)</label>
                     </div>
                     <div class="form-group full">
-                        <label>SEO Заголовок (Title)</label>
-                        <input type="text" id="p_seo_title" class="form-input" maxlength="250" placeholder="Купить Паяльник 60Вт в Украине | RadioBox">
+                        <label>SEO Заголовок (RU)</label>
+                        <input type="text" id="p_seo_title" class="form-input" maxlength="250">
                     </div>
                     <div class="form-group full">
-                        <label>SEO Описание (Description)</label>
-                        <textarea id="p_seo_desc" style="height:60px;" maxlength="250" placeholder="Краткое описание товара для Google (до 250 символов)..."></textarea>
+                        <label>SEO Заголовок (UA)</label>
+                        <input type="text" id="p_seo_title_ua" class="form-input" maxlength="250">
+                    </div>
+                    <div class="form-group full">
+                        <label>SEO Описание (RU)</label>
+                        <textarea id="p_seo_desc" style="height:60px;" maxlength="250"></textarea>
+                    </div>
+                    <div class="form-group full">
+                        <label>SEO Описание (UA)</label>
+                        <textarea id="p_seo_desc_ua" style="height:60px;" maxlength="250"></textarea>
                     </div>
 
                 </div>
@@ -437,6 +449,12 @@ async function uploadKeepinXlsx(input) {
         btn.disabled = false;
     }
 }
+</script>
+
+<script>
+    // Заменяем обычные textarea на визуальный редактор
+    CKEDITOR.replace('p_desc_ru');
+    CKEDITOR.replace('p_desc_ua');
 </script>
 
 </body>

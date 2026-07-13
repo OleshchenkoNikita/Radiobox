@@ -600,13 +600,13 @@ const AdminProducts = {
                     dragHandle = `<div class="btn-icon drag-handle" style="cursor:grab; background:#f8fafc;" title="Перетащить">:::</div>`;
                 }
 
-                const pJson = JSON.stringify(p).replace(/"/g, '&quot;');
+                const pJson = encodeURIComponent(JSON.stringify(p));
 
                 actionsHtml = `
                      ${dragHandle}
                      <button class="btn-icon" title="Копировать" onclick="AdminProducts.copy(${p.id})">📄</button>
                      <button class="btn-icon" title="Скрыть/Показать" onclick="AdminProducts.toggleVisibility(${p.id}, ${p.is_visible})">${p.is_visible ? '👁️' : '🙈'}</button>
-                     <button class="btn-icon" title="Редактировать" onclick="AdminProducts.openModal(${pJson})">✏️</button>
+                     <button class="btn-icon" title="Редактировать" onclick="AdminProducts.openModalById(${p.id})">✏️</button>
                      <button class="btn-icon red" title="Удалить" onclick="AdminProducts.delete(${p.id})">🗑️</button>
                 `;
             }
@@ -763,13 +763,21 @@ const AdminProducts = {
     },
 
     // === 1. ОТКРЫТИЕ МОДАЛКИ (Заполнение полей) ===
-    openModal: function(product = null) {
+    openModal: function(pEncoded) {
+        const product = (typeof pEncoded === 'object') ? pEncoded :
+                        (pEncoded ? JSON.parse(decodeURIComponent(pEncoded)) : null);
         const modal = document.getElementById('productModal');
         const title = document.getElementById('modalTitle');
         const form = document.getElementById('productForm');
         if(!modal) return;
 
         form.reset();
+
+        // Очистка CKEditor
+        if (typeof CKEDITOR !== 'undefined') {
+            CKEDITOR.instances.p_desc_ru.setData('');
+            CKEDITOR.instances.p_desc_ua.setData('');
+        }
 
         // Очищаем фото
         document.getElementById('path_main').value = '';
@@ -790,13 +798,21 @@ const AdminProducts = {
             document.getElementById('p_category').value = product.category;
             document.getElementById('p_stock').value = product.in_stock;
             document.getElementById('p_brand').value = product.brand || '';
-            document.getElementById('p_desc_ru').value = product.description_ru || '';
-            document.getElementById('p_desc_ua').value = product.description_ua || '';
+            if (typeof CKEDITOR !== 'undefined') {
+                CKEDITOR.instances.p_desc_ru.setData(product.description_ru || '');
+                CKEDITOR.instances.p_desc_ua.setData(product.description_ua || '');
+            } else {
+                document.getElementById('p_desc_ru').value = product.description_ru || '';
+                document.getElementById('p_desc_ua').value = product.description_ua || '';
+            }
             document.getElementById('p_on_index').checked = (product.on_index == 1);
 
             // Новые SEO поля
             document.getElementById('p_seo_title').value = product.seo_title || '';
+            document.getElementById('p_seo_title_ua').value = product.seo_title_ua || '';
+
             document.getElementById('p_seo_desc').value = product.seo_description || '';
+            document.getElementById('p_seo_desc_ua').value = product.seo_description_ua || '';
 
             // --- ЗАГРУЗКА ФОТО ---
             // --- ЗАГРУЗКА ФОТО/ВИДЕО (ОБНОВЛЕНО) ---
@@ -837,6 +853,15 @@ const AdminProducts = {
         modal.classList.add('active');
     },
 
+    // Новая функция
+    openModalById: function(id) {
+        // Находим товар по ID в массиве, который мы уже скачали ранее
+        const product = this.allLoadedProducts.find(p => p.id == id);
+        if (product) {
+            this.openModal(product); // Вызываем основную функцию, передавая объект
+        }
+    },
+
     // === 2. СОХРАНЕНИЕ ===
     save: async function() {
         const pid = document.getElementById('p_id').value;
@@ -860,13 +885,16 @@ const AdminProducts = {
             category: document.getElementById('p_category').value,
             in_stock: document.getElementById('p_stock').value,
             brand: document.getElementById('p_brand').value,
-            description_ru: document.getElementById('p_desc_ru').value,
-            description_ua: document.getElementById('p_desc_ua').value,
+            description_ru: typeof CKEDITOR !== 'undefined' ? CKEDITOR.instances.p_desc_ru.getData() : document.getElementById('p_desc_ru').value,
+            description_ua: typeof CKEDITOR !== 'undefined' ? CKEDITOR.instances.p_desc_ua.getData() : document.getElementById('p_desc_ua').value,
             on_index: document.getElementById('p_on_index').checked ? 1 : 0,
 
             // Новые поля
             seo_title: document.getElementById('p_seo_title').value,
+            seo_title_ua: document.getElementById('p_seo_title_ua').value,
+
             seo_description: document.getElementById('p_seo_desc').value,
+            seo_description_ua: document.getElementById('p_seo_desc_ua').value,
 
             images: allImages
         };

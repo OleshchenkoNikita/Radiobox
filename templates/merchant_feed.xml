@@ -13,8 +13,8 @@
         <!-- Оборачиваем описание в CDATA и добавляем фильтр safe -->
         <g:description><![CDATA[{{ item['description'] | safe }}]]></g:description>
 
-        <g:link>https://radio-box.com.ua/{{ lang }}/p{{ item['id'] }}.html?source=merchant_center</g:link>
-        <g:ads_redirect>https://radio-box.com.ua/{{ lang }}/p{{ item['id'] }}.html?source=merchant_center</g:ads_redirect>
+        <g:link>https://radio-box.com.ua/{{ lang }}/product.html?id={{ item['id'] }}</g:link>
+        <g:ads_redirect>https://radio-box.com.ua/{{ lang }}/product.html?id={{ item['id'] }}&amp;source=merchant_center</g:ads_redirect>
 
         <g:image_link>{{ item['image_url'] }}</g:image_link>
         <g:availability>{{ 'in stock' if item['in_stock'] else 'out of stock' }}</g:availability>

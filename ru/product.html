@@ -7,7 +7,23 @@
     <title>{{ product.name }} | Radiobox</title>
     <meta name="description" content="Купить {{ product.name }} по цене {{ product.price }} грн. Быстрая доставка, гарантия качества в интернет-магазине Radiobox.">
 
-    <link rel="canonical" href="{{ request.base_url }}" />
+    <!-- Каноническая ссылка для Google Merchant -->
+    <script>
+      (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+
+        if (productId) {
+          // Собираем чистый URL: домен + путь к файлу + только ID товара
+          const cleanUrl = window.location.origin + window.location.pathname + '?id=' + productId;
+
+          let canonicalLink = document.createElement('link');
+          canonicalLink.setAttribute('rel', 'canonical');
+          canonicalLink.setAttribute('href', cleanUrl);
+          document.head.appendChild(canonicalLink);
+        }
+      })();
+    </script>
 
     <link rel="stylesheet" href="../styles.css" />
     <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
