@@ -808,12 +808,22 @@ const AdminProducts = {
             }
             document.getElementById('p_on_index').checked = (product.on_index == 1);
 
-            // Новые SEO поля
-            document.getElementById('p_seo_title').value = product.seo_title || '';
-            document.getElementById('p_seo_title_ua').value = product.seo_title_ua || '';
+            // Функция для удаления HTML-тегов (чтобы в SEO-описании был чистый текст)
+            const stripHTML = (html) => {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return (tmp.textContent || tmp.innerText || "").trim().replace(/\s+/g, ' ');
+            };
 
-            document.getElementById('p_seo_desc').value = product.seo_description || '';
-            document.getElementById('p_seo_desc_ua').value = product.seo_description_ua || '';
+            // Если SEO-описание в базе пустое, берем первые 240 символов из обычного описания
+            const autoSeoDescRu = stripHTML(descRu).substring(0, 240);
+            const autoSeoDescUa = stripHTML(descUa).substring(0, 240);
+
+            // Заполняем SEO поля (с умным фолбэком)
+            document.getElementById('p_seo_title').value = product.seo_title || product.title_ru || '';
+            document.getElementById('p_seo_title_ua').value = product.seo_title_ua || product.title_ua || product.title_ru || '';
+            document.getElementById('p_seo_desc').value = product.seo_description || autoSeoDescRu;
+            document.getElementById('p_seo_desc_ua').value = product.seo_description_ua || autoSeoDescUa || autoSeoDescRu;
 
             // --- ЗАГРУЗКА ФОТО ---
             // --- ЗАГРУЗКА ФОТО/ВИДЕО (ОБНОВЛЕНО) ---

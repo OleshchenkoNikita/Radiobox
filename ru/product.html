@@ -248,6 +248,7 @@
 
             // Ищем товар
             const product = items.find(p => p.id == pid);
+            let imagesList = [];
 
             // Если товара нет — показываем ошибку
             if (!product) {
@@ -262,6 +263,38 @@
             document.getElementById('pTitle').textContent = finalTitle;
             document.getElementById('crumbTitle').textContent = finalTitle;
             document.title = finalTitle + (isUA ? " — RadioBox" : " — RadioBox");
+
+            // --- ПРИМЕНЯЕМ SEO-ДАННЫЕ ---
+            let finalSeoDesc = isUA ? (product.seo_description_ua || product.seo_description) : (product.seo_description || product.seo_description_ua);
+
+            // Фолбэк, если SEO-описание все еще пустое
+            if (!finalSeoDesc) {
+                finalSeoDesc = isUA
+                    ? `Купити ${finalTitle} за ціною ${product.price || 0} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.`
+                    : `Купить ${finalTitle} по цене ${product.price || 0} грн. Быстрая доставка, гарантия качества в интернет-магазине Radiobox.`;
+            }
+
+            // 1. Мета-тег Description (Для Google)
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) metaDesc.setAttribute("content", finalSeoDesc);
+
+            // 2. OpenGraph Description (Для соцсетей и мессенджеров)
+            const ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute("content", finalSeoDesc);
+
+            // 3. OpenGraph Title
+            const seoTitle = isUA ? (product.seo_title_ua || product.seo_title) : (product.seo_title || product.seo_title_ua);
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute("content", seoTitle || finalTitle);
+
+            // 4. OpenGraph Image (Картинка товара при отправке ссылки)
+            const ogImage = document.querySelector('meta[property="og:image"]');
+            if (ogImage && imagesList.length > 0) {
+                // Соцсети требуют полный URL (с https://), поэтому склеиваем:
+                const fullImgUrl = imagesList[0].startsWith('http') ? imagesList[0] : window.location.origin + imagesList[0];
+                ogImage.setAttribute("content", fullImgUrl);
+            }
+
             document.getElementById('pSku').textContent = product.sku || '-';
             document.getElementById('pPrice').textContent = product.price || '0';
 
@@ -270,7 +303,6 @@
             const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EФото%3C/text%3E%3C/svg%3E";
 
             // Логика картинок: массив images > поле image > заглушка
-            let imagesList = [];
             if (product.images && product.images.length > 0) {
                 imagesList = product.images;
             } else if (product.image) {

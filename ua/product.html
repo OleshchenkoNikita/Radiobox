@@ -248,6 +248,33 @@
 
             const finalTitle = getSafeTitle(product);
             document.title = finalTitle + " — RadioBox";
+
+            let imagesList = [];
+            if (product.images && product.images.length > 0) imagesList = product.images;
+            else if (product.image) imagesList = [product.image];
+            else imagesList = [defaultImg];
+
+            // --- SEO-ЛОГИКА ---
+            let finalSeoDesc = isUA ? (product.seo_description_ua || product.seo_description) : (product.seo_description || product.seo_description_ua);
+            if (!finalSeoDesc) {
+                finalSeoDesc = isUA
+                    ? `Купити ${finalTitle} за ціною ${product.price || 0} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.`
+                    : `Купить ${finalTitle} по цене ${product.price || 0} грн. Быстрая доставка, гарантия качества в интернет-магазине Radiobox.`;
+            }
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) metaDesc.setAttribute("content", finalSeoDesc);
+            const ogDesc = document.querySelector('meta[property="og:description"]');
+            if (ogDesc) ogDesc.setAttribute("content", finalSeoDesc);
+            const seoTitle = isUA ? (product.seo_title_ua || product.seo_title) : (product.seo_title || product.seo_title_ua);
+            const ogTitle = document.querySelector('meta[property="og:title"]');
+            if (ogTitle) ogTitle.setAttribute("content", seoTitle || finalTitle);
+            const ogImage = document.querySelector('meta[property="og:image"]');
+            if (ogImage && imagesList.length > 0) {
+                const fullImgUrl = imagesList[0].startsWith('http') ? imagesList[0] : window.location.origin + imagesList[0];
+                ogImage.setAttribute("content", fullImgUrl);
+            }
+            // --- КОНЕЦ SEO-ЛОГИКИ ---
+
             document.getElementById('crumbTitle').textContent = finalTitle;
             document.getElementById('pTitle').textContent = finalTitle;
             document.getElementById('pSku').textContent = product.sku || '-';
@@ -256,11 +283,6 @@
             // ФОТО
             const mainImg = document.getElementById('pImage');
             const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EФото%3C/text%3E%3C/svg%3E";
-
-            let imagesList = [];
-            if (product.images && product.images.length > 0) imagesList = product.images;
-            else if (product.image) imagesList = [product.image];
-            else imagesList = [defaultImg];
 
             mainImg.src = imagesList[0];
 
