@@ -345,7 +345,11 @@
                 buyBtn.textContent = isUA ? "Немає в наявності" : "Нет в наличии";
             }
 
-            document.getElementById('pDesc').innerHTML = product.description || (isUA ? "Опис відсутній." : "Описание отсутствует.");
+            const descRu = product.description_ru || product.description || "";
+            const descUa = product.description_ua || product.description || "";
+            const finalDesc = isUA ? descUa : descRu;
+
+            document.getElementById('pDesc').innerHTML = finalDesc || (isUA ? "Опис відсутній." : "Описание отсутствует.");
 
             let categoriesMap = [];
             try {

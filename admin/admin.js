@@ -773,12 +773,6 @@ const AdminProducts = {
 
         form.reset();
 
-        // Очистка CKEditor
-        if (typeof CKEDITOR !== 'undefined') {
-            CKEDITOR.instances.p_desc_ru.setData('');
-            CKEDITOR.instances.p_desc_ua.setData('');
-        }
-
         // Очищаем фото
         document.getElementById('path_main').value = '';
         document.getElementById('preview_main').style.display = 'none';
@@ -798,12 +792,19 @@ const AdminProducts = {
             document.getElementById('p_category').value = product.category;
             document.getElementById('p_stock').value = product.in_stock;
             document.getElementById('p_brand').value = product.brand || '';
+
+            const descRu = product.description_ru || product.description || '';
+            const descUa = product.description_ua || product.description || '';
+
             if (typeof CKEDITOR !== 'undefined') {
-                CKEDITOR.instances.p_desc_ru.setData(product.description_ru || '');
-                CKEDITOR.instances.p_desc_ua.setData(product.description_ua || '');
+            // Добавляем микро-задержку для страховки
+                setTimeout(() => {
+                    if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData(descRu);
+                    if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData(descUa);
+                }, 50);
             } else {
-                document.getElementById('p_desc_ru').value = product.description_ru || '';
-                document.getElementById('p_desc_ua').value = product.description_ua || '';
+                document.getElementById('p_desc_ru').value = descRu;
+                document.getElementById('p_desc_ua').value = descUa;
             }
             document.getElementById('p_on_index').checked = (product.on_index == 1);
 
@@ -847,11 +848,22 @@ const AdminProducts = {
                  }
             }
         } else {
-            title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
-            document.getElementById('p_id').value = '';
+        title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
+        document.getElementById('p_id').value = '';
+
+        // ✅ ОЧИЩАЕМ РЕДАКТОР ТОЛЬКО ЗДЕСЬ
+        if (typeof CKEDITOR !== 'undefined') {
+            setTimeout(() => {
+                if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData('');
+                if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData('');
+            }, 50);
+        } else {
+            document.getElementById('p_desc_ru').value = '';
+            document.getElementById('p_desc_ua').value = '';
         }
-        modal.classList.add('active');
-    },
+    }
+    modal.classList.add('active');
+},
 
     // Новая функция
     openModalById: function(id) {
@@ -885,8 +897,8 @@ const AdminProducts = {
             category: document.getElementById('p_category').value,
             in_stock: document.getElementById('p_stock').value,
             brand: document.getElementById('p_brand').value,
-            description_ru: typeof CKEDITOR !== 'undefined' ? CKEDITOR.instances.p_desc_ru.getData() : document.getElementById('p_desc_ru').value,
-            description_ua: typeof CKEDITOR !== 'undefined' ? CKEDITOR.instances.p_desc_ua.getData() : document.getElementById('p_desc_ua').value,
+            description_ru: (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances.p_desc_ru) ? CKEDITOR.instances.p_desc_ru.getData() : document.getElementById('p_desc_ru').value,
+            description_ua: (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances.p_desc_ua) ? CKEDITOR.instances.p_desc_ua.getData() : document.getElementById('p_desc_ua').value,
             on_index: document.getElementById('p_on_index').checked ? 1 : 0,
 
             // Новые поля
