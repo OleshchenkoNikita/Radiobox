@@ -2196,6 +2196,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
+
     try:
         print(f"[*] Отправка заказа №{order_id} в KeepinCRM...")
         r = requests.post(url, json=payload, headers=headers, timeout=15)
