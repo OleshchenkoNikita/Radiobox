@@ -499,8 +499,26 @@
             // Сортировка
             function sortItems(arr) {
                 const c = arr.slice();
-                if (sortMode === 'price_asc') return c.sort((a, b) => a.price - b.price);
-                if (sortMode === 'price_desc') return c.sort((a, b) => b.price - a.price);
+
+                c.sort((a, b) => {
+                    // Сначала всегда сортируем по наличию (1 - есть, 0 - нет)
+                    // b.in_stock - a.in_stock заставит товары в наличии быть первыми
+                    if (b.in_stock !== a.in_stock) {
+                        return b.in_stock - a.in_stock;
+                    }
+
+                    // Если наличие одинаковое, применяем выбранную сортировку
+                    if (sortMode === 'price_asc') {
+                        return a.price - b.price;
+                    } else if (sortMode === 'price_desc') {
+                        return b.price - a.price;
+                    } else {
+                        // По умолчанию (по позиции или ID)
+                        // Предполагаем, что у товаров есть поле position, если нет - можно использовать id
+                        return (a.position || a.id) - (b.position || b.id);
+                    }
+                });
+
                 return c;
             }
 
