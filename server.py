@@ -2140,16 +2140,31 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     phone = crm_data.get('phone', '').strip()
     client_id = None
 
-    # 1. Сначала ищем клиента в KeepinCRM по номеру телефона
-    if phone:
+    # Очищаем телефон для точного сравнения (оставляем только цифры)
+    clean_search_phone = ''.join(filter(str.isdigit, phone))
+
+    # 1. Ищем клиента в KeepinCRM с обязательной проверкой совпадения телефона
+    if clean_search_phone:
         try:
-            search_url = f'https://api.keepincrm.com/v1/clients?filter[phone]={phone}'
+            search_url = f'https://api.keepincrm.com/v1/clients'
             res_search = requests.get(search_url, headers=headers, timeout=10)
             if res_search.status_code == 200:
                 clients = res_search.json().get('items', [])
-                if clients:
-                    client_id = clients[0].get('id')
-                    print(f"[*] Найден существующий клиент в KeepinCRM по телефону {phone}. ID: {client_id}")
+
+                # Проходим по списку и ищем клиента, у которого совпадает телефон
+                for client in clients:
+                    client_phones = client.get('phones', [])
+                    matched = False
+                    for p in client_phones:
+                        clean_p = ''.join(filter(str.isdigit, str(p)))
+                        if clean_p and (clean_p == clean_search_phone or clean_search_phone.endswith(
+                                clean_p) or clean_p.endswith(clean_search_phone)):
+                            matched = True
+                            break
+                    if matched:
+                        client_id = client.get('id')
+                        print(f"[*] Найден точный совпавший клиент в KeepinCRM по телефону {phone}. ID: {client_id}")
+                        break
         except Exception as e:
             print(f"⚠️ Ошибка поиска клиента в KeepinCRM: {e}")
 
@@ -2201,7 +2216,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
-    # 2. Если клиент найден — привязываем его по ID, если нет — передаем атрибуты для создания
+    # 2. Привязываем клиента по ID только если нашли его наверняка, иначе создаем нового
     if client_id:
         payload['client_id'] = client_id
     else:
