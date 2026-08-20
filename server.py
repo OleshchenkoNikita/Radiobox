@@ -720,7 +720,7 @@ def update_db_structure():
 
 
 @app.route('/create_order', methods=['POST'])
-@limiter.limit("2 per hour") # Максимум 2 заказа в час с одного IP
+@limiter.limit("10 per hour") # Максимум 2 заказа в час с одного IP
 def create_order():
     # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
@@ -2164,7 +2164,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     # Достаем сохраненные UTM-метки из сессии (если они есть)
     utm_data = session.get('utm_data', {})
-    utm_str = ", ".join([f"{k}: {v}" for k, v in utm_data.items()]) if utm_data else "Прямой заход"
 
     payload = {
         'title': str(order_id),
@@ -2183,7 +2182,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             'phones': [crm_data.get('phone', '')],
             'lead': True
         },
-        'comment': f"Источник: radio-box.com.ua | Метки: {utm_str} \n\nКомментарий: {crm_data.get('comment', '')}",
+        'comment': crm_data.get('comment', ''),
 
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
