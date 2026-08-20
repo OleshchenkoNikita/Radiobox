@@ -2139,14 +2139,10 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Извлечение и нормализация ФИО, телефона и Email ---
+    # --- 1. Нормализация данных покупателя ---
     raw_phone = str(crm_data.get('phone', '') or '').strip()
     user_email = str(crm_data.get('email', '') or '').strip()
-
-    # Очищаем имя (убираем лишние пробелы и пустые значения)
-    person_name = " ".join(str(crm_data.get('name', '') or '').split()).strip()
-    if not person_name or person_name.lower() in ['none', 'none none']:
-        person_name = "Клієнт"
+    person_name = str(crm_data.get('name', '') or '').strip() or "Клієнт"
 
     digits = re.sub(r'\D', '', raw_phone)
     if len(digits) == 10 and digits.startswith('0'):
@@ -2158,7 +2154,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         formatted_phone = raw_phone
 
-    # --- 2. Поиск существующего клиента строго по 9 цифрам номера ---
+    # --- 2. Поиск клиента строго по последним 9 цифрам телефона ---
     client_id = None
     search_digits = digits[-9:] if len(digits) >= 9 else ""
 
@@ -2179,7 +2175,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         except Exception as e:
             print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
 
-    # Поиск по Email, только если по телефону не нашли
     if not client_id and user_email:
         try:
             r_find_email = requests.get(
@@ -2196,21 +2191,18 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         except Exception as e:
             print(f"⚠️ Ошибка поиска по email: {e}")
 
-    # --- 3. Принудительное обновление ФИО в карточке клиента через PUT ---
+    # --- 3. Полное обновление карточки клиента (Название + Контактное лицо) ---
     if client_id:
         try:
-            client_body = {
-                "person": person_name,
+            update_payload = {
                 "title": person_name,
+                "person": person_name,
                 "name": person_name,
                 "company_name": person_name,
                 "phones": [formatted_phone] if len(digits) >= 9 else []
             }
             if user_email:
-                client_body["email"] = user_email
-
-            # KeepinCRM требует тело в формате {"client": {...}}
-            update_payload = {"client": client_body}
+                update_payload["email"] = user_email
 
             r_upd = requests.put(
                 f"https://api.keepincrm.com/v1/clients/{client_id}",
@@ -2218,9 +2210,9 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
                 json=update_payload,
                 timeout=5
             )
-            print(f"[*] Ответ обновления клиента {client_id} (статус {r_upd.status_code}): {r_upd.text}")
+            print(f"[*] Обновление карточки клиента {client_id} (статус {r_upd.status_code}) -> {person_name}")
         except Exception as e:
-            print(f"⚠️ Ошибка обновления клиента: {e}")
+            print(f"⚠️ Ошибка обновления карточки клиента: {e}")
 
     # --- 4. Формирование списка товаров ---
     products_list = []
@@ -2250,7 +2242,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     utm_data = session.get('utm_data', {})
 
-    # --- 5. Формирование сделки (Agreement) ---
+    # --- 5. Формирование сделки ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
@@ -2276,11 +2268,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     if client_id:
         payload['client_id'] = client_id
-        payload['lead_attributes'] = {
-            'person': person_name,
-            'email': user_email,
-            'phones': [formatted_phone] if len(digits) >= 9 else []
-        }
     else:
         valid_phones = [formatted_phone] if len(digits) >= 9 else []
         payload['client_attributes'] = {
@@ -2297,7 +2284,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
             crm_id = r.json().get('id')
-            print(f"✅ Успех! Сделка #{order_id} создана в KeepinCRM (CRM ID: {crm_id})")
+            print(f"✅ Успех! Сделка #{order_id} создана в KeepinCRM (CRM ID: {crm_id}) на имя '{person_name}'")
             return crm_id
         else:
             print(f"❌ Ошибка KeepinCRM ({r.status_code}): {r.text}")
