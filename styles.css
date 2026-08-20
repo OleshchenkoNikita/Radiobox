@@ -2896,6 +2896,10 @@ video::-webkit-media-controls-panel {
         width: 24px !important;
         height: 24px !important;
     }
+
+    .about__text p:not(:first-child) {
+                display: none;
+            }
 }
 
 /* ==================================================
