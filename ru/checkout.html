@@ -628,6 +628,64 @@
     <script>
     document.addEventListener('DOMContentLoaded', () => {
 
+    // === GA4: ТРЕКИНГ ШАГОВ ЧЕКАУТА ===
+    function getCheckoutCartItems() {
+        try {
+            const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
+            let catalog = [];
+            try {
+                const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
+                const c2 = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{}').items || [];
+                catalog = [...c1, ...c2];
+            } catch(e){}
+
+            return rawCart.map(item => {
+                const product = catalog.find(p => p.id == item.id) || {};
+                return {
+                    item_id: String(item.sku || product.sku || item.id),
+                    item_name: item.title || product.title_ru || product.title || 'Товар',
+                    price: parseFloat(item.price || product.price || 0),
+                    quantity: parseInt(item.qty || 1),
+                    item_category: product.category || 'general'
+                };
+            });
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function trackShippingInfo(shippingTierName) {
+        const items = getCheckoutCartItems();
+        const totalValue = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+        const ecommerceData = {
+            currency: "UAH",
+            value: totalValue,
+            shipping_tier: shippingTierName,
+            items: items
+        };
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ ecommerce: null });
+        window.dataLayer.push({ event: 'add_shipping_info', ecommerce: ecommerceData });
+        console.log('GA4 Event: add_shipping_info', ecommerceData);
+    }
+
+    function trackPaymentInfo(paymentTypeName) {
+        const items = getCheckoutCartItems();
+        const totalValue = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+
+        const ecommerceData = {
+            currency: "UAH",
+            value: totalValue,
+            payment_type: paymentTypeName,
+            items: items
+        };
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ ecommerce: null });
+        window.dataLayer.push({ event: 'add_payment_info', ecommerce: ecommerceData });
+        console.log('GA4 Event: add_payment_info', ecommerceData);
+    }
+
         // === АВТОЗАПОЛНЕНИЕ ДАННЫХ ПОЛЬЗОВАТЕЛЯ ===
         try {
             const sessionRaw = localStorage.getItem('rb_session_v1');
@@ -1020,6 +1078,29 @@
             r.addEventListener('change', () => {
                 updateDeliveryState();
                 updatePaymentOptions();
+
+                // --- ТРЕКИНГ ВЫБОРА ДОСТАВКИ ---
+                if (r.name === 'delivery') {
+                    const deliveryNames = {
+                        'np': 'Nova Poshta',
+                        'up': 'Ukrposhta Standart',
+                        'upe': 'Ukrposhta Express',
+                        'meest': 'Meest Poshta',
+                        'self': 'Pickup'
+                    };
+                    trackShippingInfo(deliveryNames[r.value] || r.value);
+                }
+
+                // --- ТРЕКИНГ ВЫБОРА ОПЛАТЫ ---
+                if (r.name === 'payment') {
+                    const paymentNames = {
+                        'cod': 'Cash on Delivery',
+                        'seller_cashless': 'Bank Transfer',
+                        'seller_privat': 'FOP Transfer',
+                        'card_online': 'Card Online'
+                    };
+                    trackPaymentInfo(paymentNames[r.value] || r.value);
+                }
             });
         });
 

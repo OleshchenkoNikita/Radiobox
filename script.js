@@ -1119,18 +1119,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- GA4: BEGIN CHECKOUT ---
     window.rbBeginCheckout = () => {
-        let cart = getCart();
-        let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
-        let ga4Items = cart.map(i => ({
+    let cart = getCart();
+    let catalog = getCatalog(); // чтобы подтягивать категорию товара
+    let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
+
+    let ga4Items = cart.map(i => {
+        const prod = catalog.find(p => p.id == i.id) || {};
+        return {
             item_id: i.sku || i.id,
             item_name: i.title,
             price: parseFloat(i.price),
-            quantity: i.qty
-        }));
-        pushGA4Event('begin_checkout', ga4Items, totalValue);
+            quantity: i.qty,
+            item_category: prod.category || 'general' // <-- Добавили категорию
+        };
+    });
 
-        // Небольшая задержка, чтобы событие точно успело уйти в Google перед переходом
-        setTimeout(() => { window.location.href = 'checkout.html'; }, 300);
+    pushGA4Event('begin_checkout', ga4Items, totalValue);
+    setTimeout(() => { window.location.href = 'checkout.html'; }, 300);
     };
 
     // --- 4. Открытие/Закрытие шторки ---
