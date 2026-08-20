@@ -763,7 +763,7 @@ def create_order():
 
     full_delivery_info = f"{delivery_display}: {address}"
     order_id = random.randint(100000000, 999999999)
-    user_email = session.get('email', '')
+    user_email = request.form.get('email') or session.get('email', '')
 
     total_sum = 0
     items = []
@@ -2139,7 +2139,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Нормализация телефона и ФИО ---
+    # --- 1. Нормализация телефона и данных ---
     raw_phone = str(crm_data.get('phone', '') or '').strip()
     user_email = str(crm_data.get('email', '') or '').strip()
     person_name = str(crm_data.get('name', '') or '').strip() or "Клієнт"
@@ -2154,10 +2154,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         formatted_phone = raw_phone
 
-    # --- 2. Поиск клиента строго по последним 9 цифрам телефона ---
+    # --- 2. Поиск существующего клиента ---
     client_id = None
-    if len(digits) >= 9:
-        search_digits = digits[-9:]
+    search_digits = digits[-9:] if len(digits) >= 9 else ""
+
+    # Поиск по телефону
+    if search_digits:
         try:
             r_find = requests.get(
                 "https://api.keepincrm.com/v1/clients",
@@ -2166,33 +2168,49 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
                 timeout=5
             )
             if r_find.status_code == 200:
-                items_resp = r_find.json().get('items', [])
-                for c in items_resp:
+                for c in r_find.json().get('items', []):
                     all_phones = "".join([re.sub(r'\D', '', p) for p in c.get('phones', [])])
                     if search_digits in all_phones:
                         client_id = c['id']
                         break
         except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента: {e}")
+            print(f"⚠️ Ошибка поиска по телефону: {e}")
 
-    # --- 3. Если клиент найден — принудительно обновляем ФИО через PUT ---
+    # Поиск по Email (если по телефону не нашли)
+    if not client_id and user_email:
+        try:
+            r_find_email = requests.get(
+                "https://api.keepincrm.com/v1/clients",
+                headers=headers,
+                params={"query": user_email, "per_page": 10},
+                timeout=5
+            )
+            if r_find_email.status_code == 200:
+                for c in r_find_email.json().get('items', []):
+                    if c.get('email', '').strip().lower() == user_email.lower():
+                        client_id = c['id']
+                        break
+        except Exception as e:
+            print(f"⚠️ Ошибка поиска по email: {e}")
+
+    # --- 3. Обновление клиента (перезаписываем и title, и person) ---
     if client_id:
         try:
             update_payload = {
-                "person": person_name,
+                "title": person_name,   # Меняет "Назва компанії"
+                "person": person_name,  # Меняет "Контактна особа"
                 "phones": [formatted_phone] if len(digits) >= 9 else []
             }
             if user_email:
                 update_payload["email"] = user_email
 
-            # Используем PUT (стандарт KeepinCRM)
             r_upd = requests.put(
                 f"https://api.keepincrm.com/v1/clients/{client_id}",
                 headers=headers,
                 json=update_payload,
                 timeout=5
             )
-            print(f"[*] Ответ обновления клиента {client_id} (статус {r_upd.status_code}): {r_upd.text}")
+            print(f"[*] Клиент {client_id} обновлен (статус {r_upd.status_code}): {person_name}")
         except Exception as e:
             print(f"⚠️ Ошибка обновления клиента: {e}")
 
@@ -2253,6 +2271,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         valid_phones = [formatted_phone] if len(digits) >= 9 else []
         payload['client_attributes'] = {
+            'title': person_name,
             'person': person_name,
             'email': user_email,
             'phones': valid_phones,
