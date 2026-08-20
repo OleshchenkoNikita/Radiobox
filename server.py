@@ -2139,7 +2139,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Нормализация телефона и данных ---
+    # --- 1. Нормализация телефона и ФИО ---
     raw_phone = str(crm_data.get('phone', '') or '').strip()
     user_email = str(crm_data.get('email', '') or '').strip()
     person_name = str(crm_data.get('name', '') or '').strip() or "Клієнт"
@@ -2154,10 +2154,10 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         formatted_phone = raw_phone
 
-    # --- 2. Поиск клиента ТОЛЬКО по номеру телефона ---
+    # --- 2. Поиск клиента строго по последним 9 цифрам телефона ---
     client_id = None
     if len(digits) >= 9:
-        search_digits = digits[-9:] # 9 цифр без кода страны (например, 930728887)
+        search_digits = digits[-9:]
         try:
             r_find = requests.get(
                 "https://api.keepincrm.com/v1/clients",
@@ -2173,29 +2173,30 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
                         client_id = c['id']
                         break
         except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
+            print(f"⚠️ Ошибка поиска клиента: {e}")
 
-    # Если клиент найден — принудительно обновляем его имя и текущие контакты
+    # --- 3. Если клиент найден — принудительно обновляем ФИО через PUT ---
     if client_id:
         try:
-            patch_data = {
+            update_payload = {
                 "person": person_name,
                 "phones": [formatted_phone] if len(digits) >= 9 else []
             }
             if user_email:
-                patch_data["email"] = user_email
+                update_payload["email"] = user_email
 
-            requests.patch(
+            # Используем PUT (стандарт KeepinCRM)
+            r_upd = requests.put(
                 f"https://api.keepincrm.com/v1/clients/{client_id}",
                 headers=headers,
-                json=patch_data,
+                json=update_payload,
                 timeout=5
             )
-            print(f"[*] Карточка клиента {client_id} обновлена: {person_name}, {formatted_phone}")
+            print(f"[*] Ответ обновления клиента {client_id} (статус {r_upd.status_code}): {r_upd.text}")
         except Exception as e:
             print(f"⚠️ Ошибка обновления клиента: {e}")
 
-    # --- 3. Формирование товаров ---
+    # --- 4. Формирование списка товаров ---
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
@@ -2223,7 +2224,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     utm_data = session.get('utm_data', {})
 
-    # --- 4. Формирование сделки ---
+    # --- 5. Формирование сделки ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
