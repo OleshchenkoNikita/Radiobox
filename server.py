@@ -2139,33 +2139,96 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Поиск существующего клиента ---
+    # --- 1. Нормализация телефона и Email ---
+    raw_phone = str(crm_data.get('phone', '') or '').strip()
+    user_email = str(crm_data.get('email', '') or '').strip()
+    person_name = str(crm_data.get('name', '') or '').strip() or "Клієнт"
+
+    digits = re.sub(r'\D', '', raw_phone)
+    if len(digits) == 10 and digits.startswith('0'):
+        formatted_phone = f"+38{digits}"
+    elif len(digits) == 12 and digits.startswith('380'):
+        formatted_phone = f"+{digits}"
+    elif len(digits) >= 9:
+        formatted_phone = f"+{digits}"
+    else:
+        formatted_phone = raw_phone
+
+    # --- 2. Поиск существующего клиента в KeepinCRM ---
     client_id = None
-    raw_phone = crm_data.get('phone', '') or ''
-    user_email = (crm_data.get('email') or '').strip()
-    digits_phone = re.sub(r'\D', '', raw_phone)
+    phone_search_key = digits[-9:] if len(digits) >= 9 else ""
 
-    # Приводим к формату поиска (последние 9 цифр)
-    search_term = digits_phone[-9:] if len(digits_phone) >= 9 else user_email
-
-    if search_term:
+    # Попытка 1: Поиск через /v1/clients/find_by
+    if formatted_phone and len(digits) >= 9:
         try:
-            # KeepinCRM ищет через параметр 'query'
-            res_client = requests.get(
-                "https://api.keepincrm.com/v1/clients",
+            r_find = requests.get(
+                "https://api.keepincrm.com/v1/clients/find_by",
                 headers=headers,
-                params={"query": search_term, "per_page": 5},
+                params={"phone": formatted_phone},
                 timeout=5
             )
-            if res_client.status_code == 200:
-                client_items = res_client.json().get('items', [])
-                if client_items:
-                    client_id = client_items[0]['id']
-                    print(f"[*] Найден существующий клиент в CRM: ID {client_id}")
+            if r_find.status_code == 200 and r_find.json().get('id'):
+                client_id = r_find.json().get('id')
         except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента в KeepinCRM: {e}")
+            print(f"⚠️ Ошибка find_by (phone): {e}")
 
-    # --- 2. Формирование товаров ---
+    if not client_id and user_email:
+        try:
+            r_find_email = requests.get(
+                "https://api.keepincrm.com/v1/clients/find_by",
+                headers=headers,
+                params={"email": user_email},
+                timeout=5
+            )
+            if r_find_email.status_code == 200 and r_find_email.json().get('id'):
+                client_id = r_find_email.json().get('id')
+        except Exception as e:
+            print(f"⚠️ Ошибка find_by (email): {e}")
+
+    # Попытка 2: Фильтрация по списку /v1/clients с проверкой точного совпадения
+    if not client_id and (phone_search_key or user_email):
+        try:
+            r_list = requests.get(
+                "https://api.keepincrm.com/v1/clients",
+                headers=headers,
+                params={"query": phone_search_key or user_email, "per_page": 20},
+                timeout=5
+            )
+            if r_list.status_code == 200:
+                items_resp = r_list.json().get('items', [])
+                for c in items_resp:
+                    # Проверяем совпадение по телефонам
+                    c_phones = "".join([re.sub(r'\D', '', p) for p in c.get('phones', [])])
+                    if phone_search_key and phone_search_key in c_phones:
+                        client_id = c['id']
+                        break
+                    # Проверяем совпадение по email
+                    if user_email and c.get('email', '').strip().lower() == user_email.lower():
+                        client_id = c['id']
+                        break
+        except Exception as e:
+            print(f"⚠️ Ошибка поиска в списке клиентов: {e}")
+
+    # Если клиент найден — обновляем его актуальные данные
+    if client_id:
+        try:
+            client_update_payload = {"person": person_name}
+            if user_email:
+                client_update_payload["email"] = user_email
+            if formatted_phone and len(digits) >= 9:
+                client_update_payload["phones"] = [formatted_phone]
+
+            requests.patch(
+                f"https://api.keepincrm.com/v1/clients/{client_id}",
+                headers=headers,
+                json=client_update_payload,
+                timeout=5
+            )
+            print(f"[*] Клиент ID {client_id} успешно обновлен новыми данными.")
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления клиента: {e}")
+
+    # --- 3. Формирование товаров ---
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
@@ -2193,7 +2256,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     utm_data = session.get('utm_data', {})
 
-    # --- 3. Формирование Payload ---
+    # --- 4. Формирование сделки ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
@@ -2220,10 +2283,9 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     if client_id:
         payload['client_id'] = client_id
     else:
-        # Валидация телефона (если меньше 9 цифр, не шлем в массив phones, чтобы не падала E164 валидация)
-        valid_phones = [raw_phone] if len(digits_phone) >= 9 else []
+        valid_phones = [formatted_phone] if len(digits) >= 9 else []
         payload['client_attributes'] = {
-            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+            'person': person_name,
             'email': user_email,
             'phones': valid_phones,
             'lead': True
