@@ -25,7 +25,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from jinja2 import Undefined
-import urllib.parse
 
 load_dotenv()
 
@@ -2122,6 +2121,7 @@ def get_setting(key_name):
         print(f"Ошибка чтения настройки {key_name}: {e}")
         return None
 
+
 def send_to_keepincrm(order_id, crm_data, items, total_sum):
     api_token = get_setting('crm_api_key')
     if api_token:
@@ -2129,7 +2129,9 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     if not api_token:
         print("⚠️ Ошибка: API ключ не найден!")
-        return None
+        return
+
+    url = 'https://api.keepincrm.com/v1/agreements'
 
     headers = {
         'X-Auth-Token': api_token,
@@ -2139,40 +2141,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Поиск существующего клиента по телефону ---
-    client_id = None
-    raw_phone = crm_data.get('phone', '').strip()
-    person_name = f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт"
-    email = crm_data.get('email', '')
-
-    if raw_phone:
-        try:
-            # Оставляем только цифры или международный формат для точного поиска
-            search_phone = urllib.parse.quote(raw_phone)
-            search_url = f"https://api.keepincrm.com/v1/clients?phone={search_phone}"
-            search_res = requests.get(search_url, headers=headers, timeout=10)
-            if search_res.status_code == 200:
-                clients_list = search_res.json().get('items', [])
-                if clients_list:
-                    client_id = clients_list[0].get('id')
-                    print(f"[*] Найден существующий клиент в CRM: ID {client_id}")
-
-                    # Обновляем имя и email найденного клиента отдельным PATCH запросом (без повторной отправки phones)
-                    update_client_url = f"https://api.keepincrm.com/v1/clients/{client_id}"
-                    update_payload = {
-                        'person': person_name
-                    }
-                    if email:
-                        update_payload['email'] = email
-                    requests.patch(update_client_url, json=update_payload, headers=headers, timeout=5)
-        except Exception as e:
-            print(f"[-] Ошибка при проверке/обновлении клиента: {e}")
-
-    # --- 2. Собираем список товаров ---
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
-        p_sku = str(item.get('sku') or '').strip()
+        p_sku = str(item.get('sku') or '').strip()  # Берем sku из корзины
+
+        # Склеиваем полный путь к фото
         raw_image = item.get('image') or ''
         image_url = f"{site_url.rstrip('/')}/{raw_image.lstrip('/')}" if raw_image else ""
 
@@ -2188,12 +2162,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             }
         })
 
+    # Достаем сохраненные UTM-метки из сессии (если они есть)
     utm_data = session.get('utm_data', {})
 
-    # --- 3. Формируем сделку ---
     payload = {
         'title': str(order_id),
-        'source_id': 7,
+        'source_id': 7, # Твой ID источника в KeepinCRM
         'status_id': 5,
         'main_responsible_id': 1,
         'delivery': {
@@ -2202,7 +2176,14 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             'city_ref': crm_data.get('city_ref'),
             'point_ref': crm_data.get('point_ref')
         },
+        'client_attributes': {
+            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+            'email': crm_data.get('email', ''),
+            'phones': [crm_data.get('phone', '')],
+            'lead': True
+        },
         'comment': crm_data.get('comment', ''),
+
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
             {'name': 'oplata_334', 'value': crm_data.get('payment')},
@@ -2211,72 +2192,20 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             {'name': 'utm_source_353', 'value': utm_data.get('utm_source', '')},
             {'name': 'gclid_354', 'value': utm_data.get('gclid', '')}
         ],
+
         'jobs_attributes': products_list
     }
 
-    if client_id:
-        payload['client_id'] = client_id
-    else:
-        payload['client_attributes'] = {
-            'person': person_name,
-            'email': email,
-            'phones': [raw_phone],
-            'lead': True
-        }
-
-    # --- 4. Создаем сделку ---
-    url = 'https://api.keepincrm.com/v1/agreements'
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
-            crm_deal_id = r.json().get('id')
-            print(f"✅ Успех! Сделка создана в KeepinCRM. ID: {crm_deal_id}")
-            return crm_deal_id
-        else:
-            print(f"❌ Ошибка KeepinCRM ({r.status_code}): {r.text}")
-            return None
-    except Exception as e:
-        print(f"❌ Критическая ошибка отправки сделки: {e}")
+            crm_id = r.json().get('id')  # Получаем ID из CRM
+            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_id}")
+            return crm_id  # Возвращаем его
         return None
-
-# === API: ПОЛУЧЕНИЕ ДАННЫХ ЗАКАЗА ДЛЯ СТРАНИЦЫ УСПЕХА ===
-@app.route('/api/public/order_info', methods=['GET'])
-def get_public_order_info():
-    order_id = request.args.get('order_id')
-    if not order_id:
-        return jsonify({"success": False, "error": "No order_id"}), 400
-
-    try:
-        with sqlite3.connect(DB_NAME) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT id, user_name, user_surname, user_phone, 
-                       delivery_method, delivery_address, total_price, 
-                       comment, payment_method, payment_status, items_json 
-                FROM orders WHERE id = ?
-            """, (order_id,))
-            row = cursor.fetchone()
-
-            if not row:
-                return jsonify({"success": False, "error": "Order not found"}), 404
-
-            order_data = {
-                "id": row["id"],
-                "name": row["user_name"],
-                "surname": row["user_surname"],
-                "phone": row["user_phone"],
-                "delivery_method": row["delivery_method"],
-                "delivery_address": row["delivery_address"],
-                "total_price": row["total_price"],
-                "comment": row["comment"],
-                "payment_method": row["payment_method"],
-                "payment_status": row["payment_status"],
-                "items": json.loads(row["items_json"]) if row["items_json"] else []
-            }
-            return jsonify({"success": True, "order": order_data})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"❌ Критична помилка: {e}")
+        return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
 @role_required('manager', 'superadmin')
