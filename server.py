@@ -722,7 +722,6 @@ def update_db_structure():
 @app.route('/create_order', methods=['POST'])
 @limiter.limit("10 per hour") # Максимум 2 заказа в час с одного IP
 def create_order():
-    print("[*] ЗАШЛИ В CREATE_ORDER")
     # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
     name = request.form.get('name')
@@ -2201,7 +2200,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         print(f"[*] Отправка заказа №{order_id} в KeepinCRM...")
         r = requests.post(url, json=payload, headers=headers, timeout=15)
 
-        # Выводим в лог сервера статус и ответ от CRM
         print(f"[*] CRM Response Status: {r.status_code}")
         print(f"[*] CRM Response Text: {r.text}")
 
@@ -2213,8 +2211,9 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             print(f"❌ Ошибка ответа KeepinCRM: Код {r.status_code}, Текст: {r.text}")
             return None
     except Exception as e:
-        print(f"❌ Критична помилка при запросе к KeepinCRM: {e}")
-        return None
+        # Прямо печатаем исключение, чтобы увидеть его в логах или на странице заказа
+        print(f"❌ КРИТИЧЕСКАЯ ОШИБКА KeepinCRM: {str(e)}")
+        raise e  # <--- На время тестов выбросим ошибку наружу
 
 @app.route('/api/admin/import_prom', methods=['POST'])
 @role_required('manager', 'superadmin')
