@@ -2844,13 +2844,13 @@ video::-webkit-media-controls-panel {
         justify-content: center;
     }
 
-    /* Увеличиваем логотип на мобильных */
+    /* Меняем размер логотипа на планшето-мобильных */
     .brand-logo {
         width: 100px;
         height: 100px;
     }
 
-    /* Делаем название крупнее и заметнее */
+    /* Делаем название крупнее и заметнее (или мельче) */
     .brand-name {
         font-size: 46px;
     }
@@ -2858,6 +2858,43 @@ video::-webkit-media-controls-panel {
     .search-wide {
         order: 3; /* Поиск опускаем вниз в блоке хэдера для удобства */
         margin-top: 5px;
+    }
+
+    /* --- Увеличиваем иконку корзины --- */
+    .white-cart__icon {
+        width: 48px !important;
+        height: 48px !important;
+        background-size: 28px 28px !important; /* Увеличиваем сам рисунок корзины внутри квадрата */
+    }
+
+    /* --- Плавающая кнопка Viber --- */
+    .float-viber {
+        width: 60px !important;
+        height: 60px !important;
+    }
+    .float-viber img {
+        width: 60px !important;
+        height: 60px !important;
+    }
+
+    /* --- Кнопка чата с менеджером --- */
+    .chat-toggle-btn {
+        width: 70px !important;
+        height: 70px !important;
+        font-size: 36px !important; /* Увеличивает саму иконку внутри кружка */
+    }
+
+    /* --- Строка поиска и лупа --- */
+    .search-wide input {
+        height: 56px !important;
+        font-size: 18px !important; /* Текст крупнее, плюс спасает от авто-зума при клике на iPhone */
+    }
+    .search-wide .search-btn {
+        width: 60px !important; /* Делаем кнопку лупы шире, чтобы не промахнуться */
+    }
+    .search-wide .search-btn svg {
+        width: 24px !important;
+        height: 24px !important;
     }
 }
 
