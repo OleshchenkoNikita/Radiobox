@@ -2122,7 +2122,6 @@ def get_setting(key_name):
         print(f"Ошибка чтения настройки {key_name}: {e}")
         return None
 
-
 def send_to_keepincrm(order_id, crm_data, items, total_sum):
     api_token = get_setting('crm_api_key')
     if api_token:
@@ -2140,11 +2139,15 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Проверяем, есть ли уже клиент с таким телефоном в CRM ---
+    # --- 1. Поиск существующего клиента по телефону ---
     client_id = None
     raw_phone = crm_data.get('phone', '').strip()
+    person_name = f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт"
+    email = crm_data.get('email', '')
+
     if raw_phone:
         try:
+            # Оставляем только цифры или международный формат для точного поиска
             search_phone = urllib.parse.quote(raw_phone)
             search_url = f"https://api.keepincrm.com/v1/clients?phone={search_phone}"
             search_res = requests.get(search_url, headers=headers, timeout=10)
@@ -2153,10 +2156,19 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
                 if clients_list:
                     client_id = clients_list[0].get('id')
                     print(f"[*] Найден существующий клиент в CRM: ID {client_id}")
-        except Exception as e:
-            print(f"[-] Ошибка поиска клиента: {e}")
 
-    # --- 2. Собираем товары ---
+                    # Обновляем имя и email найденного клиента отдельным PATCH запросом (без повторной отправки phones)
+                    update_client_url = f"https://api.keepincrm.com/v1/clients/{client_id}"
+                    update_payload = {
+                        'person': person_name
+                    }
+                    if email:
+                        update_payload['email'] = email
+                    requests.patch(update_client_url, json=update_payload, headers=headers, timeout=5)
+        except Exception as e:
+            print(f"[-] Ошибка при проверке/обновлении клиента: {e}")
+
+    # --- 2. Собираем список товаров ---
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
@@ -2178,7 +2190,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     utm_data = session.get('utm_data', {})
 
-    # --- 3. Формируем payload (привязка по ID или создание нового) ---
+    # --- 3. Формируем сделку ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
@@ -2202,33 +2214,29 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
-    client_payload = {
-        'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
-        'email': crm_data.get('email', ''),
-        'phones': [raw_phone],
-        'lead': True
-    }
-
     if client_id:
-        # Передаем ID внутри client_attributes для обновления данных найденного клиента
-        client_payload['id'] = client_id
-        payload['client_attributes'] = client_payload
+        payload['client_id'] = client_id
     else:
-        payload['client_attributes'] = client_payload
+        payload['client_attributes'] = {
+            'person': person_name,
+            'email': email,
+            'phones': [raw_phone],
+            'lead': True
+        }
 
-    # --- 4. Отправляем сделку ---
+    # --- 4. Создаем сделку ---
     url = 'https://api.keepincrm.com/v1/agreements'
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
             crm_deal_id = r.json().get('id')
-            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_deal_id}")
+            print(f"✅ Успех! Сделка создана в KeepinCRM. ID: {crm_deal_id}")
             return crm_deal_id
         else:
             print(f"❌ Ошибка KeepinCRM ({r.status_code}): {r.text}")
             return None
     except Exception as e:
-        print(f"❌ Критична помилка: {e}")
+        print(f"❌ Критическая ошибка отправки сделки: {e}")
         return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
