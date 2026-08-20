@@ -2167,7 +2167,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     payload = {
         'title': str(order_id),
         'source_id': 7,
-        'status_id': 5,
         'main_responsible_id': 1,
         'delivery': {
             'city': crm_data.get('city'),
