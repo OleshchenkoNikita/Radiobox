@@ -304,9 +304,16 @@
 
             function setParams({ cat, sub }) {
                 const u = new URL(location.href);
-                u.searchParams.set('cat', cat);
-                if (sub) u.searchParams.set('sub', sub); else u.searchParams.delete('sub');
-                history.replaceState(null, '', u);
+                if (cat) u.searchParams.set('cat', cat);
+                if (sub) {
+                    u.searchParams.set('sub', sub);
+                } else {
+                    u.searchParams.delete('sub');
+                }
+                // Перезаписываем только если реальные параметры каталога действительно изменились
+                if (location.search !== u.search) {
+                    history.replaceState(null, '', u.toString());
+                }
             }
 
             let { cat, sub } = getParams();
