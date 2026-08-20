@@ -807,24 +807,11 @@ def create_order():
             conn.commit()
 
             # Интеграция CRM (Вернул переменные как были)
-            # Получаем имя и фамилию, склеиваем их чисто
-            name_part = request.form.get('name', '').strip()
-            surname_part = request.form.get('surname', '').strip()
-            full_person_name = f"{name_part} {surname_part}".strip() or "Клієнт"
-            user_email = request.form.get('email') or session.get('email', '')
-
             crm_data = {
-                'name': full_person_name,
-                'phone': phone,
-                'delivery': delivery_display,
-                'address': address,
-                'city': city,
-                'point': point,
-                'city_ref': city_ref,
-                'point_ref': point_ref,
-                'payment': payment_display,
-                'comment': comment,
-                'email': user_email
+                'name': f"{name} {surname}", 'phone': phone, 'delivery': delivery_display,
+                'address': address, 'city': city, 'point': point,
+                'city_ref': city_ref, 'point_ref': point_ref,
+                'payment': payment_display, 'comment': comment, 'email': user_email
             }
 
             crm_id_from_api = send_to_keepincrm(order_id, crm_data, items, total_sum)
@@ -2256,7 +2243,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     utm_data = session.get('utm_data', {})
 
     # --- 5. Формирование сделки ---
-    # --- 5. Формирование сделки ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
@@ -2282,19 +2268,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     if client_id:
         payload['client_id'] = client_id
-        # Передаем контактное лицо прямо в параметры сделки
-        payload['lead_attributes'] = {
-            'person': person_name,
-            'email': user_email,
-            'phones': [formatted_phone] if len(digits) >= 9 else []
-        }
     else:
         valid_phones = [formatted_phone] if len(digits) >= 9 else []
         payload['client_attributes'] = {
             'title': person_name,
             'person': person_name,
             'name': person_name,
-            'company_name': person_name,
             'email': user_email,
             'phones': valid_phones,
             'lead': True
