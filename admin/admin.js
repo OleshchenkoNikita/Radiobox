@@ -2047,6 +2047,8 @@ const AdminSettings = {
                 // Безопасная загрузка полей
                 const mapping = {
                     's_site_url': s.site_url,
+                    's_gtm_id': s.gtm_id,
+                    's_ga4_id': s.ga4_id,
                     's_google_ver': s.google_verification,
                     's_robots': s.robots_txt,
                     's_crm_key': s.crm_api_key,
@@ -2119,6 +2121,8 @@ const AdminSettings = {
 
         const data = {
             site_url: getVal('s_site_url'),
+            gtm_id: getVal('s_gtm_id'),
+            ga4_id: getVal('s_ga4_id'),
             google_verification: getVal('s_google_ver'),
             robots_txt: getVal('s_robots'),
             crm_api_key: getVal('s_crm_key'),

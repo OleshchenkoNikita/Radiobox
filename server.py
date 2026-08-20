@@ -27,7 +27,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 
 load_dotenv()
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__)
 
 # Учим Flask доверять заголовкам прокси-серверов (Cloudflare, Nginx)
 # Цифра 1 означает, что мы доверяем одному слою прокси перед нами
@@ -265,6 +265,8 @@ def init_db():
         # Заполним дефолтными, если пусто
         default_settings = {
             'site_url': 'https://radiobox.in.ua',
+            'gtm_id': 'GTM-NLXR4MGP',
+            'ga4_id': 'G-N62XN9JLT7',
             'google_verification': '',
             'robots_txt': 'User-agent: *\nDisallow: /admin\nDisallow: /superadmin\nDisallow: /cart\nDisallow: /api\nDisallow: *?search=\nAllow: /',
             'crm_api_key': '',
@@ -487,9 +489,26 @@ def index():
 
 
 @app.route('/<path:path>')
+@limiter.exempt
 def serve_static(path):
-    return send_from_directory('.', path)
+    # Если запрашивают HTML-файл, пропускаем его через шаблонизатор
+    if path.endswith('.html'):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
 
+            gtm_id = get_setting('gtm_id')
+
+            # 1. ДОСТАЕМ ФЛАГ ПОКУПКИ ИЗ СЕССИИ И СРАЗУ УДАЛЯЕМ ЕГО
+            purchase_data = session.pop('purchase_data', None)
+
+            # 2. ПЕРЕДАЕМ ЕГО В ШАБЛОН (добавился аргумент purchase_data)
+            return render_template_string(html_content, gtm_id=gtm_id, purchase_data=purchase_data)
+        except FileNotFoundError:
+            return "Not found", 404
+
+    # Для остальных файлов (css, js, картинки) отдаем как обычно статику
+    return send_from_directory('.', path)
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -792,10 +811,33 @@ def create_order():
                 cursor.execute("UPDATE orders SET crm_id = ? WHERE id = ?", (crm_id_from_api, order_id))
                 conn.commit()
 
+
     except sqlite3.IntegrityError:
         return create_order()
     except Exception as e:
         return f"Ошибка: {e}", 500
+
+    # === ИСПРАВЛЕННЫЙ КОД ДЛЯ GA4 ===
+    ga4_items = []
+    for item in items:
+        ga4_items.append({
+            "item_id": str(item.get('sku') or item.get('id', '')),
+            "item_name": str(item.get('title', '')),
+            "price": float(item.get('price', 0)),
+            "quantity": int(item.get('qty', 1)),
+            "item_category": str(item.get('category', 'general'))
+        })
+
+    session['purchase_data'] = {
+        "transaction_id": str(order_id),
+        "value": float(total_sum),
+        "currency": "UAH",
+        "shipping": 0,
+        # Конвертируем массив сразу в JSON-строку на стороне Python:
+        "items_json": json.dumps(ga4_items, ensure_ascii=False)
+    }
+    print("GA4 DATA READY:", session['purchase_data'])
+    # === КОНЕЦ ===
 
     referer = request.referrer or ""
     lang = '/ua/' if '/ua/' in referer else '/ru/'
@@ -941,6 +983,7 @@ def admin_login_lang(lang):
         return f"Error: File admin/{lang}/admin_login.html not found!"
 
 @app.route('/admin/<path:filename>')
+@limiter.exempt
 def serve_admin_static_files(filename):
     return send_from_directory('admin', filename)
 
@@ -3046,6 +3089,21 @@ def get_public_contacts():
         "address_ua": address_ua
     })
 
+@app.route('/api/public/settings', methods=['GET'])
+def get_public_settings():
+    """Публичный роут для получения реквизитов на странице успеха"""
+    keys_to_fetch = ['beneficiary_details', 'edrpou_details', 'iban_details']
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            placeholders = ','.join(['?'] * len(keys_to_fetch))
+            cursor.execute(f"SELECT key, value FROM settings WHERE key IN ({placeholders})", keys_to_fetch)
+            rows = cursor.fetchall()
+            settings = {row['key']: row['value'] for row in rows}
+        return jsonify({"success": True, "settings": settings})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # === API ЧАТА (REST) ===
 

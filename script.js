@@ -1,3 +1,12 @@
+// === ИНИЦИАЛИЗАЦИЯ GA4 DATALAYER ===
+window.dataLayer = window.dataLayer || [];
+function pushGA4Event(eventName, items, value = 0) {
+    const ecommerceData = { currency: "UAH", value: value, items: items };
+    window.dataLayer.push({ ecommerce: null });
+    window.dataLayer.push({ event: eventName, ecommerce: ecommerceData });
+    console.log(`GA4 Event: ${eventName}`, ecommerceData);
+}
+
 // === ФУНКЦИЯ ДЛЯ ЗАЩИТЫ ОТ XSS ===
 window.escapeHTML = function(str) {
     if (str === null || str === undefined) return '';
@@ -967,6 +976,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // --- GA4: ADD TO CART ---
+        pushGA4Event('add_to_cart', [{
+            item_id: product.sku || product.id,
+            item_name: product.title_ru || product.title || "",
+            price: parseFloat(product.price || 0),
+            quantity: 1,
+            item_category: product.category || 'general'
+        }], parseFloat(product.price || 0));
+
         saveCart(cart);
         renderCart();
         openDrawer(); // Открываем шторку
@@ -1001,6 +1019,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Удалить товар
     const removeItem = (id) => {
         let cart = getCart();
+
+        // --- GA4: REMOVE FROM CART ---
+        const itemToRemove = cart.find(i => i.id == id);
+        if (itemToRemove) {
+            pushGA4Event('remove_from_cart', [{
+                item_id: itemToRemove.sku || itemToRemove.id,
+                item_name: itemToRemove.title,
+                price: parseFloat(itemToRemove.price || 0),
+                quantity: itemToRemove.qty
+            }]);
+        }
+
         cart = cart.filter(i => i.id != id);
         saveCart(cart);
         renderCart();
@@ -1080,11 +1110,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="cart-total__label">${TEXT.totalLabel}</span>
                     <span class="cart-total__sum">${totalPrice} ${TEXT.currency}</span>
                 </div>
-                <button class="cart-checkout-btn" onclick="window.location.href='checkout.html'">${TEXT.btnCheckout}</button>
+                <button class="cart-checkout-btn" onclick="window.rbBeginCheckout()">${TEXT.btnCheckout}</button>
             </div>
         `;
 
         drawerBody.innerHTML = listHtml + footerHtml;
+    };
+
+    // --- GA4: BEGIN CHECKOUT ---
+    window.rbBeginCheckout = () => {
+        let cart = getCart();
+        let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
+        let ga4Items = cart.map(i => ({
+            item_id: i.sku || i.id,
+            item_name: i.title,
+            price: parseFloat(i.price),
+            quantity: i.qty
+        }));
+        pushGA4Event('begin_checkout', ga4Items, totalValue);
+
+        // Небольшая задержка, чтобы событие точно успело уйти в Google перед переходом
+        setTimeout(() => { window.location.href = 'checkout.html'; }, 300);
     };
 
     // --- 4. Открытие/Закрытие шторки ---
@@ -1093,6 +1139,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!drawer) return;
         drawer.classList.add('is-open');
         document.body.classList.add('is-cart-open');
+
+        // --- GA4: VIEW CART ---
+        let cart = getCart();
+        let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
+        let ga4Items = cart.map(i => ({
+            item_id: i.sku || i.id,
+            item_name: i.title,
+            price: parseFloat(i.price),
+            quantity: i.qty
+        }));
+        pushGA4Event('view_cart', ga4Items, totalValue);
     };
 
     // Перехватываем стандартные кнопки открытия (из старого кода), чтобы они рендерили корзину

@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
+
+    {% if gtm_id %}
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
+  <!-- End Google Tag Manager -->
+  {% endif %}
+
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Замовлення оформлено — RadioBox</title>
@@ -88,6 +99,13 @@
     </style>
 </head>
 <body>
+
+    {% if gtm_id %}
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+  {% endif %}
 
     <header class="b-white-bar" style="border-bottom: 1px solid #e6e8ed; background: #fff;">
         <div class="container white-inner" style="justify-content: center; grid-template-columns: auto; display: flex; padding: 15px;">
@@ -185,6 +203,24 @@
 
     <div id="liqpay_checkout"></div>
 
+    {% if purchase_data %}
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ ecommerce: null });
+    window.dataLayer.push({
+      'event': 'purchase',
+      'ecommerce': {
+        'transaction_id': '{{ purchase_data.transaction_id }}',
+        'value': {{ purchase_data.value }},
+        'currency': '{{ purchase_data.currency }}',
+        'shipping': {{ purchase_data.shipping }},
+        'items': {{ purchase_data.items_json | safe }}
+      }
+    });
+    console.log("GA4 Purchase event fired!");
+    </script>
+    {% endif %}
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -218,7 +254,7 @@
                 const invoiceNumEl = document.getElementById('fopOrderNumInvoice');
                 if (invoiceNumEl) invoiceNumEl.textContent = '№' + order.id;
 
-                fetch('/api/admin/settings')
+                fetch('/api/public/settings')
                     .then(res => res.json())
                     .then(data => {
                         if (data.success) {
