@@ -2020,7 +2020,7 @@ window.payOrderLiqPay = async function(orderId, btnElement) {
 };
 
 // ============================================
-// SEO: ДИНАМИЧЕСКАЯ ПОДСТАНОВКА МЕТА-ТЕГОВ
+// SEO + GA4: ДИНАМИЧЕСКИЕ МЕТА-ТЕГИ И VIEW_ITEM
 // ============================================
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Проверяем, что мы на странице товара
@@ -2034,20 +2034,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Определяем язык
     const langAttr = (document.documentElement.getAttribute('lang') || '').toLowerCase();
     const isUA = langAttr.startsWith('uk') || langAttr === 'ua' || window.location.pathname.includes('/ua/');
-
-    // Ключи для localStorage (откуда мы берем данные, чтобы не делать лишний запрос, если они там есть)
-    // ВАЖНО: Ваша логика каталога сохраняет данные в localStorage (rb_catalog_v1_ru / rb_catalog_v1_ua)
     const storeKey = isUA ? 'rb_catalog_v1_ua' : 'rb_catalog_v1_ru';
+
+    // Функция отправки события в Google Analytics 4
+    function trackGA4ViewItem(product) {
+        if (!product) return;
+        const price = parseFloat(product.price || 0);
+        pushGA4Event('view_item', [{
+            item_id: String(product.sku || product.id),
+            item_name: product.title || product.title_ru || '',
+            price: price,
+            quantity: 1,
+            item_category: product.category || 'general'
+        }], price);
+    }
 
     // 4. Функция обновления мета-тегов
     function updateSEO(product) {
         if (!product) return;
 
         // --- TITLE ---
-        // Если заполнено SEO поле - берем его, иначе - обычное название + суффикс
         let pageTitle = product.seo_title;
         if (!pageTitle) {
-             // Фолбэк (запасной вариант), если SEO-заголовок не заполнен
              pageTitle = (product.title || product.title_ru || 'RadioBox') + " | Купити в RadioBox";
         }
         document.title = pageTitle;
@@ -2055,14 +2063,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- DESCRIPTION ---
         let pageDesc = product.seo_description;
         if (!pageDesc) {
-             // Фолбэк: берем начало описания или генерируем стандартное
-             // Очищаем HTML теги, если они есть в описании
              const rawDesc = product.description || product.description_ru || "";
              const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '');
-             pageDesc = cleanDesc.substring(0, 160) + "..."; // Первые 160 символов
+             pageDesc = cleanDesc.substring(0, 160) + "...";
         }
 
-        // Ищем тег <meta name="description">, если нет — создаем
         let metaDesc = document.querySelector('meta[name="description"]');
         if (!metaDesc) {
             metaDesc = document.createElement('meta');
@@ -2071,7 +2076,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         metaDesc.content = pageDesc;
 
-        // (Опционально) Обновляем Open Graph (для красивых ссылок в Facebook/Viber/Telegram)
+        // Open Graph
         let ogTitle = document.querySelector('meta[property="og:title"]');
         if (!ogTitle) {
              ogTitle = document.createElement('meta'); ogTitle.setAttribute('property', 'og:title'); document.head.appendChild(ogTitle);
@@ -2084,13 +2089,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ogDesc.content = pageDesc;
 
-        // Картинка для соцсетей
         if (product.image || (product.images && product.images[0])) {
              let ogImg = document.querySelector('meta[property="og:image"]');
              if (!ogImg) {
                  ogImg = document.createElement('meta'); ogImg.setAttribute('property', 'og:image'); document.head.appendChild(ogImg);
              }
-             // Если путь относительный, добавляем домен (для соцсетей нужно полный путь)
              let imgPath = product.image || product.images[0];
              if (imgPath.startsWith('/')) imgPath = window.location.origin + imgPath;
              ogImg.content = imgPath;
@@ -2098,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Пытаемся найти товар
-    // Сценарий А: Товар уже есть в LocalStorage (быстро)
+    // Сценарий А: Товар есть в LocalStorage
     try {
         const raw = localStorage.getItem(storeKey);
         if (raw) {
@@ -2106,19 +2109,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const product = data.items.find(p => p.id == productId);
             if (product) {
                 updateSEO(product);
-                return; // Всё готово, выходим
+                trackGA4ViewItem(product); // <-- ОТПРАВЛЯЕМ VIEW_ITEM
+                return;
             }
         }
     } catch (e) {}
 
-    // Сценарий Б: Товара нет в LocalStorage (или прямой заход по ссылке) -> Запрашиваем с сервера
+    // Сценарий Б: Товара нет в LocalStorage -> Запрашиваем с сервера
     fetch('/api/products')
         .then(r => r.json())
         .then(data => {
             if (data.success) {
                 const product = data.items.find(p => p.id == productId);
-                // Тут нужно учесть язык, так как API отдает сырые поля (title_ru, title_ua)
-                // А функция updateSEO ожидает уже обработанный объект или мы обработаем его тут
                 if (product) {
                     const finalProduct = {
                         ...product,
@@ -2126,6 +2128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         description: isUA ? (product.description_ua || product.description_ru) : product.description_ru
                     };
                     updateSEO(finalProduct);
+                    trackGA4ViewItem(finalProduct); // <-- ОТПРАВЛЯЕМ VIEW_ITEM
                 }
             }
         })
