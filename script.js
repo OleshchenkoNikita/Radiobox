@@ -2195,6 +2195,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isUA = document.documentElement.lang === 'uk' || location.pathname.includes('/ua/');
 
+        // === АВТОМАТИЧЕСКАЯ УСТАНОВКА ФАВИКОНКИ ===
+        if (!document.querySelector("link[rel='icon']")) {
+            const favicon = document.createElement('link');
+            favicon.rel = 'icon';
+            favicon.type = 'image/png';
+            // Путь учитывает вложенность (для папок ru/ua поднимется на уровень выше)
+            const isSubfolder = location.pathname.includes('/ru/') || location.pathname.includes('/ua/');
+            favicon.href = (isSubfolder ? '../' : '') + 'assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png';
+            document.head.appendChild(favicon);
+        }
+
         // 1. === СЧЕТЧИК ОТЗЫВОВ (С СЕРВЕРА) ===
         const reviewsLink = document.querySelector('.reviews .link');
         if (reviewsLink) {
