@@ -972,7 +972,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 sku: product.sku || product.SKU || "",    // Берем из объекта product
                 title: product.title || "",
                 price: product.price || 0,
-                image: product.image || ""  // Сохраняем путь к фото
+                image: product.image || "",  // Сохраняем путь к фото
+                category: product.category || 'general'
             });
         }
 
