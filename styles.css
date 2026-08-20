@@ -2900,6 +2900,11 @@ video::-webkit-media-controls-panel {
     .about__text p:not(:first-child) {
                 display: none;
             }
+
+    /* Убираем гигантские боковые отступы в верхней полосе на мобильных */
+    .topbar-inner {
+        padding: 6px 15px !important;
+    }
 }
 
 /* ==================================================
