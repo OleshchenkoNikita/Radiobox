@@ -222,30 +222,61 @@
     {% endif %}
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+      document.addEventListener('DOMContentLoaded', async () => {
+        const isUA = true;
+        const params = new URLSearchParams(window.location.search);
+        const serverOrderId = params.get('order_id');
+        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
 
-            const params = new URLSearchParams(window.location.search);
-            const serverOrderId = params.get('order_id');
-            const orderRaw = localStorage.getItem('rb_last_order_details');
+        let order = {
+            id: serverOrderId || '???',
+            contact: { name: '...', surname: '', phone: '' },
+            delivery: { method: '...', address: '' },
+            payment: { type: 'cod', label: '...', status: 'unpaid' },
+            total: '0 ₴',
+            comment: ''
+        };
 
-            let order = orderRaw ? JSON.parse(orderRaw) : {
-                id: serverOrderId || Math.floor(100000000 + Math.random() * 900000000),
-                contact: { name: 'Гість', surname: '', phone: '' },
-                delivery: { method: 'Не вказано', address: '' },
-                payment: { type: 'seller_privat', label: 'seller_privat' },
-                total: '0 ₴',
-                comment: ''
-            };
+        // Завантаження точних даних замовлення з сервера за ID
+        if (serverOrderId) {
+            try {
+                const res = await fetch(`/api/public/order_info?order_id=${serverOrderId}`);
+                const data = await res.json();
+                if (data.success && data.order) {
+                    const o = data.order;
+                    order.id = o.id;
+                    order.contact = { name: o.name, surname: o.surname, phone: o.phone };
+                    order.delivery = { method: o.delivery_method, address: o.delivery_address };
+                    order.payment = { type: o.payment_method, label: o.payment_method, status: o.payment_status };
+                    order.total = `${o.total_price} ₴`;
+                    order.comment = o.comment;
+                    order.items = o.items;
+                }
+            } catch (err) {
+                console.error("Помилка завантаження даних замовлення з сервера:", err);
+            }
+        }
 
-            if (serverOrderId) order.id = serverOrderId;
+        // Якщо серверних даних немає, використовуємо localStorage
+        if (order.contact.name === '...') {
+            try {
+                const raw = localStorage.getItem('rb_last_order_details');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    order = { ...order, ...parsed };
+                }
+                if (serverOrderId) order.id = serverOrderId;
+            } catch (err) {
+                console.error("Помилка читання замовлення:", err);
+            }
+        }
 
-            // Заполнение полей
-            document.getElementById('orderNum').textContent = order.id;
-            document.getElementById('osCustomerName').textContent = `${order.contact.surname} ${order.contact.name}`;
-            document.getElementById('osCustomerPhone').textContent = order.contact.phone;
-            document.getElementById('osDeliveryMethod').textContent = order.delivery.method;
-            document.getElementById('osDeliveryAddress').textContent = order.delivery.address;
-            document.getElementById('osTotalPrice').textContent = order.total;
+        safeSet('orderNum', order.id);
+        safeSet('osCustomerName', `${order.contact.surname} ${order.contact.name}`.trim());
+        safeSet('osCustomerPhone', order.contact.phone);
+        safeSet('osDeliveryMethod', order.delivery.method);
+        safeSet('osDeliveryAddress', order.delivery.address);
+        safeSet('osTotalPrice', order.total);
 
             if (order.payment && order.payment.type === 'seller_privat') {
                 const fopBlock = document.getElementById('fopDetailsBlock');

@@ -223,10 +223,11 @@
     {% endif %}
 
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
         const params = new URLSearchParams(window.location.search);
         const serverOrderId = params.get('order_id');
+        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
 
         let order = {
             id: serverOrderId || '???',
@@ -237,18 +238,39 @@
             comment: ''
         };
 
-        try {
-            const raw = localStorage.getItem('rb_last_order_details');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                order = { ...order, ...parsed };
+        // Загрузка точных данных заказа с сервера по ID
+        if (serverOrderId) {
+            try {
+                const res = await fetch(`/api/public/order_info?order_id=${serverOrderId}`);
+                const data = await res.json();
+                if (data.success && data.order) {
+                    const o = data.order;
+                    order.id = o.id;
+                    order.contact = { name: o.name, surname: o.surname, phone: o.phone };
+                    order.delivery = { method: o.delivery_method, address: o.delivery_address };
+                    order.payment = { type: o.payment_method, label: o.payment_method, status: o.payment_status };
+                    order.total = `${o.total_price} ₴`;
+                    order.comment = o.comment;
+                    order.items = o.items;
+                }
+            } catch (err) {
+                console.error("Ошибка загрузки данных заказа с сервера:", err);
             }
-            if (serverOrderId) order.id = serverOrderId;
-        } catch (err) {
-            console.error("Ошибка чтения заказа:", err);
         }
 
-        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+        // Если серверных данных нет, пробуем прочесть localStorage
+        if (order.contact.name === '...') {
+            try {
+                const raw = localStorage.getItem('rb_last_order_details');
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    order = { ...order, ...parsed };
+                }
+                if (serverOrderId) order.id = serverOrderId;
+            } catch (err) {
+                console.error("Ошибка чтения заказа:", err);
+            }
+        }
 
         safeSet('orderNum', order.id);
         safeSet('osCustomerName', `${order.contact.surname} ${order.contact.name}`);

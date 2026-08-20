@@ -2239,6 +2239,45 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         print(f"❌ Критическая ошибка отправки сделки: {e}")
         return None
 
+# === API: ПОЛУЧЕНИЕ ДАННЫХ ЗАКАЗА ДЛЯ СТРАНИЦЫ УСПЕХА ===
+@app.route('/api/public/order_info', methods=['GET'])
+def get_public_order_info():
+    order_id = request.args.get('order_id')
+    if not order_id:
+        return jsonify({"success": False, "error": "No order_id"}), 400
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, user_name, user_surname, user_phone, 
+                       delivery_method, delivery_address, total_price, 
+                       comment, payment_method, payment_status, items_json 
+                FROM orders WHERE id = ?
+            """, (order_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return jsonify({"success": False, "error": "Order not found"}), 404
+
+            order_data = {
+                "id": row["id"],
+                "name": row["user_name"],
+                "surname": row["user_surname"],
+                "phone": row["user_phone"],
+                "delivery_method": row["delivery_method"],
+                "delivery_address": row["delivery_address"],
+                "total_price": row["total_price"],
+                "comment": row["comment"],
+                "payment_method": row["payment_method"],
+                "payment_status": row["payment_status"],
+                "items": json.loads(row["items_json"]) if row["items_json"] else []
+            }
+            return jsonify({"success": True, "order": order_data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/admin/import_prom', methods=['POST'])
 @role_required('manager', 'superadmin')
 def admin_import_prom():
