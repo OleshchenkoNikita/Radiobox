@@ -2197,14 +2197,22 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     }
 
     try:
-        r = requests.post(url, json=payload, headers=headers, timeout=10)
+        print(f"[*] Отправка заказа №{order_id} в KeepinCRM...")
+        r = requests.post(url, json=payload, headers=headers, timeout=15)
+
+        # Выводим в лог сервера статус и ответ от CRM
+        print(f"[*] CRM Response Status: {r.status_code}")
+        print(f"[*] CRM Response Text: {r.text}")
+
         if r.status_code in [200, 201]:
-            crm_id = r.json().get('id')  # Получаем ID из CRM
+            crm_id = r.json().get('id')
             print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_id}")
-            return crm_id  # Возвращаем его
-        return None
+            return crm_id
+        else:
+            print(f"❌ Ошибка ответа KeepinCRM: Код {r.status_code}, Текст: {r.text}")
+            return None
     except Exception as e:
-        print(f"❌ Критична помилка: {e}")
+        print(f"❌ Критична помилка при запросе к KeepinCRM: {e}")
         return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
