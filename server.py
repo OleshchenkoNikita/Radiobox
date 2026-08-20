@@ -2131,44 +2131,14 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         print("⚠️ Ошибка: API ключ не найден!")
         return None
 
+    url = 'https://api.keepincrm.com/v1/agreements'
+
     headers = {
         'X-Auth-Token': api_token,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
     }
 
-    phone = crm_data.get('phone', '').strip()
-    client_id = None
-
-    # Очищаем телефон для точного сравнения (оставляем только цифры)
-    clean_search_phone = ''.join(filter(str.isdigit, phone))
-
-    # 1. Ищем клиента в KeepinCRM с обязательной проверкой совпадения телефона
-    if clean_search_phone:
-        try:
-            search_url = f'https://api.keepincrm.com/v1/clients'
-            res_search = requests.get(search_url, headers=headers, timeout=10)
-            if res_search.status_code == 200:
-                clients = res_search.json().get('items', [])
-
-                # Проходим по списку и ищем клиента, у которого совпадает телефон
-                for client in clients:
-                    client_phones = client.get('phones', [])
-                    matched = False
-                    for p in client_phones:
-                        clean_p = ''.join(filter(str.isdigit, str(p)))
-                        if clean_p and (clean_p == clean_search_phone or clean_search_phone.endswith(
-                                clean_p) or clean_p.endswith(clean_search_phone)):
-                            matched = True
-                            break
-                    if matched:
-                        client_id = client.get('id')
-                        print(f"[*] Найден точный совпавший клиент в KeepinCRM по телефону {phone}. ID: {client_id}")
-                        break
-        except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента в KeepinCRM: {e}")
-
-    url = 'https://api.keepincrm.com/v1/agreements'
     site_url = get_setting('site_url') or "https://radio-box.com.ua"
 
     products_list = []
@@ -2192,6 +2162,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         })
 
     utm_data = session.get('utm_data', {})
+    phone = crm_data.get('phone', '').strip()
 
     payload = {
         'title': str(order_id),
@@ -2204,6 +2175,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             'city_ref': crm_data.get('city_ref'),
             'point_ref': crm_data.get('point_ref')
         },
+        'client_attributes': {
+            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+            'email': crm_data.get('email', ''),
+            'phones': [phone] if phone else [],
+            'lead': False
+        },
         'comment': crm_data.get('comment', ''),
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
@@ -2215,17 +2192,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         ],
         'jobs_attributes': products_list
     }
-
-    # 2. Привязываем клиента по ID только если нашли его наверняка, иначе создаем нового
-    if client_id:
-        payload['client_id'] = client_id
-    else:
-        payload['client_attributes'] = {
-            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
-            'email': crm_data.get('email', ''),
-            'phones': [phone],
-            'lead': True
-        }
 
     try:
         print(f"[*] Отправка заказа №{order_id} в KeepinCRM...")
