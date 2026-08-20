@@ -2844,6 +2844,17 @@ video::-webkit-media-controls-panel {
         justify-content: center;
     }
 
+    /* Увеличиваем логотип на мобильных */
+    .brand-logo {
+        width: 100px;
+        height: 100px;
+    }
+
+    /* Делаем название крупнее и заметнее */
+    .brand-name {
+        font-size: 46px;
+    }
+
     .search-wide {
         order: 3; /* Поиск опускаем вниз в блоке хэдера для удобства */
         margin-top: 5px;
