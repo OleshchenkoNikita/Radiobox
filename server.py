@@ -2202,15 +2202,19 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
+    client_payload = {
+        'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+        'email': crm_data.get('email', ''),
+        'phones': [raw_phone],
+        'lead': True
+    }
+
     if client_id:
-        payload['client_id'] = client_id
+        # Передаем ID внутри client_attributes для обновления данных найденного клиента
+        client_payload['id'] = client_id
+        payload['client_attributes'] = client_payload
     else:
-        payload['client_attributes'] = {
-            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
-            'email': crm_data.get('email', ''),
-            'phones': [raw_phone],
-            'lead': True
-        }
+        payload['client_attributes'] = client_payload
 
     # --- 4. Отправляем сделку ---
     url = 'https://api.keepincrm.com/v1/agreements'
