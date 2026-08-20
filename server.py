@@ -2129,9 +2129,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     if not api_token:
         print("⚠️ Ошибка: API ключ не найден!")
-        return
-
-    url = 'https://api.keepincrm.com/v1/agreements'
+        return None
 
     headers = {
         'X-Auth-Token': api_token,
@@ -2139,14 +2137,30 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'Accept': 'application/json'
     }
 
-    site_url = get_setting('site_url') or "https://radiobox.in.ua"
+    phone = crm_data.get('phone', '').strip()
+    client_id = None
+
+    # 1. Сначала ищем клиента в KeepinCRM по номеру телефона
+    if phone:
+        try:
+            search_url = f'https://api.keepincrm.com/v1/clients?filter[phone]={phone}'
+            res_search = requests.get(search_url, headers=headers, timeout=10)
+            if res_search.status_code == 200:
+                clients = res_search.json().get('items', [])
+                if clients:
+                    client_id = clients[0].get('id')
+                    print(f"[*] Найден существующий клиент в KeepinCRM по телефону {phone}. ID: {client_id}")
+        except Exception as e:
+            print(f"⚠️ Ошибка поиска клиента в KeepinCRM: {e}")
+
+    url = 'https://api.keepincrm.com/v1/agreements'
+    site_url = get_setting('site_url') or "https://radio-box.com.ua"
 
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
-        p_sku = str(item.get('sku') or '').strip()  # Берем sku из корзины
+        p_sku = str(item.get('sku') or '').strip()
 
-        # Склеиваем полный путь к фото
         raw_image = item.get('image') or ''
         image_url = f"{site_url.rstrip('/')}/{raw_image.lstrip('/')}" if raw_image else ""
 
@@ -2162,12 +2176,11 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             }
         })
 
-    # Достаем сохраненные UTM-метки из сессии (если они есть)
     utm_data = session.get('utm_data', {})
 
     payload = {
         'title': str(order_id),
-        'source_id': 7, # Твой ID источника в KeepinCRM
+        'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
         'delivery': {
@@ -2176,14 +2189,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             'city_ref': crm_data.get('city_ref'),
             'point_ref': crm_data.get('point_ref')
         },
-        'client_attributes': {
-            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
-            'email': crm_data.get('email', ''),
-            'phones': [crm_data.get('phone', '')],
-            'lead': True
-        },
         'comment': crm_data.get('comment', ''),
-
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
             {'name': 'oplata_334', 'value': crm_data.get('payment')},
@@ -2192,19 +2198,36 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             {'name': 'utm_source_353', 'value': utm_data.get('utm_source', '')},
             {'name': 'gclid_354', 'value': utm_data.get('gclid', '')}
         ],
-
         'jobs_attributes': products_list
     }
 
+    # 2. Если клиент найден — привязываем его по ID, если нет — передаем атрибуты для создания
+    if client_id:
+        payload['client_id'] = client_id
+    else:
+        payload['client_attributes'] = {
+            'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
+            'email': crm_data.get('email', ''),
+            'phones': [phone],
+            'lead': True
+        }
+
     try:
-        r = requests.post(url, json=payload, headers=headers, timeout=10)
+        print(f"[*] Отправка заказа №{order_id} в KeepinCRM...")
+        r = requests.post(url, json=payload, headers=headers, timeout=15)
+
+        print(f"[*] CRM Response Status: {r.status_code}")
+        print(f"[*] CRM Response Text: {r.text}")
+
         if r.status_code in [200, 201]:
-            crm_id = r.json().get('id')  # Получаем ID из CRM
+            crm_id = r.json().get('id')
             print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_id}")
-            return crm_id  # Возвращаем его
-        return None
+            return crm_id
+        else:
+            print(f"❌ Ошибка ответа KeepinCRM: Код {r.status_code}, Текст: {r.text}")
+            return None
     except Exception as e:
-        print(f"❌ Критична помилка: {e}")
+        print(f"❌ Критична помилка при запросе к KeepinCRM: {e}")
         return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
