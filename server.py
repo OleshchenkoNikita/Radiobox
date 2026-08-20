@@ -2129,7 +2129,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     if not api_token:
         print("⚠️ Ошибка: API ключ не найден!")
-        return
+        return None
 
     headers = {
         'X-Auth-Token': api_token,
@@ -2139,7 +2139,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Нормализация телефона и Email ---
+    # --- 1. Нормализация телефона и данных ---
     raw_phone = str(crm_data.get('phone', '') or '').strip()
     user_email = str(crm_data.get('email', '') or '').strip()
     person_name = str(crm_data.get('name', '') or '').strip() or "Клієнт"
@@ -2154,77 +2154,44 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         formatted_phone = raw_phone
 
-    # --- 2. Поиск существующего клиента в KeepinCRM ---
+    # --- 2. Поиск клиента ТОЛЬКО по номеру телефона ---
     client_id = None
-    phone_search_key = digits[-9:] if len(digits) >= 9 else ""
-
-    # Попытка 1: Поиск через /v1/clients/find_by
-    if formatted_phone and len(digits) >= 9:
+    if len(digits) >= 9:
+        search_digits = digits[-9:] # 9 цифр без кода страны (например, 930728887)
         try:
             r_find = requests.get(
-                "https://api.keepincrm.com/v1/clients/find_by",
-                headers=headers,
-                params={"phone": formatted_phone},
-                timeout=5
-            )
-            if r_find.status_code == 200 and r_find.json().get('id'):
-                client_id = r_find.json().get('id')
-        except Exception as e:
-            print(f"⚠️ Ошибка find_by (phone): {e}")
-
-    if not client_id and user_email:
-        try:
-            r_find_email = requests.get(
-                "https://api.keepincrm.com/v1/clients/find_by",
-                headers=headers,
-                params={"email": user_email},
-                timeout=5
-            )
-            if r_find_email.status_code == 200 and r_find_email.json().get('id'):
-                client_id = r_find_email.json().get('id')
-        except Exception as e:
-            print(f"⚠️ Ошибка find_by (email): {e}")
-
-    # Попытка 2: Фильтрация по списку /v1/clients с проверкой точного совпадения
-    if not client_id and (phone_search_key or user_email):
-        try:
-            r_list = requests.get(
                 "https://api.keepincrm.com/v1/clients",
                 headers=headers,
-                params={"query": phone_search_key or user_email, "per_page": 20},
+                params={"query": search_digits, "per_page": 10},
                 timeout=5
             )
-            if r_list.status_code == 200:
-                items_resp = r_list.json().get('items', [])
+            if r_find.status_code == 200:
+                items_resp = r_find.json().get('items', [])
                 for c in items_resp:
-                    # Проверяем совпадение по телефонам
-                    c_phones = "".join([re.sub(r'\D', '', p) for p in c.get('phones', [])])
-                    if phone_search_key and phone_search_key in c_phones:
-                        client_id = c['id']
-                        break
-                    # Проверяем совпадение по email
-                    if user_email and c.get('email', '').strip().lower() == user_email.lower():
+                    all_phones = "".join([re.sub(r'\D', '', p) for p in c.get('phones', [])])
+                    if search_digits in all_phones:
                         client_id = c['id']
                         break
         except Exception as e:
-            print(f"⚠️ Ошибка поиска в списке клиентов: {e}")
+            print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
 
-    # Если клиент найден — обновляем его актуальные данные
+    # Если клиент найден — принудительно обновляем его имя и текущие контакты
     if client_id:
         try:
-            client_update_payload = {"person": person_name}
+            patch_data = {
+                "person": person_name,
+                "phones": [formatted_phone] if len(digits) >= 9 else []
+            }
             if user_email:
-                client_update_payload["email"] = user_email
-            if formatted_phone and len(digits) >= 9:
-                client_update_payload["phones"] = [formatted_phone]
+                patch_data["email"] = user_email
 
             requests.patch(
                 f"https://api.keepincrm.com/v1/clients/{client_id}",
                 headers=headers,
-                json=client_update_payload,
+                json=patch_data,
                 timeout=5
             )
-            print(f"[*] Клиент ID {client_id} успешно обновлен новыми данными.")
+            print(f"[*] Карточка клиента {client_id} обновлена: {person_name}, {formatted_phone}")
         except Exception as e:
             print(f"⚠️ Ошибка обновления клиента: {e}")
 
@@ -2296,13 +2263,13 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         r = requests.post(url, json=payload, headers=headers, timeout=10)
         if r.status_code in [200, 201]:
             crm_id = r.json().get('id')
-            print(f"✅ Успіх! Угода створена в KeepinCRM. ID: {crm_id}")
+            print(f"✅ Успех! Сделка #{order_id} создана в KeepinCRM (CRM ID: {crm_id})")
             return crm_id
         else:
             print(f"❌ Ошибка KeepinCRM ({r.status_code}): {r.text}")
         return None
     except Exception as e:
-        print(f"❌ Критична помилка: {e}")
+        print(f"❌ Критическая ошибка: {e}")
         return None
 
 @app.route('/api/admin/import_prom', methods=['POST'])
