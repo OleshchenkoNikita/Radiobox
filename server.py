@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from jinja2 import Undefined
 
 load_dotenv()
 
@@ -487,27 +488,34 @@ def send_email_real(to_email, subject, body):
 def index():
     return redirect('/ru/index.html')
 
+class SafeObject:
+    def __getattr__(self, name):
+        return ""
+    def __getitem__(self, key):
+        return ""
 
 @app.route('/<path:path>')
 @limiter.exempt
 def serve_static(path):
-    # Если запрашивают HTML-файл, пропускаем его через шаблонизатор
     if path.endswith('.html'):
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
 
-            gtm_id = get_setting('gtm_id')
-
-            # 1. ДОСТАЕМ ФЛАГ ПОКУПКИ ИЗ СЕССИИ И СРАЗУ УДАЛЯЕМ ЕГО
+            gtm_id = get_setting('gtm_id') or ''
             purchase_data = session.pop('purchase_data', None)
 
-            # 2. ПЕРЕДАЕМ ЕГО В ШАБЛОН (добавился аргумент purchase_data)
-            return render_template_string(html_content, gtm_id=gtm_id, purchase_data=purchase_data)
+            # Передаем SafeObject(), чтобы шаблон никогда не падал на неопределенных переменных
+            return render_template_string(
+                html_content,
+                gtm_id=gtm_id,
+                purchase_data=purchase_data,
+                product=SafeObject(),
+                category=SafeObject()
+            )
         except FileNotFoundError:
             return "Not found", 404
 
-    # Для остальных файлов (css, js, картинки) отдаем как обычно статику
     return send_from_directory('.', path)
 
 @app.route('/api/register', methods=['POST'])
@@ -2154,9 +2162,13 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             }
         })
 
+    # Достаем сохраненные UTM-метки из сессии (если они есть)
+    utm_data = session.get('utm_data', {})
+    utm_str = ", ".join([f"{k}: {v}" for k, v in utm_data.items()]) if utm_data else "Прямой заход"
+
     payload = {
         'title': str(order_id),
-        'source_id': 7,
+        'source_id': 7, # Твой ID источника в KeepinCRM
         'status_id': 5,
         'main_responsible_id': 1,
         'delivery': {
@@ -2171,16 +2183,15 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             'phones': [crm_data.get('phone', '')],
             'lead': True
         },
-        # Основной комментарий можно оставить или убрать
-        'comment': crm_data.get('comment', ''),
+        'comment': f"Источник: radio-box.com.ua | Метки: {utm_str} \n\nКомментарий: {crm_data.get('comment', '')}",
 
-        # ДОБАВЛЯЕМ ЭТОТ БЛОК:
         'custom_fields': [
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
             {'name': 'oplata_334', 'value': crm_data.get('payment')},
-            # Замените эти алиасы на ваши реальные из CRM:
             {'name': 'misto_dostavki_338', 'value': crm_data.get('city')},
-            {'name': 'viddiliennia_339', 'value': crm_data.get('point')}
+            {'name': 'viddiliennia_339', 'value': crm_data.get('point')},
+            {'name': 'utm_source_353', 'value': utm_data.get('utm_source', '')},
+            {'name': 'gclid_354', 'value': utm_data.get('gclid', '')}
         ],
 
         'jobs_attributes': products_list
@@ -3331,6 +3342,7 @@ def get_feed_data(lang):
     return products
 
 
+@app.route('/feed/ua.xml')
 @app.route('/feed/merchant_ua.xml')
 def merchant_feed_ua():
     products = get_feed_data('ua')
@@ -3338,11 +3350,34 @@ def merchant_feed_ua():
     return Response(xml_content, mimetype='application/xml')
 
 
+@app.route('/feed/ru.xml')
 @app.route('/feed/merchant_ru.xml')
 def merchant_feed_ru():
     products = get_feed_data('ru')
     xml_content = render_template('merchant_feed.xml', products=products, lang='ru')
     return Response(xml_content, mimetype='application/xml')
+
+
+@app.before_request
+def capture_utm_tags():
+    # Список параметров, которые нужно отслеживать
+    tracking_params = ['gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
+                       'utm_content']
+
+    # Инициализируем словарь в сессии, если его нет
+    if 'utm_data' not in session:
+        session['utm_data'] = {}
+
+    found_new = False
+    for param in tracking_params:
+        val = request.args.get(param)
+        if val:
+            session['utm_data'][param] = val
+            found_new = True
+
+    if found_new:
+        # Убедимся, что сессия обновилась
+        session.modified = True
 
 if __name__ == '__main__':
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
