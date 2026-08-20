@@ -1514,7 +1514,8 @@
                                 price: item.price || product.price || 0,
                                 // ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ:
                                 sku: item.sku || product.sku || "",
-                                image: item.image || (product.images ? product.images[0] : "")
+                                image: item.image || (product.images ? product.images[0] : ""),
+                                category: item.category || product.category || 'general'
                             };
                         });
                         finalJson = JSON.stringify(enriched);

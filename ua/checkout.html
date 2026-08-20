@@ -1584,7 +1584,8 @@
                             title: item.title || product.title_ua || product.title_ru || product.title || `Товар ID ${item.id}`,
                             price: item.price || product.price || 0,
                             sku: item.sku || product.sku || "",
-                            image: item.image || (product.images ? product.images[0] : "")
+                            image: item.image || (product.images ? product.images[0] : ""),
+                            category: item.category || product.category || 'general'
                         };
                     });
                     finalJson = JSON.stringify(enriched);
