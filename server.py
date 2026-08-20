@@ -2139,45 +2139,39 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     site_url = get_setting('site_url') or "https://radiobox.in.ua"
 
-    # --- 1. Поиск существующего клиента по телефону или Email ---
+    # --- 1. Поиск существующего клиента ---
     client_id = None
-    raw_phone = crm_data.get('phone', '')
-    user_email = crm_data.get('email', '').strip()
-    clean_phone = re.sub(r'\D', '', raw_phone)
+    raw_phone = crm_data.get('phone', '') or ''
+    user_email = (crm_data.get('email') or '').strip()
+    digits_phone = re.sub(r'\D', '', raw_phone)
 
-    # А. Поиск по телефону (если номер валидный, от 7 цифр)
-    if clean_phone and len(clean_phone) >= 7:
+    # Приводим к формату поиска (последние 9 цифр)
+    search_term = digits_phone[-9:] if len(digits_phone) >= 9 else user_email
+
+    if search_term:
         try:
-            search_phone_query = clean_phone[-9:]  # последние 9 цифр
-            res_client = requests.get(f"https://api.keepincrm.com/v1/clients?q={search_phone_query}", headers=headers,
-                                      timeout=5)
+            # KeepinCRM ищет через параметр 'query'
+            res_client = requests.get(
+                "https://api.keepincrm.com/v1/clients",
+                headers=headers,
+                params={"query": search_term, "per_page": 5},
+                timeout=5
+            )
             if res_client.status_code == 200:
-                clients = res_client.json().get('items', [])
-                if clients:
-                    client_id = clients[0]['id']
+                client_items = res_client.json().get('items', [])
+                if client_items:
+                    client_id = client_items[0]['id']
+                    print(f"[*] Найден существующий клиент в CRM: ID {client_id}")
         except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
+            print(f"⚠️ Ошибка поиска клиента в KeepinCRM: {e}")
 
-    # Б. Если по телефону не нашли — ищем по Email
-    if not client_id and user_email:
-        try:
-            res_client = requests.get(f"https://api.keepincrm.com/v1/clients?q={user_email}", headers=headers,
-                                      timeout=5)
-            if res_client.status_code == 200:
-                clients = res_client.json().get('items', [])
-                if clients:
-                    client_id = clients[0]['id']
-        except Exception as e:
-            print(f"⚠️ Ошибка поиска клиента по Email: {e}")
-
-    # --- 2. Формирование списка товаров ---
+    # --- 2. Формирование товаров ---
     products_list = []
     for item in items:
         p_title = item.get('title') or 'Товар'
         p_sku = str(item.get('sku') or '').strip()
         raw_image = item.get('image') or ''
 
-        # Защита от дублирования домена, если картинка уже с https://
         if raw_image.startswith('http'):
             image_url = raw_image
         elif raw_image:
@@ -2223,14 +2217,15 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
-    # Если клиент найден — привязываем к сделке его client_id
     if client_id:
         payload['client_id'] = client_id
     else:
+        # Валидация телефона (если меньше 9 цифр, не шлем в массив phones, чтобы не падала E164 валидация)
+        valid_phones = [raw_phone] if len(digits_phone) >= 9 else []
         payload['client_attributes'] = {
             'person': f"{crm_data.get('name', '')} {crm_data.get('surname', '')}".strip() or "Клієнт",
             'email': user_email,
-            'phones': [raw_phone] if raw_phone else [],
+            'phones': valid_phones,
             'lead': True
         }
 
