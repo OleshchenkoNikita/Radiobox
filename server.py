@@ -807,11 +807,24 @@ def create_order():
             conn.commit()
 
             # Интеграция CRM (Вернул переменные как были)
+            # Получаем имя и фамилию, склеиваем их чисто
+            name_part = request.form.get('name', '').strip()
+            surname_part = request.form.get('surname', '').strip()
+            full_person_name = f"{name_part} {surname_part}".strip() or "Клієнт"
+            user_email = request.form.get('email') or session.get('email', '')
+
             crm_data = {
-                'name': f"{name} {surname}", 'phone': phone, 'delivery': delivery_display,
-                'address': address, 'city': city, 'point': point,
-                'city_ref': city_ref, 'point_ref': point_ref,
-                'payment': payment_display, 'comment': comment, 'email': user_email
+                'name': full_person_name,
+                'phone': phone,
+                'delivery': delivery_display,
+                'address': address,
+                'city': city,
+                'point': point,
+                'city_ref': city_ref,
+                'point_ref': point_ref,
+                'payment': payment_display,
+                'comment': comment,
+                'email': user_email
             }
 
             crm_id_from_api = send_to_keepincrm(order_id, crm_data, items, total_sum)
@@ -2154,7 +2167,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         formatted_phone = raw_phone
 
-    # --- 2. Поиск клиента по номеру телефона ---
+    # --- 2. Поиск клиента строго по последним 9 цифрам телефона ---
     client_id = None
     search_digits = digits[-9:] if len(digits) >= 9 else ""
 
@@ -2175,7 +2188,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         except Exception as e:
             print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
 
-    # Поиск по Email, если по телефону не нашли
     if not client_id and user_email:
         try:
             r_find_email = requests.get(
@@ -2192,13 +2204,14 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         except Exception as e:
             print(f"⚠️ Ошибка поиска по email: {e}")
 
-    # --- 3. Перезапись ФИО в карточке клиента через PUT ---
+    # --- 3. Полное обновление карточки клиента (Название + Контактное лицо) ---
     if client_id:
         try:
             update_payload = {
-                "name": person_name,
-                "person": person_name,
                 "title": person_name,
+                "person": person_name,
+                "name": person_name,
+                "company_name": person_name,
                 "phones": [formatted_phone] if len(digits) >= 9 else []
             }
             if user_email:
@@ -2212,7 +2225,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             )
             print(f"[*] Обновление карточки клиента {client_id} (статус {r_upd.status_code}) -> {person_name}")
         except Exception as e:
-            print(f"⚠️ Ошибка обновления карточки: {e}")
+            print(f"⚠️ Ошибка обновления карточки клиента: {e}")
 
     # --- 4. Формирование списка товаров ---
     products_list = []
@@ -2242,7 +2255,8 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     utm_data = session.get('utm_data', {})
 
-    # --- 5. Формирование сделки (Agreement) ---
+    # --- 5. Формирование сделки ---
+    # --- 5. Формирование сделки ---
     payload = {
         'title': str(order_id),
         'source_id': 7,
@@ -2266,9 +2280,9 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'jobs_attributes': products_list
     }
 
-    # Передаем данные покупателя прямо в сделку
     if client_id:
         payload['client_id'] = client_id
+        # Передаем контактное лицо прямо в параметры сделки
         payload['lead_attributes'] = {
             'person': person_name,
             'email': user_email,
@@ -2277,9 +2291,10 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     else:
         valid_phones = [formatted_phone] if len(digits) >= 9 else []
         payload['client_attributes'] = {
-            'name': person_name,
-            'person': person_name,
             'title': person_name,
+            'person': person_name,
+            'name': person_name,
+            'company_name': person_name,
             'email': user_email,
             'phones': valid_phones,
             'lead': True
