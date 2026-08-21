@@ -334,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const viber = document.createElement("a");
         viber.className = "float-viber";
-        viber.href = "viber://chat?number=%2B380930728887";
+        viber.href = "viber://pa?chatURI=radiobox";
         viber.setAttribute("aria-label", label);
         viber.title = label;
 
@@ -2877,7 +2877,7 @@ async function loadDynamicContacts() {
             if (viberEntry) {
                 const cleanNumber = viberEntry.number.replace(/\D/g, '');
                 document.querySelectorAll('a[href^="viber://"]').forEach(link => {
-                    link.href = `viber://chat?number=%2B${cleanNumber}`;
+                    link.href = "viber://pa?chatURI=radiobox";
                 });
             }
         }
