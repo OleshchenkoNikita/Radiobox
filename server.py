@@ -277,8 +277,13 @@ def init_db():
             'iban_details': 'UA000000000000000000000000000',
             'mfo_details': '300001',
             'edrpou_details': '12345678',
-            'beneficiary_details': 'ФОП Олещенко Микита'
-        }
+            'beneficiary_details': 'ФОП Олещенко Микита',
+
+            # --- НОВЫЕ ПОЛЯ ДЛЯ ФИДА ---
+            'feed_sku_from': '',
+            'feed_sku_to': '',
+            'feed_in_stock_only': '0'
+            }
 
         for k, v in default_settings.items():
             cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
@@ -3372,7 +3377,16 @@ def get_feed_data(lang):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Убрали image_url, оставили то, что есть в init_db
+    # 1. Получаем настройки фида
+    cursor.execute(
+        "SELECT key, value FROM settings WHERE key IN ('feed_sku_from', 'feed_sku_to', 'feed_in_stock_only')")
+    settings = {row['key']: row['value'] for row in cursor.fetchall()}
+
+    sku_from = settings.get('feed_sku_from', '').strip()
+    sku_to = settings.get('feed_sku_to', '').strip()
+    in_stock_only = settings.get('feed_in_stock_only', '0')
+
+    # 2. Базовый запрос
     query = f'''
             SELECT 
                 id, 
@@ -3383,14 +3397,32 @@ def get_feed_data(lang):
                 price, 
                 unit_type,
                 category AS category_slug,
-                brand
+                brand,
+                sku
             FROM products
             WHERE is_visible = 1 AND deleted_at IS NULL
         '''
-    cursor.execute(query)
+
+    params = []
+
+    # 3. Применяем фильтры
+    if in_stock_only == '1':
+        query += " AND in_stock = 1"
+
+    if sku_from and sku_to:
+        query += " AND sku >= ? AND sku <= ?"
+        params.extend([sku_from, sku_to])
+    elif sku_from:
+        query += " AND sku >= ?"
+        params.append(sku_from)
+    elif sku_to:
+        query += " AND sku <= ?"
+        params.append(sku_to)
+
+    cursor.execute(query, params)
     rows = cursor.fetchall()
 
-    # Подтягиваем названия категорий из таблицы categories
+    # Подтягиваем названия категорий
     cursor.execute("SELECT slug, title_ru, title_ua FROM categories")
     cat_rows = cursor.fetchall()
     cat_map = {c['slug']: (c['title_ua'] if lang == 'ua' else c['title_ru']) for c in cat_rows}
@@ -3402,11 +3434,8 @@ def get_feed_data(lang):
 
     for row in rows:
         item = dict(row)
-
-        # Получаем категорию по слагу
         item['category_name'] = cat_map.get(item['category_slug'], 'General')
 
-        # Обрабатываем JSON с картинками
         image_url = ""
         if item['images_json']:
             try:

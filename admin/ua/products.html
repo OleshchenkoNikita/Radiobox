@@ -115,6 +115,11 @@
 
                     <button class="btn-primary" style="background:#16a34a;" onclick="document.getElementById('importKeepinXlsx').click()">📊 Імпорт Прому (.xlsx)</button>
                     <button class="btn-primary" style="background:#16a34a;" onclick="document.getElementById('importInput').click()">📊 Імпорт Прому (.csv)</button>
+
+                    <!-- Новая кнопка на всю ширину 2х колонок, чтобы не ломать размер остальных -->
+                    <button class="btn-primary" style="background:#3b82f6; grid-column: span 2;" onclick="AdminAutoFeed.openModal()">
+                        ⚙️ Налаштування авто-фіда
+                    </button>
                 </div>
 
                 <!-- Приховані інпути для файлів -->
@@ -485,6 +490,37 @@ async function uploadKeepinXlsx(input) {
             <div class="modal-footer">
                 <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="document.getElementById('exportFeedModal').classList.remove('active')">Скасувати</button>
                 <button type="button" class="btn-primary" id="ef_download_btn" onclick="AdminExportFeed.download()">Згенерувати та Завантажити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно: Налаштування авто-фіда -->
+    <div class="modal-overlay" id="autoFeedModal" style="z-index: 2000;">
+        <div class="modal-window" style="width:500px;">
+            <h2 style="margin-top:0;">Автоматичний фід</h2>
+            <p style="font-size:13px; color:#64748b; margin-bottom: 20px;">
+                Налаштування постійних посилань <code>/feed/ru.xml</code> та <code>/feed/ua.xml</code>.<br>
+                Якщо поля артикулів порожні — вивантажуються всі товари.
+            </p>
+
+            <div class="form-group">
+                <label>Артикули (SKU) ВІД:</label>
+                <input type="text" id="af_sku_from" class="form-input" placeholder="Наприклад: 1700000000">
+            </div>
+            <div class="form-group" style="margin-top: 10px;">
+                <label>Артикули (SKU) ДО:</label>
+                <input type="text" id="af_sku_to" class="form-input" placeholder="Наприклад: 1700000500">
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:normal;">
+                    <input type="checkbox" id="af_in_stock" style="width:16px; height:16px;">
+                    Вивантажувати тільки товари В НАЯВНОСТІ
+                </label>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="document.getElementById('autoFeedModal').classList.remove('active')">Скасувати</button>
+                <button type="button" class="btn-primary" id="af_save_btn" onclick="AdminAutoFeed.save()">Зберегти</button>
             </div>
         </div>
     </div>

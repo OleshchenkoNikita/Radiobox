@@ -2057,12 +2057,22 @@ const AdminSettings = {
                     's_pb_pass': s.privatbank_password,
                     's_iban': s.iban_details,
                     's_edrpou': s.edrpou_details,
-                    's_beneficiary': s.beneficiary_details
+                    's_beneficiary': s.beneficiary_details,
+
+                    // --- НОВЫЕ ПОЛЯ ФИДА ---
+                    's_feed_sku_from': s.feed_sku_from,
+                    's_feed_sku_to': s.feed_sku_to
                 };
 
                 for (let id in mapping) {
                     const el = document.getElementById(id);
                     if (el) el.value = mapping[id] || '';
+                }
+
+                // Чекбокс обрабатывается отдельно
+                const checkInStock = document.getElementById('s_feed_in_stock');
+                if (checkInStock) {
+                    checkInStock.checked = (s.feed_in_stock_only === '1');
                 }
 
                 // Загрузка телефонов
@@ -2134,7 +2144,12 @@ const AdminSettings = {
             beneficiary_details: getVal('s_beneficiary'),
             site_address_ru: document.getElementById('s_address_ru')?.value || '',
             site_address_ua: document.getElementById('s_address_ua')?.value || '',
-            site_phones: JSON.stringify(this.phones)
+            site_phones: JSON.stringify(this.phones),
+
+            // --- НОВЫЕ ПОЛЯ ФИДА ---
+            feed_sku_from: getVal('s_feed_sku_from'),
+            feed_sku_to: getVal('s_feed_sku_to'),
+            feed_in_stock_only: document.getElementById('s_feed_in_stock')?.checked ? '1' : '0'
         };
 
         try {
@@ -2525,6 +2540,64 @@ const AdminExportFeed = {
                 URL.revokeObjectURL(url);
             } else {
                 alert((isUA ? 'Помилка: ' : 'Ошибка: ') + data.error);
+            }
+        } catch(e) {
+            alert(isUA ? 'Помилка мережі' : 'Ошибка сети');
+        }
+
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }
+};
+
+// === НАСТРОЙКИ АВТОМАТИЧЕСКОГО ФИДА (Google Merchant) ===
+const AdminAutoFeed = {
+    openModal: async function() {
+        const modal = document.getElementById('autoFeedModal');
+        modal.classList.add('active');
+
+        // При открытии окна запрашиваем текущие настройки из БД
+        try {
+            const res = await fetch('/api/admin/settings');
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('af_sku_from').value = data.settings.feed_sku_from || '';
+                document.getElementById('af_sku_to').value = data.settings.feed_sku_to || '';
+                document.getElementById('af_in_stock').checked = (data.settings.feed_in_stock_only === '1');
+            }
+        } catch(e) {
+            console.error('Ошибка загрузки настроек фида:', e);
+        }
+    },
+
+    save: async function() {
+        const btn = document.getElementById('af_save_btn');
+        const oldText = btn.textContent;
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
+        btn.textContent = '...';
+        btn.disabled = true;
+
+        // Собираем данные
+        const data = {
+            feed_sku_from: document.getElementById('af_sku_from').value.trim(),
+            feed_sku_to: document.getElementById('af_sku_to').value.trim(),
+            feed_in_stock_only: document.getElementById('af_in_stock').checked ? '1' : '0'
+        };
+
+        try {
+            // Отправляем на универсальный роут сохранения настроек
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            const ans = await res.json();
+
+            if(ans.success) {
+                document.getElementById('autoFeedModal').classList.remove('active');
+            } else {
+                alert((isUA ? 'Помилка: ' : 'Ошибка: ') + ans.error);
             }
         } catch(e) {
             alert(isUA ? 'Помилка мережі' : 'Ошибка сети');
