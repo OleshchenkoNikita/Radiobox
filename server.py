@@ -3464,6 +3464,81 @@ def capture_utm_tags():
         # Убедимся, что сессия обновилась
         session.modified = True
 
+
+# === API: КАСТОМНЫЙ ЭКСПОРТ ФИДА ===
+@app.route('/api/admin/export_custom_feed', methods=['POST'])
+@role_required('manager', 'superadmin')
+def admin_export_custom_feed():
+    data = request.json
+    lang = data.get('lang', 'ru')
+    product_ids = data.get('product_ids', [])
+
+    if not product_ids:
+        return jsonify({"success": False, "error": "Нет выбранных товаров"})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Узнаем домен сайта для абсолютных ссылок на картинки
+            cursor.execute("SELECT value FROM settings WHERE key = 'site_url'")
+            domain_row = cursor.fetchone()
+            domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radiobox.in.ua"
+
+            # Подтягиваем названия категорий
+            cursor.execute("SELECT slug, title_ru, title_ua FROM categories")
+            cat_rows = cursor.fetchall()
+            cat_map = {c['slug']: (c['title_ua'] if lang == 'ua' else c['title_ru']) for c in cat_rows}
+
+            # Достаем только выбранные товары
+            placeholders = ','.join(['?'] * len(product_ids))
+            query = f'''
+                SELECT 
+                    id, 
+                    title_{lang} AS title, 
+                    description_{lang} AS description, 
+                    images_json, 
+                    in_stock, 
+                    price, 
+                    unit_type,
+                    category AS category_slug,
+                    brand
+                FROM products
+                WHERE id IN ({placeholders}) AND is_visible = 1 AND deleted_at IS NULL
+            '''
+            cursor.execute(query, product_ids)
+            rows = cursor.fetchall()
+
+        products = []
+        for row in rows:
+            item = dict(row)
+            item['category_name'] = cat_map.get(item['category_slug'], 'General')
+
+            image_url = ""
+            if item['images_json']:
+                try:
+                    images = json.loads(item['images_json'])
+                    if images and isinstance(images, list) and len(images) > 0:
+                        img_path = images[0]
+                        if img_path.startswith('http'):
+                            image_url = img_path
+                        else:
+                            img_path = img_path.lstrip('/')
+                            image_url = f"{domain}/{img_path}"
+                except:
+                    pass
+            item['image_url'] = image_url
+            products.append(item)
+
+        # Рендерим существующий XML шаблон
+        xml_content = render_template('merchant_feed.xml', products=products, lang=lang)
+
+        return jsonify({"success": True, "xml": xml_content})
+    except Exception as e:
+        print(f"Ошибка экспорта фида: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
 if __name__ == '__main__':
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
 

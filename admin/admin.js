@@ -2312,3 +2312,225 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+// === УПРАВЛЕНИЕ РУЧНОЙ ВЫГРУЗКОЙ ФИДА ===
+const AdminExportFeed = {
+    categories: [],
+    products: [],
+    lang: 'ru', // Текущий язык
+
+    openModal: async function() {
+        this.lang = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/') ? 'ua' : 'ru';
+
+        const modal = document.getElementById('exportFeedModal');
+        modal.classList.add('active');
+        const treeContainer = document.getElementById('ef_tree');
+        treeContainer.innerHTML = this.lang === 'ua' ? 'Завантаження даних...' : 'Загрузка данных...';
+
+        try {
+            const [catRes, prodRes] = await Promise.all([
+                fetch('/api/categories'),
+                fetch('/api/admin/products?sort_by=def&sort_dir=asc')
+            ]);
+            const catData = await catRes.json();
+            const prodData = await prodRes.json();
+
+            if (catData.success && prodData.success) {
+                this.categories = catData.categories;
+                this.products = prodData.products.filter(p => p.is_visible && !p.deleted_at);
+                this.renderTree(treeContainer);
+            }
+        } catch(e) {
+            treeContainer.innerHTML = `<span style="color:red">${this.lang === 'ua' ? 'Помилка завантаження даних' : 'Ошибка загрузки данных'}</span>`;
+        }
+    },
+
+    renderTree: function(container) {
+        const isUA = this.lang === 'ua';
+        const roots = this.categories.filter(c => !c.parent_slug).sort((a,b) => a.position - b.position);
+
+        let html = '<ul style="list-style:none; padding-left:0; margin:0;">';
+
+        html += `
+            <li style="margin-bottom: 5px;">
+                <label style="font-weight:800; cursor:pointer; font-size:16px;">
+                    <input type="checkbox" id="ef_check_all" onchange="AdminExportFeed.toggleAll(this.checked)" style="width:16px; height:16px; vertical-align:middle;"> ${isUA ? 'Вибрати все' : 'Выбрать всё'}
+                </label>
+            </li>
+            <li style="margin-bottom: 15px; border-bottom: 2px solid #cbd5e1; padding-bottom: 10px;">
+                <label style="font-weight:800; cursor:pointer; font-size:16px;">
+                    <input type="checkbox" id="ef_check_in_stock" onchange="AdminExportFeed.toggleAllInStock(this.checked)" style="width:16px; height:16px; vertical-align:middle;"> ${isUA ? 'Вибрати всі в наявності' : 'Выбрать все в наличии'}
+                </label>
+            </li>
+        `;
+
+        html += roots.map(root => this.buildBranch(root)).join('');
+
+        const orphans = this.products.filter(p => !this.categories.find(c => c.slug === p.category));
+        if (orphans.length > 0) {
+            const noCatText = isUA ? "Без категорії (Не прив'язані)" : "Без категории (Не привязаны)";
+            html += `
+            <li style="margin-top: 10px;">
+                <label style="font-weight:700; cursor:pointer; color:#ef4444;">
+                    <input type="checkbox" class="cat-cb" onchange="AdminExportFeed.toggleChildren(this)"> ${noCatText}
+                </label>
+                <ul style="list-style:none; padding-left:25px; margin-top:5px; border-left: 1px dashed #cbd5e1;">
+                    ${orphans.map(p => {
+                        const pTitle = isUA ? (p.title_ua || p.title_ru) : p.title_ru;
+                        const stockLabel = p.in_stock ? '' : `<span style="color:#ef4444; font-size:11px;">(${isUA ? 'Немає' : 'Нет'})</span>`;
+                        return `
+                        <li style="margin-bottom:5px; ${p.in_stock ? '' : 'opacity:0.6;'}">
+                            <label style="cursor:pointer; font-weight:normal;">
+                                <input type="checkbox" class="prod-cb" value="${p.id}" data-in-stock="${p.in_stock ? 1 : 0}" onchange="AdminExportFeed.checkParents(this)">
+                                <span style="color:#64748b;">[${p.sku || '-'}]</span> ${pTitle} ${stockLabel}
+                            </label>
+                        </li>`;
+                    }).join('')}
+                </ul>
+            </li>`;
+        }
+
+        html += '</ul>';
+        container.innerHTML = html;
+    },
+
+    buildBranch: function(cat) {
+        const isUA = this.lang === 'ua';
+        const childCats = this.categories.filter(c => c.parent_slug === cat.slug).sort((a,b) => a.position - b.position);
+        const catProds = this.products.filter(p => p.category === cat.slug).sort((a,b) => a.position - b.position);
+
+        if (childCats.length === 0 && catProds.length === 0) return '';
+
+        const catTitle = isUA ? (cat.title_ua || cat.title_ru) : cat.title_ru;
+
+        let html = `
+        <li style="margin-top:8px;">
+            <label style="font-weight:700; cursor:pointer; color:#0f172a;">
+                <input type="checkbox" class="cat-cb" onchange="AdminExportFeed.toggleChildren(this)"> ${catTitle}
+            </label>
+            <ul style="list-style:none; padding-left:25px; margin-top:5px; border-left: 1px dashed #cbd5e1;">
+        `;
+
+        childCats.forEach(sub => {
+            html += this.buildBranch(sub);
+        });
+
+        catProds.forEach(p => {
+            const pTitle = isUA ? (p.title_ua || p.title_ru) : p.title_ru;
+            const stockLabel = p.in_stock ? '' : `<span style="color:#ef4444; font-size:11px;">(${isUA ? 'Немає' : 'Нет'})</span>`;
+            html += `
+                <li style="margin-bottom:5px; ${p.in_stock ? '' : 'opacity:0.6;'}">
+                    <label style="cursor:pointer; font-weight:normal;">
+                        <input type="checkbox" class="prod-cb" value="${p.id}" data-in-stock="${p.in_stock ? 1 : 0}" onchange="AdminExportFeed.checkParents(this)">
+                        <span style="color:#64748b; font-size:12px;">[${p.sku || '-'}]</span> ${pTitle} ${stockLabel}
+                    </label>
+                </li>
+            `;
+        });
+
+        html += `</ul></li>`;
+        return html;
+    },
+
+    toggleAll: function(checked) {
+        if (checked) {
+            const checkInStock = document.getElementById('ef_check_in_stock');
+            if (checkInStock) checkInStock.checked = false;
+        }
+        document.getElementById('ef_tree').querySelectorAll('.cat-cb, .prod-cb').forEach(cb => {
+            cb.checked = checked;
+        });
+    },
+
+    toggleAllInStock: function(checked) {
+        if (checked) {
+            const checkAll = document.getElementById('ef_check_all');
+            if (checkAll) checkAll.checked = false;
+        }
+
+        const tree = document.getElementById('ef_tree');
+
+        tree.querySelectorAll('.cat-cb').forEach(cb => {
+            cb.checked = false;
+        });
+
+        tree.querySelectorAll('.prod-cb').forEach(cb => {
+            const inStock = cb.getAttribute('data-in-stock') === '1';
+            cb.checked = checked ? inStock : false;
+        });
+    },
+
+    toggleChildren: function(checkbox) {
+        const li = checkbox.closest('li');
+        const children = li.querySelectorAll('.cat-cb, .prod-cb');
+        children.forEach(cb => cb.checked = checkbox.checked);
+        this.checkParents(checkbox);
+    },
+
+    checkParents: function(checkbox) {
+        if (!checkbox.checked) {
+            const checkAll = document.getElementById('ef_check_all');
+            if (checkAll) checkAll.checked = false;
+            const checkInStock = document.getElementById('ef_check_in_stock');
+            if (checkInStock) checkInStock.checked = false;
+
+            let parentUl = checkbox.closest('ul');
+            while (parentUl && parentUl.id !== 'ef_tree') {
+                const parentLi = parentUl.closest('li');
+                if (parentLi) {
+                    const parentCb = parentLi.querySelector(':scope > label > input[type="checkbox"]');
+                    if (parentCb) parentCb.checked = false;
+                }
+                parentUl = parentLi ? parentLi.closest('ul') : null;
+            }
+        }
+    },
+
+    download: async function() {
+        const isUA = this.lang === 'ua';
+        const checkedBoxes = document.querySelectorAll('#ef_tree .prod-cb:checked');
+        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+
+        if (ids.length === 0) {
+            alert(isUA ? 'Виберіть хоча б один товар для експорту.' : 'Выберите хотя бы один товар для экспорта.');
+            return;
+        }
+
+        const lang = document.getElementById('ef_lang').value;
+        const btn = document.getElementById('ef_download_btn');
+        const oldText = btn.textContent;
+        btn.textContent = isUA ? 'Генерація...' : 'Генерация...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/admin/export_custom_feed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lang: lang, product_ids: ids })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                const blob = new Blob([data.xml], { type: 'application/xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+
+                const dateStr = new Date().toISOString().slice(0, 10);
+                a.download = `radiobox_feed_${lang}_${dateStr}.xml`;
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } else {
+                alert((isUA ? 'Помилка: ' : 'Ошибка: ') + data.error);
+            }
+        } catch(e) {
+            alert(isUA ? 'Помилка мережі' : 'Ошибка сети');
+        }
+
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }
+};

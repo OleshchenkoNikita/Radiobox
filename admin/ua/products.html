@@ -98,25 +98,29 @@
                 <h1 style="margin:0; font-size:24px;">Список товарів</h1>
                 <span id="productsCounter" style="color:#64748b; font-weight:600; font-size:16px;">(0)</span>
             </div>
-            <div style="display:flex; align-items:center; gap: 20px;">
-                <div class="admin-lang">
+
+            <div style="display:flex; align-items:flex-start; gap: 20px;">
+                <div class="admin-lang" style="margin-top: 10px;">
                     <a href="/admin/ru/products" style="text-decoration:none; color:#94a3b8;">RU</a>
                     <a href="/admin/ua/products" style="text-decoration:underline; color:#0f172a; margin-left:8px;">UA</a>
                 </div>
-                <button class="btn-primary" style="background:#0d2b4e;" onclick="AdminCats.openManager()">📁 Розділи</button>
-                <button class="btn-primary" onclick="AdminProducts.openModal()">+ Додати товар</button>
-                <button class="btn-primary" style="background:#8b5cf6; margin-left:10px;" onclick="AdminProducts.syncCrm()">
-                    🔄 Сінхронізація з CRM
-                </button>
-                <button class="btn-primary" style="background:#16a34a; margin-left:10px;" onclick="document.getElementById('importKeepinXlsx').click()">
-                    📊 Імпорт фіда з Прому (.xlsx)
-                </button>
-                <input type="file" id="importKeepinXlsx" style="display:none" accept=".xlsx" onchange="uploadKeepinXlsx(this)">
 
-                <button class="btn-primary" style="background:#16a34a; margin-left:10px;" onclick="document.getElementById('importInput').click()">
-                    Імпорт фіда з Прому (.csv)
-                </button>
+                <!-- Сітка кнопок: 2 колонки, 3 ряди -->
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button class="btn-primary" style="background:#0d2b4e;" onclick="AdminCats.openManager()">📁 Розділи</button>
+                    <button class="btn-primary" onclick="AdminProducts.openModal()">+ Додати товар</button>
+
+                    <button class="btn-primary" style="background:#8b5cf6;" onclick="AdminProducts.syncCrm()">🔄 Синхронізація з CRM</button>
+                    <button class="btn-primary" style="background:#f59e0b;" onclick="AdminExportFeed.openModal()">📦 Експорт фіда</button>
+
+                    <button class="btn-primary" style="background:#16a34a;" onclick="document.getElementById('importKeepinXlsx').click()">📊 Імпорт Прому (.xlsx)</button>
+                    <button class="btn-primary" style="background:#16a34a;" onclick="document.getElementById('importInput').click()">📊 Імпорт Прому (.csv)</button>
+                </div>
+
+                <!-- Приховані інпути для файлів -->
+                <input type="file" id="importKeepinXlsx" style="display:none" accept=".xlsx" onchange="uploadKeepinXlsx(this)">
                 <input type="file" id="importInput" style="display:none" accept=".csv" onchange="uploadPromCsv(this)">
+
             </div>
         </div>
 
@@ -457,6 +461,33 @@ async function uploadKeepinXlsx(input) {
     CKEDITOR.replace('p_desc_ru');
     CKEDITOR.replace('p_desc_ua');
 </script>
+
+<!-- Модальне вікно: Експорт Фіда -->
+    <div class="modal-overlay" id="exportFeedModal" style="z-index: 2000;">
+        <div class="modal-window" style="width:700px;">
+            <h2 style="margin-top:0;">Ручне вивантаження XML-фіда</h2>
+
+            <div class="form-group">
+                <label>Мова вивантаження</label>
+                <select id="ef_lang" class="form-select">
+                    <option value="ru">Російська (RU)</option>
+                    <option value="ua">Українська (UA)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Оберіть категорії або товари</label>
+                <div id="ef_tree" style="max-height: 450px; overflow-y: auto; border: 1px solid #cbd5e1; padding: 15px; border-radius: 6px; background: #f8fafc; font-size: 14px;">
+                    Завантаження даних...
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-primary" style="background:#cbd5e1; color:#334155;" onclick="document.getElementById('exportFeedModal').classList.remove('active')">Скасувати</button>
+                <button type="button" class="btn-primary" id="ef_download_btn" onclick="AdminExportFeed.download()">Згенерувати та Завантажити</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
