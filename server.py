@@ -328,6 +328,20 @@ def init_db():
             # Добавьте сюда другие, если вдруг чего-то не хватает
         ]
 
+        # === МИГРАЦИЯ ДЛЯ КАТЕГОРИЙ (SEO) ===
+        category_cols = [
+            ("categories", "seo_title_ru", "TEXT DEFAULT ''"),
+            ("categories", "seo_description_ru", "TEXT DEFAULT ''"),
+            ("categories", "seo_title_ua", "TEXT DEFAULT ''"),
+            ("categories", "seo_description_ua", "TEXT DEFAULT ''")
+        ]
+
+        for table, col, dtype in category_cols:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
+            except sqlite3.OperationalError:
+                pass  # Колонка уже есть
+
         for table, col, dtype in new_columns:
             try:
                 cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {dtype}")
@@ -1755,22 +1769,29 @@ def save_category_api():
     ua = data.get('title_ua')
     image_url = data.get('image_url', '')
 
+    # Достаем новые поля SEO
+    seo_title_ru = data.get('seo_title_ru', '')
+    seo_desc_ru = data.get('seo_description_ru', '')
+    seo_title_ua = data.get('seo_title_ua', '')
+    seo_desc_ua = data.get('seo_description_ua', '')
+
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
         if cat_id:
             cursor.execute("""
                 UPDATE categories 
-                SET slug=?, parent_slug=?, title_ru=?, title_ua=?, image_url=? 
+                SET slug=?, parent_slug=?, title_ru=?, title_ua=?, image_url=?,
+                    seo_title_ru=?, seo_description_ru=?, seo_title_ua=?, seo_description_ua=?
                 WHERE id=?
-            """, (slug, parent, ru, ua, image_url, cat_id)) #
+            """, (slug, parent, ru, ua, image_url, seo_title_ru, seo_desc_ru, seo_title_ua, seo_desc_ua, cat_id))
         else:
             cursor.execute("SELECT MAX(position) FROM categories WHERE parent_slug IS ?", (parent,))
             res = cursor.fetchone()
             pos = (res[0] + 1) if (res and res[0] is not None) else 0
             cursor.execute("""
-                INSERT INTO categories (slug, parent_slug, title_ru, title_ua, image_url, position) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (slug, parent, ru, ua, image_url, pos)) #
+                INSERT INTO categories (slug, parent_slug, title_ru, title_ua, image_url, position, seo_title_ru, seo_description_ru, seo_title_ua, seo_description_ua) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (slug, parent, ru, ua, image_url, pos, seo_title_ru, seo_desc_ru, seo_title_ua, seo_desc_ua))
         conn.commit()
     return jsonify({"success": True})
 

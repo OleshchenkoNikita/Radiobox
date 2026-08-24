@@ -3074,3 +3074,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==========================================
+// ДИНАМИЧЕСКОЕ SEO ДЛЯ СТРАНИЦЫ КАТЕГОРИЙ
+// ==========================================
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Проверяем, что мы находимся именно на странице категории
+    if (window.location.pathname.includes('type_of_product.html')) {
+        // 2. Получаем slug категории из URL (например, ?cat=solder)
+        const urlParams = new URLSearchParams(window.location.search);
+        const catSlug = urlParams.get('cat');
+
+        if (catSlug) {
+            try {
+                // 3. Запрашиваем список всех категорий у сервера
+                const res = await fetch('/api/categories');
+                const data = await res.json();
+
+                if (data.success) {
+                    // 4. Ищем текущую категорию по slug
+                    const currentCategory = data.categories.find(c => c.slug === catSlug);
+
+                    if (currentCategory) {
+                        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
+                        // 5. Достаем SEO-данные из БД
+                        const seoTitle = isUA ? currentCategory.seo_title_ua : currentCategory.seo_title_ru;
+                        const seoDesc = isUA ? currentCategory.seo_description_ua : currentCategory.seo_description_ru;
+
+                        // Фолбэк (если SEO-поля в админке пустые, берем просто название категории)
+                        const defaultTitle = isUA ? (currentCategory.title_ua || currentCategory.title_ru) : currentCategory.title_ru;
+
+                        // 6. Устанавливаем заголовок вкладки (Title)
+                        if (seoTitle && seoTitle.trim() !== '') {
+                            document.title = seoTitle;
+                        } else {
+                            document.title = `${defaultTitle} — RadioBox`;
+                        }
+
+                        // 7. Устанавливаем SEO описание (Description)
+                        let metaDesc = document.querySelector('meta[name="description"]');
+                        // Если тега еще нет, создаем его
+                        if (!metaDesc) {
+                            metaDesc = document.createElement('meta');
+                            metaDesc.name = "description";
+                            document.head.appendChild(metaDesc);
+                        }
+
+                        // Если описание задано — ставим его, если нет — генерируем базовое
+                        if (seoDesc && seoDesc.trim() !== '') {
+                            metaDesc.setAttribute('content', seoDesc);
+                        } else {
+                            const defaultDesc = isUA
+                                ? `Купити ${defaultTitle.toLowerCase()} в інтернет-магазині RadioBox. Найкращі ціни та швидка доставка.`
+                                : `Купить ${defaultTitle.toLowerCase()} в интернет-магазине RadioBox. Лучшие цены и быстрая доставка.`;
+                            metaDesc.setAttribute('content', defaultDesc);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Ошибка загрузки SEO данных для категории:', e);
+            }
+        }
+    }
+});

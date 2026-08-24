@@ -1388,6 +1388,12 @@ const AdminCats = {
         document.getElementById('c_img_placeholder').style.display = 'block';
         document.getElementById('c_image_url').value = '';
 
+        // Очищаем новые SEO-поля
+        document.getElementById('c_seo_title_ru').value = '';
+        document.getElementById('c_seo_title_ua').value = '';
+        document.getElementById('c_seo_desc_ru').value = '';
+        document.getElementById('c_seo_desc_ua').value = '';
+
         if (id) {
             const cat = this.allCats.find(c => c.id === id);
             document.getElementById('c_id').value = cat.id;
@@ -1396,6 +1402,13 @@ const AdminCats = {
             document.getElementById('c_slug').value = cat.slug;
             document.getElementById('c_parent').value = cat.parent_slug || '';
             document.getElementById('c_image_url').value = cat.image_url || '';
+
+            // Заполняем новые SEO-поля
+            document.getElementById('c_seo_title_ru').value = cat.seo_title_ru || '';
+            document.getElementById('c_seo_title_ua').value = cat.seo_title_ua || '';
+            document.getElementById('c_seo_desc_ru').value = cat.seo_description_ru || '';
+            document.getElementById('c_seo_desc_ua').value = cat.seo_description_ua || '';
+
             if(cat.image_url) {
                 const img = document.getElementById('c_img_preview');
                 img.src = cat.image_url;
@@ -1435,7 +1448,13 @@ const AdminCats = {
             parent_slug: document.getElementById('c_parent').value || null,
             title_ru: document.getElementById('c_title_ru').value,
             title_ua: document.getElementById('c_title_ua').value,
-            image_url: document.getElementById('c_image_url').value
+            image_url: document.getElementById('c_image_url').value,
+
+            // ДОБАВЛЯЕМ СЮДА:
+            seo_title_ru: document.getElementById('c_seo_title_ru').value,
+            seo_title_ua: document.getElementById('c_seo_title_ua').value,
+            seo_description_ru: document.getElementById('c_seo_desc_ru').value,
+            seo_description_ua: document.getElementById('c_seo_desc_ua').value
         };
 
         try {
