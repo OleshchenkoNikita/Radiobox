@@ -15,9 +15,59 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- SEO: Title та Description -->
-    <title>{{ product.name }} | Radiobox</title>
-    <meta name="description" content="Купити {{ product.name }} за ціною {{ product.price }} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.">
+<!-- ТЕГИ ДЛЯ OPEN GRAPH И SEO (СЕРВЕРНЫЙ РЕНДЕР ДЛЯ БОТОВ) -->
+    {% if product and product.id %}
+        <!-- 1. Определяем язык страницы -->
+        {% set is_ua = '/ua/' in request.path %}
+
+        <!-- 2. Формируем заголовок -->
+        {% set p_title = product.seo_title_ua if is_ua and product.seo_title_ua else (product.seo_title if product.seo_title else (product.title_ua if is_ua and product.title_ua else product.title_ru)) %}
+
+        <!-- 3. Формируем описание -->
+        {% set p_desc = product.seo_description_ua if is_ua and product.seo_description_ua else (product.seo_description if product.seo_description else (product.description_ua if is_ua and product.description_ua else product.description_ru)) | striptags | truncate(160) %}
+        {% if not p_desc or p_desc.strip() == '' %}
+            {% set p_desc = "Придбати " ~ p_title ~ " в інтернет-магазині RadioBox." if is_ua else "Купить " ~ p_title ~ " в интернет-магазине RadioBox." %}
+        {% endif %}
+
+        <title>{{ p_title }} | RadioBox</title>
+        <meta name="description" content="{{ p_desc }}">
+
+        <!-- Open Graph -->
+        <meta property="og:title" content="{{ p_title }}">
+        <meta property="og:description" content="{{ p_desc }}">
+        <meta property="og:type" content="product">
+        <meta property="og:url" content="{{ request.url }}">
+
+        {% if product.image %}
+            {% if product.image.startswith('http') %}
+                <meta property="og:image" content="{{ product.image }}">
+            {% else %}
+                <meta property="og:image" content="{{ request.host_url.rstrip('/') }}{{ product.image }}">
+            {% endif %}
+        {% endif %}
+        <meta property="og:site_name" content="RadioBox">
+
+        <!-- Schema.org (микроразметка) -->
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          "name": "{{ p_title }}",
+          "image": "{% if product.image %}{% if product.image.startswith('http') %}{{ product.image }}{% else %}{{ request.host_url.rstrip('/') }}{{ product.image }}{% endif %}{% endif %}",
+          "description": "{{ p_desc }}",
+          "sku": "{{ product.sku if product.sku else product.id }}",
+          "offers": {
+            "@type": "Offer",
+            "url": "{{ request.url }}",
+            "priceCurrency": "UAH",
+            "price": "{{ product.price }}",
+            "availability": "{% if product.in_stock %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}"
+          }
+        }
+        </script>
+    {% else %}
+        <title>Товар | RadioBox</title>
+    {% endif %}
 
     <!-- Каноническая ссылка для Google Merchant -->
     <script>
@@ -37,36 +87,10 @@
       })();
     </script>
 
-    <!-- Стилі -->
+    <!-- Стили и предзагрузка -->
     <link rel="stylesheet" href="../styles.css" />
     <link rel="preload" as="image" href="../assets/icons/viber_under_cursor.png">
 
-    <!-- Open Graph (для гарних посилань у Telegram/Viber) -->
-    <meta property="og:title" content="{{ product.name }}">
-    <meta property="og:description" content="Ціна: {{ product.price }} грн. Заходьте та замовляйте!">
-    <meta property="og:type" content="product">
-    <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:image" content="{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}">
-    <meta property="og:site_name" content="Radiobox">
-
-    <!-- Schema.org (для розширених сніпетів Google) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org/",
-      "@type": "Product",
-      "name": "{{ product.name }}",
-      "image": "{{ request.host_url.rstrip('/') }}{{ url_for('static', filename='photos/' + product.image) }}",
-      "description": "Товар {{ product.name }} в інтернет-магазині Radiobox.",
-      "sku": "{{ product.id }}",
-      "offers": {
-        "@type": "Offer",
-        "url": "{{ request.url }}",
-        "priceCurrency": "UAH",
-        "price": "{{ product.price }}",
-        "availability": "https://schema.org/InStock"
-      }
-    }
-    </script>
 </head>
 <body>
 

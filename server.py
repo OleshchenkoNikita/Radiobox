@@ -524,13 +524,34 @@ def serve_static(path):
             gtm_id = get_setting('gtm_id') or ''
             purchase_data = session.pop('purchase_data', None)
 
-            # Передаем SafeObject(), чтобы шаблон никогда не падал на неопределенных переменных
+            # --- НОВЫЙ БЛОК ДЛЯ OPEN GRAPH ---
+            product_data = SafeObject()
+            if 'product.html' in path:
+                product_id = request.args.get('id')
+                if product_id:
+                    with sqlite3.connect(DB_NAME) as conn:
+                        conn.row_factory = sqlite3.Row
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT * FROM products WHERE id=?", (product_id,))
+                        row = cursor.fetchone()
+                        if row:
+                            p_dict = dict(row)
+                            # Достаем главную картинку из JSON
+                            try:
+                                images = json.loads(p_dict['images_json'])
+                                p_dict['image'] = images[0] if images else ''
+                            except:
+                                p_dict['image'] = ''
+                            product_data = p_dict
+            # --- КОНЕЦ НОВОГО БЛОКА ---
+
             return render_template_string(
                 html_content,
                 gtm_id=gtm_id,
                 purchase_data=purchase_data,
-                product=SafeObject(),
-                category=SafeObject()
+                product=product_data, # Передаем реальный товар для SEO!
+                category=SafeObject(),
+                request=request # Передаем request, чтобы получить полный URL сайта
             )
         except FileNotFoundError:
             return "Not found", 404
