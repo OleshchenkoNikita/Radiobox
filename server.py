@@ -1304,6 +1304,56 @@ def serve_robots():
     return Response(content, mimetype='text/plain')
 
 
+@app.route('/sitemap.xml')
+def sitemap():
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 1. Получаем домен из настроек
+        cursor.execute("SELECT value FROM settings WHERE key = 'site_url'")
+        domain_row = cursor.fetchone()
+        domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radiobox.in.ua"
+
+        urls = []
+
+        # 2. Основные статические страницы (для обеих языковых версий)
+        static_pages = [
+            'index.html', 'about.html', 'contacts.html', 'delivery.html',
+            'offer.html', 'privacy_policy.html', 'return_policy.html',
+            'products.html', 'reviews.html'
+        ]
+        for lang in ['ru', 'ua']:
+            for page in static_pages:
+                urls.append(f"{domain}/{lang}/{page}")
+
+        # 3. Ссылки на категории
+        cursor.execute("SELECT slug FROM categories")
+        for row in cursor.fetchall():
+            urls.append(f"{domain}/ru/type_of_product.html?cat={row['slug']}")
+            urls.append(f"{domain}/ua/type_of_product.html?cat={row['slug']}")
+
+        # 4. Ссылки на товары (только видимые и не удаленные)
+        cursor.execute("SELECT id FROM products WHERE is_visible = 1 AND deleted_at IS NULL")
+        for row in cursor.fetchall():
+            urls.append(f"{domain}/ru/product.html?id={row['id']}")
+            urls.append(f"{domain}/ua/product.html?id={row['id']}")
+
+    # 5. Формируем XML-ответ
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>']
+    xml.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+
+    for url in urls:
+        xml.append('  <url>')
+        xml.append(f'    <loc>{url}</loc>')
+        xml.append('    <changefreq>weekly</changefreq>')
+        xml.append('  </url>')
+
+    xml.append('</urlset>')
+
+    # Импортировать Response не нужно, он у тебя уже импортирован в начале файла
+    return Response('\n'.join(xml), mimetype='application/xml')
+
 # === СТРАНИЦА НАСТРОЕК ===
 @app.route('/admin/<lang>/settings')
 @role_required('superadmin')
