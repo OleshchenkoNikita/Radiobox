@@ -2076,22 +2076,12 @@ const AdminSettings = {
                     's_pb_pass': s.privatbank_password,
                     's_iban': s.iban_details,
                     's_edrpou': s.edrpou_details,
-                    's_beneficiary': s.beneficiary_details,
-
-                    // --- НОВЫЕ ПОЛЯ ФИДА ---
-                    's_feed_sku_from': s.feed_sku_from,
-                    's_feed_sku_to': s.feed_sku_to
+                    's_beneficiary': s.beneficiary_details
                 };
 
                 for (let id in mapping) {
                     const el = document.getElementById(id);
                     if (el) el.value = mapping[id] || '';
-                }
-
-                // Чекбокс обрабатывается отдельно
-                const checkInStock = document.getElementById('s_feed_in_stock');
-                if (checkInStock) {
-                    checkInStock.checked = (s.feed_in_stock_only === '1');
                 }
 
                 // Загрузка телефонов
@@ -2148,6 +2138,7 @@ const AdminSettings = {
         // Сбор данных с проверкой на существование элементов
         const getVal = (id) => document.getElementById(id)?.value || '';
 
+        // 1. Собираем только основные настройки
         const data = {
             site_url: getVal('s_site_url'),
             gtm_id: getVal('s_gtm_id'),
@@ -2163,12 +2154,7 @@ const AdminSettings = {
             beneficiary_details: getVal('s_beneficiary'),
             site_address_ru: document.getElementById('s_address_ru')?.value || '',
             site_address_ua: document.getElementById('s_address_ua')?.value || '',
-            site_phones: JSON.stringify(this.phones),
-
-            // --- НОВЫЕ ПОЛЯ ФИДА ---
-            feed_sku_from: getVal('s_feed_sku_from'),
-            feed_sku_to: getVal('s_feed_sku_to'),
-            feed_in_stock_only: document.getElementById('s_feed_in_stock')?.checked ? '1' : '0'
+            site_phones: JSON.stringify(this.phones)
         };
 
         try {
