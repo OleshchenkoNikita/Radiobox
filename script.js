@@ -727,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     title_ua: it.title_ua || it.title_ru,
                     price: it.price,
                     in_stock: it.in_stock,
-                    qty_stock: it.qty_stock || 100,
+                    qty_stock: Number(it.qty_stock ?? 0),
                     unit_type: it.unit_type,
                     category: it.category,
                     subcategory: it.subcategory,
@@ -837,7 +837,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             // Логика языка
                             const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
-                            const stockLabel = isUA ? 'На складі:' : 'На складе:';
 
                             // !!! ФИКС НАЗВАНИЯ (чтобы не было undefined) !!!
                             let displayTitle = p.title;
@@ -846,8 +845,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             if (!displayTitle) displayTitle = "Товар";
 
-                            // Единица измерения
-                            const unitLabel = (p.unit_type === 'set') ? (isUA ? 'комплект.' : 'комплект.') : (isUA ? 'шт.' : 'шт.');
+                            // Логика отображения остатка или статуса "Нет в наличии"
+                            const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
+                            const stockHtml = p.in_stock
+                                ? `<div style="font-size:11px; color:#888; margin-top:4px;">${isUA ? 'На складі:' : 'На складе:'} ${p.qty_stock || 0} ${unitLabel}</div>`
+                                : `<div style="font-size:11px; color:#dc2626; margin-top:4px;">${isUA ? 'Немає в наявності' : 'Нет в наличии'}</div>`;
 
                             return `
                             <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
@@ -856,9 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                                 <div class="product-card__title" style="font-size:13px; margin-bottom:4px;">${displayTitle}</div>
                                 <div class="product-card__price" style="font-size:14px;">${p.price} ₴</div>
-                                <div style="font-size:11px; color:#888; margin-top:4px;">
-                                    ${stockLabel} ${p.qty_stock || 0} ${unitLabel}
-                                </div>
+                                ${stockHtml}
                             </div>`;
                         }).join('')}
                     </div>
