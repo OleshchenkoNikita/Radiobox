@@ -454,21 +454,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. ЗАГРУЗКА ОТЗЫВОВ С СЕРВЕРА ---
     async function loadReviews() {
-        wrap.innerHTML = '<div style="padding:20px; text-align:center;">Загрузка...</div>';
+        const loadingText = IS_RU ? 'Загрузка...' : 'Завантаження...';
+        wrap.innerHTML = `<div style="padding:20px; text-align:center;">${loadingText}</div>`;
         try {
             const res = await fetch('/api/reviews');
             const data = await res.json();
             if (data.success) {
                 allReviews = data.reviews;
                 renderCurrent();
-                // Также обновляем счетчик в шапке, раз уж мы получили данные
                 updateHeaderCountDirectly(allReviews.length);
             } else {
-                wrap.innerHTML = '<div style="color:red; text-align:center;">Ошибка загрузки</div>';
+                const errLoad = IS_RU ? 'Ошибка загрузки' : 'Помилка завантаження';
+                wrap.innerHTML = `<div style="color:red; text-align:center;">${errLoad}</div>`;
             }
         } catch (e) {
             console.error(e);
-            wrap.innerHTML = '<div style="color:red; text-align:center;">Ошибка соединения</div>';
+            const errConn = IS_RU ? 'Ошибка соединения' : 'Помилка з\'єднання';
+            wrap.innerHTML = `<div style="color:red; text-align:center;">${errConn}</div>`;
         }
     }
 
@@ -2059,15 +2061,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSEO(product) {
         if (!product) return;
 
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+
         // --- TITLE ---
-        let pageTitle = product.seo_title;
+        let pageTitle = isUA ? product.seo_title_ua : product.seo_title;
         if (!pageTitle) {
-             pageTitle = (product.title || product.title_ru || 'RadioBox') + " | Купити в RadioBox";
+             const defaultTitle = isUA ? (product.title_ua || product.title_ru || product.title || 'RadioBox') : (product.title_ru || product.title || 'RadioBox');
+             const buyText = isUA ? " | Купити в RadioBox" : " | Купить в RadioBox";
+             pageTitle = defaultTitle + buyText;
         }
         document.title = pageTitle;
 
         // --- DESCRIPTION ---
-        let pageDesc = product.seo_description;
+        let pageDesc = isUA ? product.seo_description_ua : product.seo_description;
         if (!pageDesc) {
              const rawDesc = product.description || product.description_ru || "";
              const cleanDesc = rawDesc.replace(/<[^>]*>?/gm, '');

@@ -2,15 +2,13 @@
 <html lang="ru">
 <head>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
-  <!-- End Google Tag Manager -->
-  {% endif %}
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NLXR4MGP');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -46,12 +44,10 @@
 </head>
 <body>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  {% endif %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NLXR4MGP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <div id="header-placeholder"></div>
 
@@ -109,7 +105,7 @@
                         const link = `product.html?id=${item.id}`;
 
                         const html = `
-                            <a href="${link}" class="product-card">
+                            <a href="${link}" class="product-card" onclick="pushGA4Event('select_item', [{item_id: '${item.sku || item.id}', item_name: '${(title || '').replace(/'/g, "\\'")}', price: ${item.price}, item_category: '${item.category || 'general'}'}])">
                                 <img src="${img}" alt="${title}" class="product-card__img">
                                 <div class="product-card__sku">Арт: ${item.sku}</div>
                                 <div class="product-card__title">${title}</div>
@@ -119,6 +115,18 @@
                         `;
                         wrapper.insertAdjacentHTML('beforeend', html);
                     });
+
+                    // Собираем массив товаров текущей страницы для GA4
+                    const listItems = sorted.slice((current - 1) * pageSize, current * pageSize).map(p => ({
+                        item_id: String(p.sku || p.id),
+                        item_name: p.title_ru || p.title || 'Товар',
+                        price: parseFloat(p.price || 0),
+                        item_category: p.category || 'general'
+                    }));
+
+                    // Отправляем событие просмотра списка
+                    pushGA4Event('view_item_list', listItems);
+
                 } else {
                     wrapper.innerHTML = '<div class="no-results-msg">Ничего не найдено. Попробуйте изменить запрос.</div>';
                 }

@@ -2,15 +2,13 @@
 <html lang="uk">
 <head>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
-  <!-- End Google Tag Manager -->
-  {% endif %}
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NLXR4MGP');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -107,12 +105,10 @@
 </head>
 <body>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  {% endif %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NLXR4MGP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <div id="header-placeholder"></div>
 
@@ -411,6 +407,14 @@
 
                 // 3. Вызываем рендер уже с новыми переменными
                 render();
+
+                const listItems = sorted.slice((current - 1) * pageSize, current * pageSize).map(p => ({
+                    item_id: String(p.sku || p.id),
+                    item_name: p.title_ua || p.title_ru || 'Товар',
+                    price: parseFloat(p.price || 0),
+                    item_category: p.category || 'general'
+                }));
+                pushGA4Event('view_item_list', listItems);
             };
 
             // ==== події ====
@@ -460,8 +464,19 @@
             // 2. Ищем карточку
             const card = e.target.closest('.product-card');
             if (card && card.dataset.id) {
+                const pid = card.dataset.id;
+                const allItems = loadItems();
+                const prod = allItems.find(p => p.id == pid);
+                if (prod) {
+                    pushGA4Event('select_item', [{
+                        item_id: String(prod.sku || prod.id),
+                        item_name: prod.title_ua || prod.title_ru || prod.title || 'Товар',
+                        price: parseFloat(prod.price || 0),
+                        item_category: prod.category || 'general'
+                    }]);
+                }
                 // 3. Переходим на страницу товара
-                window.location.href = `product.html?id=${card.dataset.id}`;
+                window.location.href = `product.html?id=${pid}`;
                 }
             });
 

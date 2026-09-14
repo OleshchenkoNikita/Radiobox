@@ -2,15 +2,13 @@
 <html lang="ru">
 <head>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
-  <!-- End Google Tag Manager -->
-  {% endif %}
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NLXR4MGP');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -115,12 +113,10 @@
 </head>
 <body>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  {% endif %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NLXR4MGP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <header class="co-header">
         <div class="co-header__inner">
@@ -181,7 +177,6 @@
                                     <div class="np-item">Стоимость пересылки не включена в стоимость заказа и определяется перевозчиком по действующим тарифам с учётом веса, габаритов, пункта назначения и выбранных услуг. До отправки покупателю сообщается стоимость, указанная перевозчиком.</div>
                                 </div>
                             </div>
-                            <div class="co-radio-price">от 70 ₴</div>
                         </div>
 
                         <div class="co-radio-details">
@@ -252,15 +247,11 @@
                             <input type="radio" name="delivery" value="up">
                             <span class="co-radio-circle"></span>
                             <div class="co-radio-info">
-                                <div class="co-radio-title">Укрпочта Стандарт</div>
+                                <div class="co-radio-title">Укрпочта Базовый</div>
                                 <div class="np-detailed-text">
                                     <div class="np-item">Стоимость пересылки рассчитывается по действующим тарифам перевозчика.</div>
-                                    <div class="np-item" style="margin-top: 6px; font-size: 11px; color: #9ca3af; line-height: 1.3;">
-                                        При объявленной стоимости свыше 500 грн взимается комиссия 0,5% (с НДС) от полной суммы объявленной стоимости.
-                                    </div>
                                 </div>
                             </div>
-                            <div class="co-radio-price">от 35 ₴</div>
                         </div>
 
                         <div class="co-radio-details">
@@ -316,12 +307,11 @@
                             <input type="radio" name="delivery" value="upe">
                             <span class="co-radio-circle"></span>
                             <div class="co-radio-info">
-                                <div class="co-radio-title">Укрпочта Экспресс</div>
+                                <div class="co-radio-title">Укрпочта Приоритетный</div>
                                 <div class="np-detailed-text">
                                     <div class="np-item">Стоимость пересылки рассчитывается по действующим тарифам перевозчика.</div>
                                 </div>
                             </div>
-                            <div class="co-radio-price">от 45 ₴</div>
                         </div>
 
                         <div class="co-radio-details">
@@ -382,7 +372,6 @@
                                 <div class="np-item">Стоимость пересылки рассчитывается по действующим тарифам перевозчика.</div>
                             </div>
                         </div>
-                        <div class="co-radio-price">от 30 ₴</div>
                     </div>
 
                     <div class="co-radio-details">
@@ -459,7 +448,6 @@
                                 г. Шостка, Украина
                             </div>
                         </div>
-                        <div class="co-radio-price">0 ₴</div>
                     </div>
                     </label>
 
@@ -1424,10 +1412,41 @@
                         return;
                     }
 
-                    // Проверка полей доставки
-                    if (deliveryType === 'np' && !document.getElementById('npCitySearch').value) return showError('Укажите город', 'npCitySearch');
-                    if (deliveryType.startsWith('up') && !document.getElementById(deliveryType + 'CitySearch').value) return showError('Укажите город', 'upCitySearch');
-                    if (deliveryType === 'meest' && !document.getElementById('meestCitySearch').value) return showError('Укажите город', 'meestCitySearch');
+                    // Валидация адресов доставки
+                    if (deliveryType === 'np') {
+                        if (!document.getElementById('npCitySearch').value.trim()) return showError('Укажите город', 'npCitySearch');
+                        const subType = document.querySelector('input[name="np_type"]:checked').value;
+                        if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Выберите отделение', 'npBranchSearch');
+                        if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Выберите почтомат', 'npPostomatSearch');
+                        if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Укажите улицу и дом', 'npStreetSearch');
+                    }
+                    else if (deliveryType === 'up') {
+                        if (!document.getElementById('upCitySearch').value.trim()) return showError('Укажите город', 'upCitySearch');
+                        const subType = document.querySelector('input[name="up_type"]:checked').value;
+                        if (subType === 'branch') {
+                            const val = formData.get('up_branch_text');
+                            if (!val) return showError('Заполните индекс и адрес', 'up_branch_text');
+                            if (!validateUpAddr(val, 'up_branch_text')) return;
+                        }
+                        else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Укажите улицу и дом', 'upStreetSearch');
+                    }
+                    else if (deliveryType === 'upe') {
+                        if (!document.getElementById('upeCitySearch').value.trim()) return showError('Укажите город', 'upeCitySearch');
+                        const subType = document.querySelector('input[name="upe_type"]:checked').value;
+                        if (subType === 'branch') {
+                            const val = formData.get('upe_branch_text');
+                            if (!val) return showError('Заполните индекс и адрес', 'upe_branch_text');
+                            if (!validateUpAddr(val, 'upe_branch_text')) return;
+                        }
+                        else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').trim())) return showError('Укажите улицу и дом', 'upeStreetSearch');
+                    }
+                    else if (deliveryType === 'meest') {
+                        if (!document.getElementById('meestCitySearch').value.trim()) return showError('Укажите город', 'meestCitySearch');
+                        const subType = document.querySelector('input[name="meest_type"]:checked').value;
+                        if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Укажите отделение', 'meest_branch_text');
+                        if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Укажите почтомат', 'meest_post_text');
+                        if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Укажите улицу и дом', 'meestStreetSearch');
+                    }
 
                     // Усиленная проверка оплаты
                     if (!paymentType || paymentType === '') {
@@ -1460,14 +1479,40 @@
                         else if (type === 'postomat') addressText = `г. ${city}, ` + document.getElementById('npPostomatSearch').value;
                         else addressText = `г. ${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
                     } else if (deliveryType === 'up') {
-                        deliveryLabel = 'Укрпочта Стандарт';
-                        addressText = `г. ${city}, ` + (formData.get('up_branch_text') || 'Адрес не указан');
+                        deliveryLabel = 'Укрпочта Базовый';
+                        const type = document.querySelector('input[name="up_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = `г. ${city}, ` + (formData.get('up_branch_text') || 'Отделение не указано');
+                        } else {
+                            const street = document.getElementById('upStreetSearch').value;
+                            const house = formData.get('up_house') || '';
+                            const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
+                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
+                        }
                     } else if (deliveryType === 'upe') {
-                        deliveryLabel = 'Укрпочта Экспресс';
-                        addressText = `г. ${city}, ` + (formData.get('upe_branch_text') || 'Адрес не указан');
+                        deliveryLabel = 'Укрпочта Приоритетный';
+                        const type = document.querySelector('input[name="upe_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = `г. ${city}, ` + (formData.get('upe_branch_text') || 'Отделение не указано');
+                        } else {
+                            const street = document.getElementById('upeStreetSearch').value;
+                            const house = formData.get('upe_house') || '';
+                            const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
+                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
+                        }
                     } else if (deliveryType === 'meest') {
                         deliveryLabel = 'Meest Почта';
-                        addressText = `г. ${city}, ` + (formData.get('meest_branch_text') || 'Адрес не указан');
+                        const type = document.querySelector('input[name="meest_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = `г. ${city}, ` + (formData.get('meest_branch_text') || 'Отделение не указано');
+                        } else if (type === 'postomat') {
+                            addressText = `г. ${city}, ` + (formData.get('meest_post_text') || 'Почтомат не указан');
+                        } else {
+                            const street = document.getElementById('meestStreetSearch').value;
+                            const house = formData.get('meest_house') || '';
+                            const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
+                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
+                        }
                     }
 
                     document.getElementById('hiddenAddress').value = addressText;

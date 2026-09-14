@@ -55,20 +55,32 @@ limiter = Limiter(
     storage_uri="memory://" # Храним счетчики в оперативной памяти
 )
 
+
 # ЗАГОЛОВКИ БЕЗОПАСНОСТИ
 @app.after_request
 def add_security_headers(response):
-    # Защита от Clickjacking: разрешает встраивать сайт в iframe только на том же домене
+    # Защита от Clickjacking
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-
-    # Запрещает браузеру "угадывать" тип файла (защита от подмены скриптов под видом картинок)
+    # Запрет браузеру угадывать типы файлов
     response.headers['X-Content-Type-Options'] = 'nosniff'
-
-    # Базовая защита от XSS на уровне браузера
+    # Базовая защита от XSS
     response.headers['X-XSS-Protection'] = '1; mode=block'
-
-    # Строгая политика Referrer (чтобы не передавать чужим сайтам полные URL твоей админки)
+    # Строгая политика Referrer
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+    # HSTS (принудительное использование HTTPS на 1 год, включая поддомены)
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+
+    # Content-Security-Policy (CSP) — разрешаем скрипты, стили и API с самого сайта, а также GTM, LiqPay и сокеты
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://static.liqpay.ua https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://api.novaposhta.ua https://api.keepincrm.com https://www.google-analytics.com https://region1.google-analytics.com ws: wss:; "
+        "frame-src 'self' https://www.googletagmanager.com https://static.liqpay.ua; "
+        "font-src 'self' https://fonts.gstatic.com data:;"
+    )
 
     return response
 

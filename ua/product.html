@@ -2,31 +2,26 @@
 <html lang="uk">
 <head>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
-  <!-- End Google Tag Manager -->
-  {% endif %}
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NLXR4MGP');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <!-- ТЕГИ ДЛЯ OPEN GRAPH И SEO (СЕРВЕРНЫЙ РЕНДЕР ДЛЯ БОТОВ) -->
     {% if product and product.id %}
-        <!-- 1. Определяем язык страницы -->
-        {% set is_ua = '/ua/' in request.path %}
+        <!-- Формируем заголовок (Строго UA) -->
+        {% set p_title = product.seo_title_ua if product.seo_title_ua else (product.title_ua if product.title_ua else (product.seo_title if product.seo_title else product.title_ru)) %}
 
-        <!-- 2. Формируем заголовок -->
-        {% set p_title = product.seo_title_ua if is_ua and product.seo_title_ua else (product.seo_title if product.seo_title else (product.title_ua if is_ua and product.title_ua else product.title_ru)) %}
-
-        <!-- 3. Формируем описание -->
-        {% set p_desc = product.seo_description_ua if is_ua and product.seo_description_ua else (product.seo_description if product.seo_description else (product.description_ua if is_ua and product.description_ua else product.description_ru)) | striptags | truncate(160) %}
+        <!-- Формируем описание (Строго UA) -->
+        {% set p_desc = product.seo_description_ua if product.seo_description_ua else (product.description_ua if product.description_ua else (product.seo_description if product.seo_description else product.description_ru)) | striptags | truncate(160) %}
         {% if not p_desc or p_desc.strip() == '' %}
-            {% set p_desc = "Придбати " ~ p_title ~ " в інтернет-магазині RadioBox." if is_ua else "Купить " ~ p_title ~ " в интернет-магазине RadioBox." %}
+            {% set p_desc = "Придбати " ~ p_title ~ " в інтернет-магазині RadioBox." %}
         {% endif %}
 
         <title>{{ p_title }} | RadioBox</title>
@@ -94,12 +89,10 @@
 </head>
 <body>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  {% endif %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NLXR4MGP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <div id="header-placeholder"></div>
 
@@ -297,17 +290,21 @@
             else imagesList = [defaultImg];
 
             // --- SEO-ЛОГИКА ---
-            let finalSeoDesc = isUA ? (product.seo_description_ua || product.seo_description) : (product.seo_description || product.seo_description_ua);
+            let finalSeoDesc = isUA ? (product.seo_description_ua || product.description_ua) : (product.seo_description || product.description_ru);
             if (!finalSeoDesc) {
                 finalSeoDesc = isUA
                     ? `Купити ${finalTitle} за ціною ${product.price || 0} грн. Швидка доставка, гарантія якості в інтернет-магазині Radiobox.`
                     : `Купить ${finalTitle} по цене ${product.price || 0} грн. Быстрая доставка, гарантия качества в интернет-магазине Radiobox.`;
             }
+            // Очищаем от HTML-тегов для мета-описания
+            finalSeoDesc = finalSeoDesc.replace(/<[^>]*>?/gm, '').substring(0, 160);
+
             const metaDesc = document.querySelector('meta[name="description"]');
             if (metaDesc) metaDesc.setAttribute("content", finalSeoDesc);
             const ogDesc = document.querySelector('meta[property="og:description"]');
             if (ogDesc) ogDesc.setAttribute("content", finalSeoDesc);
-            const seoTitle = isUA ? (product.seo_title_ua || product.seo_title) : (product.seo_title || product.seo_title_ua);
+
+            const seoTitle = isUA ? (product.seo_title_ua || product.title_ua || product.title_ru) : (product.seo_title || product.title_ru || product.title_ua);
             const ogTitle = document.querySelector('meta[property="og:title"]');
             if (ogTitle) ogTitle.setAttribute("content", seoTitle || finalTitle);
             const ogImage = document.querySelector('meta[property="og:image"]');

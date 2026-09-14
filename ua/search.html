@@ -2,15 +2,13 @@
 <html lang="uk">
 <head>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,'script','dataLayer','{{ gtm_id }}');</script>
-  <!-- End Google Tag Manager -->
-  {% endif %}
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NLXR4MGP');</script>
+    <!-- End Google Tag Manager -->
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -83,12 +81,10 @@
 </head>
 <body>
 
-    {% if gtm_id %}
-  <!-- Google Tag Manager (noscript) -->
-  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ gtm_id }}"
-  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <!-- End Google Tag Manager (noscript) -->
-  {% endif %}
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NLXR4MGP"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <div id="header-placeholder"></div>
 
@@ -150,7 +146,7 @@
 
                         // Формируем карточку (используем классы из styles.css)
                         const html = `
-                            <article class="product-card is-clickable" onclick="location.href='product.html?id=${item.id}'">
+                            <article class="product-card is-clickable" onclick="pushGA4Event('select_item', [{item_id: '${item.sku || item.id}', item_name: '${(title || '').replace(/'/g, "\\'")}', price: ${item.price}, item_category: '${item.category || 'general'}'}]); location.href='product.html?id=${item.id}';">
                                 <div class="product-card__img">
                                      <img src="${img}" alt="${title}" loading="lazy">
                                 </div>
@@ -163,6 +159,15 @@
                         `;
                         wrapper.insertAdjacentHTML('beforeend', html);
                     });
+
+                    const searchListItems = data.results.map(item => ({
+                        item_id: String(item.sku || item.id),
+                        item_name: item.title_ua || item.title_ru || 'Товар',
+                        price: parseFloat(item.price || 0),
+                        item_category: item.category || 'general'
+                    }));
+                    pushGA4Event('view_item_list', searchListItems);
+
                 } else {
                     wrapper.innerHTML = '<div class="no-results-msg">На жаль, нічого не знайдено. Спробуйте змінити запит.</div>';
                 }
