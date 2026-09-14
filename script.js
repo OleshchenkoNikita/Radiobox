@@ -787,7 +787,6 @@ window.getViewedProducts = function() {
 };
 
 // === ГЛОБАЛЬНЫЙ ВИДЖЕТ: ВЫ ПРОСМАТРИВАЛИ ===
-// Этот код автоматически найдет <div id="viewed-widget"> и нарисует в нем слайдер
 document.addEventListener('DOMContentLoaded', () => {
     const widget = document.getElementById('viewed-widget');
     if (!widget) return;
@@ -806,7 +805,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let catalog = [];
     try { catalog = JSON.parse(localStorage.getItem(LS_KEY)).items || []; } catch {}
 
-    // Исключаем текущий товар
     const urlParams = new URLSearchParams(window.location.search);
     const currentId = urlParams.get('id');
 
@@ -821,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Рендер HTML
-    // Путь к фото учитывает текущую вложенность (ru/ua)
     const prefix = (location.pathname.includes('/ru/') || location.pathname.includes('/ua/')) ? "" : "";
 
     widget.innerHTML = `
@@ -831,30 +828,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button class="slider-btn prev viewed-prev">‹</button>
                 <div class="slider-viewport">
                     <div class="slider-track viewed-track">
-                        ${items.map(p => {
-                            // Логика картинки
+                        ${items.map((p, idx) => {
                             const img = (p.image || (p.images && p.images[0]))
                                 ? (p.image || p.images[0])
                                 : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='10' font-family='sans-serif'%3EPhoto%3C/text%3E%3C/svg%3E";
 
-                            // Логика языка
                             const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
 
-                            // !!! ФИКС НАЗВАНИЯ (чтобы не было undefined) !!!
                             let displayTitle = p.title;
                             if (!displayTitle) {
                                 displayTitle = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
                             }
                             if (!displayTitle) displayTitle = "Товар";
 
-                            // Логика отображения остатка или статуса "Нет в наличии"
                             const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
                             const stockHtml = p.in_stock
                                 ? `<div style="font-size:11px; color:#888; margin-top:4px;">${isUA ? 'На складі:' : 'На складе:'} ${p.qty_stock || 0} ${unitLabel}</div>`
                                 : `<div style="font-size:11px; color:#dc2626; margin-top:4px;">${isUA ? 'Немає в наявності' : 'Нет в наличии'}</div>`;
 
                             return `
-                            <div class="product-card is-clickable slider-item" style="padding:10px;" onclick="location.href='product.html?id=${p.id}'">
+                            <div class="product-card is-clickable slider-item" data-id="${p.id}" data-index="${idx}" style="padding:10px;">
                                 <div class="product-card__img">
                                     <img src="${img}" alt="${displayTitle}" loading="lazy">
                                 </div>
@@ -870,8 +863,49 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
     `;
 
-    // Логика слайдера
+    // Отправка события GA4 view_item_list
+    const ga4ListItems = items.map((p, idx) => ({
+        item_id: String(p.sku || p.id),
+        item_name: p.title_ru || p.title || 'Товар',
+        price: parseFloat(p.price || 0),
+        item_category: p.category || 'general',
+        item_list_id: 'recently_viewed',
+        item_list_name: TITLE,
+        index: idx + 1
+    }));
+
+    if (ga4ListItems.length > 0) {
+        if(typeof pushGA4Event === 'function') pushGA4Event('view_item_list', ga4ListItems);
+    }
+
+    // Обработчик клика для отправки select_item
     const track = widget.querySelector('.viewed-track');
+    if (track) {
+        track.addEventListener('click', (e) => {
+            const card = e.target.closest('.product-card.is-clickable');
+            if (!card) return;
+
+            const pid = card.dataset.id;
+            const index = card.dataset.index ? parseInt(card.dataset.index, 10) : 0;
+            const prod = items.find(p => p.id == pid);
+
+            if (prod && typeof pushGA4Event === 'function') {
+                pushGA4Event('select_item', [{
+                    item_id: String(prod.sku || prod.id),
+                    item_name: prod.title_ua || prod.title_ru || prod.title || 'Товар',
+                    price: parseFloat(prod.price || 0),
+                    item_category: prod.category || 'general',
+                    item_list_id: 'recently_viewed',
+                    item_list_name: TITLE,
+                    index: index + 1
+                }]);
+            }
+
+            setTimeout(() => { window.location.href = `product.html?id=${pid}`; }, 150);
+        });
+    }
+
+    // Логика слайдера
     const prev = widget.querySelector('.viewed-prev');
     const next = widget.querySelector('.viewed-next');
     let currentIdx = 0;
@@ -895,8 +929,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    prev.addEventListener('click', () => { if(currentIdx > 0) { currentIdx--; updateSlider(); } });
-    next.addEventListener('click', () => { if(currentIdx < total - visible) { currentIdx++; updateSlider(); } });
+    if (prev && next) {
+        prev.addEventListener('click', () => { if(currentIdx > 0) { currentIdx--; updateSlider(); } });
+        next.addEventListener('click', () => { if(currentIdx < total - visible) { currentIdx++; updateSlider(); } });
+    }
     window.addEventListener('resize', updateSlider);
     setTimeout(updateSlider, 100);
 });
@@ -1026,12 +1062,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- GA4: REMOVE FROM CART ---
         const itemToRemove = cart.find(i => i.id == id);
         if (itemToRemove) {
+            // Вычисляем правильную сумму удаляемых товаров (price * quantity)
+            const removedValue = parseFloat(itemToRemove.price || 0) * parseInt(itemToRemove.qty || 1);
+
             pushGA4Event('remove_from_cart', [{
                 item_id: itemToRemove.sku || itemToRemove.id,
                 item_name: itemToRemove.title,
                 price: parseFloat(itemToRemove.price || 0),
-                quantity: itemToRemove.qty
-            }]);
+                quantity: itemToRemove.qty,
+                item_category: itemToRemove.category || 'general'
+            }], removedValue);
         }
 
         cart = cart.filter(i => i.id != id);
@@ -2398,15 +2438,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (data.success && data.results.length > 0) {
                             const topResults = data.results.slice(0, 5);
+                            const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                            const listName = isUA ? 'Живий пошук' : 'Живой поиск';
 
-                            topResults.forEach(item => {
-                                const isUA = document.documentElement.lang === 'uk';
+                            // 1. Отправляем view_item_list при показе результатов
+                            const ga4ListItems = topResults.map((p, idx) => ({
+                                item_id: String(p.sku || p.id),
+                                item_name: p.title_ru || p.title || 'Товар',
+                                price: parseFloat(p.price || 0),
+                                item_category: p.category || 'general',
+                                item_list_id: 'live_search',
+                                item_list_name: listName,
+                                index: idx + 1
+                            }));
+                            if (ga4ListItems.length > 0) {
+                                pushGA4Event('view_item_list', ga4ListItems);
+                            }
+
+                            topResults.forEach((item, idx) => {
                                 const title = isUA ? (item.title_ua || item.title_ru) : item.title_ru;
                                 const img = (item.images && item.images.length > 0) ? item.images[0] : '/assets/icons/company.png';
 
                                 const link = document.createElement('a');
                                 link.href = `product.html?id=${item.id}`;
                                 link.className = 'search-result-item';
+                                link.dataset.id = item.id;
+                                link.dataset.index = idx;
+
                                 link.innerHTML = `
                                     <img src="${img}" class="search-result-thumb" alt="">
                                     <div class="search-result-info">
@@ -2414,6 +2472,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <div class="search-result-price">${item.price} ₴</div>
                                     </div>
                                 `;
+
+                                // 2. Перехватываем клик для select_item
+                                link.addEventListener('click', (e) => {
+                                    e.preventDefault();
+                                    pushGA4Event('select_item', [{
+                                        item_id: String(item.sku || item.id),
+                                        item_name: item.title_ua || item.title_ru || item.title || 'Товар',
+                                        price: parseFloat(item.price || 0),
+                                        item_category: item.category || 'general',
+                                        item_list_id: 'live_search',
+                                        item_list_name: listName,
+                                        index: idx + 1
+                                    }]);
+                                    setTimeout(() => { window.location.href = link.href; }, 150);
+                                });
+
                                 dropdown.appendChild(link);
                             });
                             dropdown.classList.add('active');

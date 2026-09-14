@@ -222,6 +222,7 @@
     <!-- Бокові картинки -->
     <div class="side-art side-art--left" data-src="../assets/photos/photos_left_right/left.jpg" aria-hidden="true"></div>
     <div class="side-art side-art--right" data-src="../assets/photos/photos_left_right/right.jpg" aria-hidden="true"></div>
+
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('homeShowcase');
@@ -233,41 +234,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === ФУНКЦИЯ ОТРИСОВКИ ===
     function renderShowcase(list) {
-        // Определяем язык
-        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
-
-        // Фильтруем (берем только те, где on_index == 1)
         let displayItems = list.filter(p => p.on_index == 1);
         displayItems = displayItems.slice(0, 15);
 
         if (displayItems.length === 0) {
-            grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">${isUA ? 'Вітрина порожня.' : 'Витрина пуста.'}</div>`;
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста. (Нет товаров с on_index=1)</div>';
             return;
         }
 
-        grid.innerHTML = displayItems.map(p => {
+        grid.innerHTML = displayItems.map((p, idx) => {
             const stClass = p.in_stock ? 'is-instock' : 'is-out';
-
             const stText = isUA
                 ? (p.in_stock ? 'Готовий до відправки' : 'Немає в наявності')
                 : (p.in_stock ? 'Готово к отправке' : 'Нет в наличии');
 
             const btnText = isUA ? 'Купити' : 'Купить';
 
-            // ЛОГИКА НАЗВАНИЯ
             let productTitle = p.title;
             if (!productTitle) {
                 productTitle = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
             }
 
-            // КАРТИНКА
             let img = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f2f4f8' width='100%25' height='100%25'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239aa3af' font-size='14' font-family='sans-serif'%3ENo Image%3C/text%3E%3C/svg%3E";
             if (p.image) img = p.image;
             else if (p.images && p.images.length > 0) img = p.images[0];
 
-            // КОЛИЧЕСТВО
             const txtStock = isUA ? 'На складі:' : 'На складе:';
-            // Определяем единицу для карточки
             const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
 
             const qtyHtml = p.in_stock
@@ -275,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : '';
 
             return `
-            <article class="product-card is-clickable" onclick="location.href='product.html?id=${p.id}'">
+            <article class="product-card is-clickable" data-id="${p.id}" data-index="${idx}" tabindex="0">
                 <div class="product-card__img">
                      <img src="${img}" alt="${productTitle}" loading="lazy">
                 </div>
@@ -283,12 +275,61 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="product-card__meta">Code: <span>${p.sku}</span></div>
                 <div class="product-card__price">${p.price} ₴</div>
                 <div class="product-card__status ${stClass}">${stText}</div>
-                ${qtyHtml}
-                <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                ${qtyHtml} <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
             </article>
             `;
         }).join('');
+
+        // Отправка события GA4 view_item_list
+        const listName = isUA ? 'Вітрина на головній' : 'Витрина на главной';
+        const ga4ListItems = displayItems.map((p, idx) => ({
+            item_id: String(p.sku || p.id),
+            item_name: p.title_ru || p.title || 'Товар',
+            price: parseFloat(p.price || 0),
+            item_category: p.category || 'general',
+            item_list_id: 'home_showcase',
+            item_list_name: listName,
+            index: idx + 1 // Начинаем с 1
+        }));
+
+        if (ga4ListItems.length > 0) {
+            pushGA4Event('view_item_list', ga4ListItems);
+        }
     }
+
+    // Обработка клика по карточке для отправки select_item
+    grid.addEventListener('click', (e) => {
+        if (e.target.closest('.product-card__buy')) return;
+
+        const card = e.target.closest('.product-card.is-clickable');
+        if (!card) return;
+
+        const pid = card.dataset.id;
+        const index = card.dataset.index ? parseInt(card.dataset.index, 10) : 0;
+
+        let allItems = [];
+        try {
+            const s = localStorage.getItem(LS_KEY);
+            if (s) allItems = JSON.parse(s).items || [];
+        } catch (err) {}
+
+        const prod = allItems.find(p => p.id == pid);
+
+        if (prod) {
+            const listName = isUA ? 'Вітрина на головній' : 'Витрина на главной';
+            pushGA4Event('select_item', [{
+                item_id: String(prod.sku || prod.id),
+                item_name: prod.title_ua || prod.title_ru || prod.title || 'Товар',
+                price: parseFloat(prod.price || 0),
+                item_category: prod.category || 'general',
+                item_list_id: 'home_showcase',
+                item_list_name: listName,
+                index: index + 1 // GA4 начинает с 1
+            }]);
+        }
+
+        setTimeout(() => { window.location.href = `product.html?id=${pid}`; }, 150);
+    });
 
     // === ГЛАВНАЯ ЛОГИКА ===
     let items = [];

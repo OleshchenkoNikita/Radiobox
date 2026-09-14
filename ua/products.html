@@ -308,65 +308,71 @@
                 }
             }
 
-            // ==== картки ====
-            function gridCardHTML(p) {
-                // Определяем язык прямо здесь
+            // Вспомогательная функция для GA4
+            function getListNameForGA4() {
                 const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                const catFromHash = (location.hash || '').replace(/^#cat-/, '');
+
+                if (catFromHash) {
+                    const foundCat = CATS.find(c => c[0] === catFromHash);
+                    if (foundCat) return foundCat[1];
+                }
+                return isUA ? 'Всі товари' : 'Все товары';
+            }
+
+            // ==== карточки ====
+            function gridCardHTML(p, idx) {
+                const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                const pTitle = isUA ? (p.title_ua || p.title_ru || p.title) : (p.title_ru || p.title || p.title_ua) || 'Товар';
 
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
-                const stText = p.in_stock
-                    ? (isUA ? 'В наявності' : 'В наличии')
-                    : (isUA ? 'Немає' : 'Нет в наличии');
+                const stText = p.in_stock ? (isUA ? 'Готовий до відправки' : 'Готово к отправке') : (isUA ? 'Немає в наявності' : 'Нет в наличии');
                 const btnText = isUA ? 'Купити' : 'Купить';
 
-                // Текст количества
+                const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
                 const txtStock = isUA ? 'На складі:' : 'На складе:';
-                const uLabel = (p.unit_type === 'set') ? (isUA ? 'комплект.' : 'комплект.') : (isUA ? 'шт.' : 'шт.');
 
-                const qtyInfo = p.in_stock
-                    ? `<div style="font-size:12px; color:#6b7280; margin-top:3px;">${txtStock} <b>${p.qty_stock}</b> ${uLabel}</div>`
+                const qtyText = p.in_stock
+                    ? `<div style="font-size:12px; color:#6b7280; margin-top:3px;">${txtStock} <b>${p.qty_stock}</b> ${unitLabel}</div>`
                     : '';
 
                 return `
-                <article class="product-card is-clickable" data-id="${p.id}" role="link" tabindex="0">
-                  <div class="product-card__img"><img src="${p.image || ''}" alt="${p.title}"></div>
-                  <h3 class="product-card__title">${p.title}</h3>
-                  <div class="product-card__meta">Код: <span>${p.sku}</span></div>
+                <article class="product-card is-clickable" data-id="${p.id}" data-index="${idx}" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${pTitle}" loading="lazy"></div>
+                  <h3 class="product-card__title">${pTitle}</h3>
+                  <div class="product-card__meta">Code: <span>${p.sku}</span></div>
                   <div class="product-card__price">${p.price} ₴</div>
                   <div class="product-card__status ${stClass}">${stText}</div>
-                  ${qtyInfo}
-                  <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                  ${qtyText}
+                  <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">${btnText}</button>
                 </article>`;
             }
 
-            function listCardHTML(p) {
+            function listCardHTML(p, idx) {
                 const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                const pTitle = isUA ? (p.title_ua || p.title_ru || p.title) : (p.title_ru || p.title || p.title_ua) || 'Товар';
 
                 const stClass = p.in_stock ? 'is-instock' : 'is-out';
-                const stText = p.in_stock
-                    ? (isUA ? 'В наявності' : 'В наличии')
-                    : (isUA ? 'Немає' : 'Нет в наличии');
+                const stText = p.in_stock ? (isUA ? 'Готовий до відправки' : 'Готово к отправке') : (isUA ? 'Немає в наявності' : 'Нет в наличии');
                 const btnText = isUA ? 'Купити' : 'Купить';
-
                 const txtLeft = isUA ? 'Залишок:' : 'Остаток:';
-                const qtyInfo = p.in_stock
-                    ? `<div style="font-size:13px; color:#666; margin-top:4px;">${txtLeft} <b>${p.qty_stock}</b> шт.</div>`
-                    : '';
+
+                const qtyText = p.in_stock ? `<div style="font-size:13px; color:#666; margin-top:4px;">${txtLeft} <b>${p.qty_stock}</b> шт.</div>` : '';
 
                 return `
-                <article class="product-card product-card--list is-clickable" data-id="${p.id}" role="link" tabindex="0">
-                  <div class="product-card__img"><img src="${p.image || ''}" alt="${p.title}"></div>
+                <article class="product-card product-card--list is-clickable" data-id="${p.id}" data-index="${idx}" role="link" tabindex="0">
+                  <div class="product-card__img"><img src="${p.image || ''}" alt="${pTitle}"></div>
                   <div class="product-info">
-                    <h3 class="product-card__title">${p.title}</h3>
+                    <h3 class="product-card__title">${pTitle}</h3>
                     <div class="product-card__price">${p.price} ₴</div>
                     <div class="product-card__status ${stClass}">
                         ${stText}
-                        ${qtyInfo}
+                        ${qtyText}
                     </div>
                     <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
                   </div>
                   <div class="product-cta">
-                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id})">${btnText}</button>
                   </div>
                 </article>`;
             }
@@ -386,10 +392,32 @@
                 const total = totalPages(sorted);
                 if (current > total) current = total;
 
-                grid.innerHTML = slicePage(sorted, current).map(view === 'list' ? listCardHTML : gridCardHTML).join('');
+                const pageItems = slicePage(sorted, current);
+
+                grid.innerHTML = pageItems.map((p, idx) => {
+                    const absoluteIdx = ((current - 1) * pageSize) + idx;
+                    return view === 'list' ? listCardHTML(p, absoluteIdx) : gridCardHTML(p, absoluteIdx);
+                }).join('');
+
                 pager.innerHTML = total > 1 ? buildPager(total, current, 1) : '';
-                // підправляємо бокові фони, якщо скрипт є
-                window.rbRefreshSideArt && window.rbRefreshSideArt();
+
+                // Отправка события GA4 view_item_list
+                const listName = getListNameForGA4();
+                const currentCat = (location.hash || '').replace(/^#cat-/, '');
+
+                const ga4ListItems = pageItems.map((p, idx) => ({
+                    item_id: String(p.sku || p.id),
+                    item_name: p.title_ru || p.title || 'Товар',
+                    price: parseFloat(p.price || 0),
+                    item_category: p.category || 'general',
+                    item_list_id: currentCat || 'all_products',
+                    item_list_name: listName,
+                    index: ((current - 1) * pageSize) + idx + 1 // Начинаем с 1
+                }));
+
+                if (ga4ListItems.length > 0) {
+                    pushGA4Event('view_item_list', ga4ListItems);
+                }
             }
 
             window.renderCatalog = () => {
@@ -407,14 +435,6 @@
 
                 // 3. Вызываем рендер уже с новыми переменными
                 render();
-
-                const listItems = sorted.slice((current - 1) * pageSize, current * pageSize).map(p => ({
-                    item_id: String(p.sku || p.id),
-                    item_name: p.title_ua || p.title_ru || 'Товар',
-                    price: parseFloat(p.price || 0),
-                    item_category: p.category || 'general'
-                }));
-                pushGA4Event('view_item_list', listItems);
             };
 
             // ==== події ====
@@ -458,26 +478,33 @@
             });
 
             grid.addEventListener('click', (e) => {
-            // 1. Если кликнули на кнопку "Купити" — ничего не делаем (пусть работает корзина)
-            if (e.target.closest('.product-card__buy')) return;
+                if (e.target.closest('.product-card__buy')) return;
 
-            // 2. Ищем карточку
-            const card = e.target.closest('.product-card');
-            if (card && card.dataset.id) {
+                const card = e.target.closest('.product-card.is-clickable');
+                if (!card) return;
+
                 const pid = card.dataset.id;
+                const index = card.dataset.index ? parseInt(card.dataset.index, 10) : 0;
+
                 const allItems = loadItems();
                 const prod = allItems.find(p => p.id == pid);
+
                 if (prod) {
+                    const listName = getListNameForGA4();
+                    const currentCat = (location.hash || '').replace(/^#cat-/, '');
+
                     pushGA4Event('select_item', [{
                         item_id: String(prod.sku || prod.id),
                         item_name: prod.title_ua || prod.title_ru || prod.title || 'Товар',
                         price: parseFloat(prod.price || 0),
-                        item_category: prod.category || 'general'
+                        item_category: prod.category || 'general',
+                        item_list_id: currentCat || 'all_products',
+                        item_list_name: listName,
+                        index: index + 1 // GA4 начинает с 1
                     }]);
                 }
-                // 3. Переходим на страницу товара
-                window.location.href = `product.html?id=${pid}`;
-                }
+
+                setTimeout(() => { window.location.href = `product.html?id=${pid}`; }, 150);
             });
 
             // старт

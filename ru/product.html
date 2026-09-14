@@ -405,10 +405,24 @@
 
                 buyBtn.onclick = (e) => {
                     if (e) e.stopPropagation();
+
+                    // Отправляем точное локализованное событие GA4
+                    if (typeof pushGA4Event === 'function') {
+                        pushGA4Event('add_to_cart', [{
+                            item_id: String(product.sku || product.id),
+                            item_name: finalTitle, // Точное локализованное название (уже определено выше)
+                            price: parseFloat(product.price || 0),
+                            quantity: 1,
+                            item_category: product.category || 'general'
+                        }], parseFloat(product.price || 0));
+                    }
+
                     if(window.rbAddToCart) {
-                        window.rbAddToCart(product.id);
+                        // Флаг true скажет функции rbAddToCart не дублировать событие add_to_cart
+                        window.rbAddToCart(product.id, true);
                     } else {
-                        document.querySelector('[data-cart-open]').click();
+                        const cartBtn = document.querySelector('[data-cart-open]');
+                        if(cartBtn) cartBtn.click();
                     }
                 };
             } else {
@@ -487,10 +501,56 @@
             // === 4. СОПУТСТВУЮЩИЕ ТОВАРЫ ===
             const related = items.filter(i => i.category === product.category && i.id != product.id).slice(0, 5);
             const relContainer = document.getElementById('relGrid');
+            const listName = isUA ? 'Супутні товари' : 'Сопутствующие товары';
+
             if (related.length) {
-                relContainer.innerHTML = related.map(p => makeCardHTML(p)).join('');
+                // Обратите внимание, что мы теперь передаем индекс (idx) в функцию makeCardHTML
+                relContainer.innerHTML = related.map((p, idx) => makeCardHTML(p, idx)).join('');
+
+                // Отправляем view_item_list
+                const ga4RelatedItems = related.map((p, idx) => {
+                    const itemName = isUA ? (p.title_ua || p.title_ru || p.title || 'Товар') : (p.title_ru || p.title || p.title_ua || 'Товар');
+                    return {
+                        item_id: String(p.sku || p.id),
+                        item_name: itemName,
+                        price: parseFloat(p.price || 0),
+                        item_category: p.category || 'general',
+                        item_list_id: 'related_products',
+                        item_list_name: listName,
+                        index: idx + 1
+                    };
+                });
+
+                if (typeof pushGA4Event === 'function') {
+                    pushGA4Event('view_item_list', ga4RelatedItems);
+                }
+
+                // Обработчик select_item (делегирование кликов)
+                relContainer.addEventListener('click', (e) => {
+                    const card = e.target.closest('.product-card.is-clickable');
+                    if (!card) return;
+
+                    const pid = card.dataset.id;
+                    const index = card.dataset.index ? parseInt(card.dataset.index, 10) : 0;
+                    const prod = related.find(p => p.id == pid);
+
+                    if (prod && typeof pushGA4Event === 'function') {
+                        const itemName = isUA ? (prod.title_ua || prod.title_ru || prod.title || 'Товар') : (prod.title_ru || prod.title || prod.title_ua || 'Товар');
+                        pushGA4Event('select_item', [{
+                            item_id: String(prod.sku || prod.id),
+                            item_name: itemName,
+                            price: parseFloat(prod.price || 0),
+                            item_category: prod.category || 'general',
+                            item_list_id: 'related_products',
+                            item_list_name: listName,
+                            index: index + 1
+                        }]);
+                    }
+                    setTimeout(() => { window.location.href = `product.html?id=${pid}`; }, 150);
+                });
+
             } else {
-                relContainer.innerHTML = '<div style="color:#999; font-size:13px; grid-column:1/-1;">Нет похожих товаров</div>';
+                relContainer.innerHTML = `<div style="color:#999; font-size:13px; grid-column:1/-1;">${isUA ? 'Немає товарів' : 'Нет похожих товаров'}</div>`;
             }
 
             // === 5. ПРОСМОТРЕННЫЕ ТОВАРЫ (Логика) ===
@@ -529,7 +589,7 @@
             }
 
             // Вспомогательная функция отрисовки карточки
-            function makeCardHTML(p) {
+            function makeCardHTML(p, idx) {
                 if (!p) return ''; // Защита от битых объектов
 
                 const img = (p.images && p.images[0]) ? p.images[0] : (p.image || '../assets/no-image.png');
@@ -543,7 +603,7 @@
                     : '';
 
                 return `
-                <div class="product-card is-clickable slider-item" style="padding:10px; width:160px; flex-shrink:0;" onclick="location.href='product.html?id=${p.id}'">
+                <div class="product-card is-clickable slider-item" data-id="${p.id}" data-index="${idx}" style="padding:10px; width:160px; flex-shrink:0;">
                     <div class="product-card__img">
                         <img src="${img}" alt="${pTitle}" loading="lazy">
                     </div>
