@@ -1,8 +1,32 @@
 // === ИНИЦИАЛИЗАЦИЯ GA4 DATALAYER ===
 window.dataLayer = window.dataLayer || [];
+window.sentGA4Lists = window.sentGA4Lists || new Set();
+
 function pushGA4Event(eventName, items, value = 0) {
-    const ecommerceData = { currency: "UAH", value: value, items: items };
+    // 1. Защита от дублирования view_item_list
+    // Если страница дважды отрендерит один и тот же список товаров (например, при инициализации),
+    // мы собираем уникальную "подпись" списка и игнорируем повтор.
+    if (eventName === 'view_item_list' && items && items.length > 0) {
+        const listId = items[0].item_list_id || 'unknown';
+        const signature = listId + '|' + items.map(i => i.item_id).join(',');
+
+        if (window.sentGA4Lists.has(signature)) {
+            return; // Точно такой же список уже отправлен, блокируем дубль
+        }
+        window.sentGA4Lists.add(signature);
+    }
+
+    const ecommerceData = { items: items };
+
+    // 2. Убираем параметры value и currency для событий списков и кликов, так как они там не нужны
+    if (eventName !== 'view_item_list' && eventName !== 'select_item') {
+        ecommerceData.value = value;
+        ecommerceData.currency = "UAH";
+    }
+
+    // Очистка предыдущего объекта (рекомендация Google)
     window.dataLayer.push({ ecommerce: null });
+    // Отправка нового события
     window.dataLayer.push({ event: eventName, ecommerce: ecommerceData });
     console.log(`GA4 Event: ${eventName}`, ecommerceData);
 }
