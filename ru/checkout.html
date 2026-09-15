@@ -603,6 +603,23 @@
         </aside>
     </div>
 
+    <div id="footer-placeholder"></div>
+
+    <script>
+    // Загрузка подвала для чекаута
+    document.addEventListener('DOMContentLoaded', () => {
+        const placeholder = document.getElementById('footer-placeholder');
+        if (placeholder) {
+            fetch('../components/footer.html')
+                .then(response => response.ok ? response.text() : '')
+                .then(html => {
+                    placeholder.innerHTML = html;
+                })
+                .catch(err => console.error('Ошибка загрузки подвала:', err));
+        }
+    });
+    </script>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
 
@@ -1190,8 +1207,8 @@
             // ВАЖНО: Если каталог пуст (например, юзер пришел по прямой ссылке), грузим его
             if (catalogItems.length === 0) {
                 try {
-                    // Укажите правильный путь к вашему JSON файлу с товарами
-                    const r = await fetch('products.json');
+                    // Обращение к динамическому API вместо статического JSON
+                    const r = await fetch('/api/products');
                     const data = await r.json();
                     catalogItems = data.items || data; // Подстраховка структуры
                     // Сохраним, чтобы в следующий раз было быстрее

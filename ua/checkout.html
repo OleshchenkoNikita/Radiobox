@@ -602,6 +602,23 @@
         </aside>
     </div>
 
+    <div id="footer-placeholder"></div>
+
+    <script>
+    // Загрузка подвала для чекаута
+    document.addEventListener('DOMContentLoaded', () => {
+        const placeholder = document.getElementById('footer-placeholder');
+        if (placeholder) {
+            fetch('../components/footer.html')
+                .then(response => response.ok ? response.text() : '')
+                .then(html => {
+                    placeholder.innerHTML = html;
+                })
+                .catch(err => console.error('Ошибка загрузки подвала:', err));
+        }
+    });
+    </script>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
 
@@ -1181,17 +1198,15 @@
                 }
             } catch(e) {}
 
-            // ВАЖНО: Если каталог пуст (например, перегрузили страницу), грузим его с сервера
+            // ВАЖНО: Если каталог пуст (например, юзер пришел по прямой ссылке), грузим его
             if (catalogItems.length === 0) {
                 try {
-                    // Используем ваш API как в script.js
+                    // Обращение к динамическому API вместо статического JSON
                     const r = await fetch('/api/products');
                     const data = await r.json();
-                    if(data.success) {
-                        catalogItems = data.items || [];
-                        // Сохраним
-                        localStorage.setItem('rb_catalog_v1_ua', JSON.stringify({items: catalogItems}));
-                    }
+                    catalogItems = data.items || data; // Подстраховка структуры
+                    // Сохраним, чтобы в следующий раз было быстрее
+                    localStorage.setItem('rb_catalog_v1_ru', JSON.stringify({items: catalogItems}));
                 } catch (e) {
                     console.error("Помилка завантаження каталогу:", e);
                 }

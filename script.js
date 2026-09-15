@@ -1192,6 +1192,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- GA4: BEGIN CHECKOUT ---
     window.rbBeginCheckout = () => {
     let cart = getCart();
+
+    // БЛОКИРОВКА ПУСТОЙ КОРЗИНЫ
+    if (cart.length === 0) {
+        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+        alert(isUA ? "Ваш кошик порожній!" : "Ваша корзина пуста!");
+        return;
+    }
+
     let catalog = getCatalog(); // чтобы подтягивать категорию товара
     let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
 

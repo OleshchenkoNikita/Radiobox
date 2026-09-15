@@ -619,9 +619,9 @@
                     <h3 class="product-card__title">${p.title}</h3>
                     <div class="product-card__meta">Code: <span>${p.sku}</span></div>
                     <div class="product-card__price">${p.price} ₴</div>
-                    <div class="product-card__status ${stClass}">${stText}</div>
-                    ${qtyText}
-                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                    <div class="product-cta">
+                    ${p.in_stock ? `<button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>` : ''}
+                  </div>
                 </article>`;
             }
 
@@ -645,7 +645,7 @@
                     <div class="product-meta-wrap">Код: <span>${p.sku}</span></div>
                   </div>
                   <div class="product-cta">
-                    <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                    ${p.in_stock ? `<button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>` : ''}
                   </div>
                 </article>`;
             }

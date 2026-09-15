@@ -136,7 +136,7 @@
                     <div class="group-card__img">
                         <img src="../assets/photos/groups_of_products/vse-dlya-remonta.png" alt="Усе для ремонту">
                     </div>
-                    <div class="group-card__title">УСЕ ДЛЯ РЕМОНТУ, ТЕСТЕРИ, ІНСТРУМЕНТЫ</div>
+                    <div class="group-card__title">УСЕ ДЛЯ РЕМОНТУ, ТЕСТЕРИ, ІНСТРУМЕНТИ</div>
                 </a>
 
                 <a class="group-card" href="type_of_product.html?cat=radio">
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="product-card__meta">Code: <span>${p.sku}</span></div>
                 <div class="product-card__price">${p.price} ₴</div>
                 <div class="product-card__status ${stClass}">${stText}</div>
-                ${qtyHtml} <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>
+                ${qtyHtml} ${p.in_stock ? `<button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${p.id});">${btnText}</button>` : ''}
             </article>
             `;
         }).join('');

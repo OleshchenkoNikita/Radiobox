@@ -817,23 +817,59 @@ def create_order():
     order_id = random.randint(100000000, 999999999)
     user_email = request.form.get('email') or session.get('email', '')
 
+    try:
+        raw_items = json.loads(cart_json)
+    except:
+        raw_items = []
+
+    if not raw_items:
+        return "Ошибка: Корзина пуста", 400
+
     total_sum = 0
     items = []
-    try:
-        items = json.loads(cart_json)
-        for item in items:
-            total_sum += float(item.get('price', 0)) * int(item.get('qty', 0))
-    except:
-        pass
 
     try:
         with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+
+            # --- СЕРВЕРНАЯ ПРОВЕРКА КОРЗИНЫ (БЕЗОПАСНОСТЬ) ---
+            for req_item in raw_items:
+                prod_id = req_item.get('id')
+                req_qty = int(req_item.get('qty', 0))
+
+                if req_qty <= 0: continue
+
+                cursor.execute("SELECT * FROM products WHERE id=?", (prod_id,))
+                db_prod = cursor.fetchone()
+
+                if not db_prod:
+                    return f"Ошибка: Товар ID {prod_id} не найден в базе.", 400
+
+                if not db_prod['in_stock'] or db_prod['qty_stock'] < req_qty:
+                    return f"Ошибка: Товар '{db_prod['title_ru']}' недоступен в запрашиваемом количестве (Остаток: {db_prod['qty_stock']}).", 400
+
+                actual_price = float(db_prod['price'])
+                total_sum += actual_price * req_qty
+
+                # Перезаписываем данные из базы, чтобы не доверять браузеру
+                req_item['price'] = actual_price
+                req_item['title'] = db_prod['title_ru']
+                req_item['sku'] = db_prod['sku']
+                req_item['category'] = db_prod['category']
+                items.append(req_item)
+
+            if not items:
+                return "Ошибка: нет валидных товаров для заказа.", 400
+
+            # Обновляем cart_json очищенными данными
+            cart_json = json.dumps(items)
+
             initial_order_status = "Оплаченный" if pay_status_raw == 'paid' else "Новый"
 
             # ИСПРАВЛЕНО: Добавил delivery_method в INSERT, чтобы подтягивалось в профиль
             cursor.execute('''
-                INSERT INTO orders (
+                    INSERT INTO orders (
                     id, user_name, user_surname, user_phone, user_email,
                     delivery_method, delivery_address, payment_method, payment_status, 
                     comment, items_json, created_at, status, total_price, ttn
