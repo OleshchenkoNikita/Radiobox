@@ -92,41 +92,65 @@
                 wrapper.innerHTML = '';
 
                 if (data.success && data.results.length > 0) {
-                    data.results.forEach(item => {
-                        // Тут берем Русское название приоритетным
-                        const title = item.title_ru || item.title_ua;
+                    const listName = 'Результаты поиска';
+
+                    // 1. Формируем и отправляем событие просмотра списка (view_item_list)
+                    const ga4ListItems = data.results.map((item, idx) => {
+                        const title = item.title_ru || item.title_ua || 'Товар';
+                        return {
+                            item_id: String(item.sku || item.id),
+                            item_name: title,
+                            price: parseFloat(item.price || 0),
+                            item_category: item.category || 'general',
+                            item_list_id: 'search_results_page',
+                            item_list_name: listName,
+                            index: idx + 1
+                        };
+                    });
+
+                    if (typeof pushGA4Event === 'function') {
+                        pushGA4Event('view_item_list', ga4ListItems);
+                    }
+
+                    // 2. Рендерим карточки товаров и вешаем события клика
+                    data.results.forEach((item, idx) => {
+                        const title = item.title_ru || item.title_ua || 'Товар';
                         const img = (item.images && item.images.length > 0) ? item.images[0] : '/assets/icons/company.png';
 
-                        // Перевод статусов
                         const stockHtml = item.in_stock
                             ? '<div class="status-badge status-ok">● В наличии</div>'
                             : '<div class="status-badge status-out">○ Нет</div>';
 
-                        const link = `product.html?id=${item.id}`;
-
-                        const html = `
-                            <a href="${link}" class="product-card" onclick="pushGA4Event('select_item', [{item_id: '${item.sku || item.id}', item_name: '${(title || '').replace(/'/g, "\\'")}', price: ${item.price}, item_category: '${item.category || 'general'}'}])">
-                                <img src="${img}" alt="${title}" class="product-card__img">
-                                <div class="product-card__sku">Арт: ${item.sku}</div>
-                                <div class="product-card__title">${title}</div>
-                                <div class="product-card__price">${item.price} ₴</div>
-                                ${stockHtml}
-                            </a>
+                        const link = document.createElement('a');
+                        link.href = `product.html?id=${item.id}`;
+                        link.className = 'product-card';
+                        link.innerHTML = `
+                            <img src="${img}" alt="${title}" class="product-card__img">
+                            <div class="product-card__sku">Арт: ${item.sku || '-'}</div>
+                            <div class="product-card__title">${title}</div>
+                            <div class="product-card__price">${item.price} ₴</div>
+                            ${stockHtml}
                         `;
-                        wrapper.insertAdjacentHTML('beforeend', html);
+
+                        // Отправка select_item при клике
+                        link.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            if (typeof pushGA4Event === 'function') {
+                                pushGA4Event('select_item', [{
+                                    item_id: String(item.sku || item.id),
+                                    item_name: title,
+                                    price: parseFloat(item.price || 0),
+                                    item_category: item.category || 'general',
+                                    item_list_id: 'search_results_page',
+                                    item_list_name: listName,
+                                    index: idx + 1
+                                }]);
+                            }
+                            setTimeout(() => { window.location.href = link.href; }, 150);
+                        });
+
+                        wrapper.appendChild(link);
                     });
-
-                    // Собираем массив товаров текущей страницы для GA4
-                    const listItems = sorted.slice((current - 1) * pageSize, current * pageSize).map(p => ({
-                        item_id: String(p.sku || p.id),
-                        item_name: p.title_ru || p.title || 'Товар',
-                        price: parseFloat(p.price || 0),
-                        item_category: p.category || 'general'
-                    }));
-
-                    // Отправляем событие просмотра списка
-                    pushGA4Event('view_item_list', listItems);
-
                 } else {
                     wrapper.innerHTML = '<div class="no-results-msg">Ничего не найдено. Попробуйте изменить запрос.</div>';
                 }

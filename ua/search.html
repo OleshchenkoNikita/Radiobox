@@ -131,43 +131,71 @@
                 wrapper.innerHTML = '';
 
                 if (data.success && data.results.length > 0) {
-                    // 3. Выводим найденные товары
-                    data.results.forEach(item => {
-                        // Название: Украинское > Русское
-                        const title = item.title_ua || item.title_ru;
+                    const listName = 'Результати пошуку';
 
-                        // Картинка
+                    // 1. Формируем и отправляем событие просмотра списка (view_item_list)
+                    const ga4ListItems = data.results.map((item, idx) => {
+                        const title = item.title_ua || item.title_ru || 'Товар';
+                        return {
+                            item_id: String(item.sku || item.id),
+                            item_name: title,
+                            price: parseFloat(item.price || 0),
+                            item_category: item.category || 'general',
+                            item_list_id: 'search_results_page',
+                            item_list_name: listName,
+                            index: idx + 1
+                        };
+                    });
+
+                    if (typeof pushGA4Event === 'function') {
+                        pushGA4Event('view_item_list', ga4ListItems);
+                    }
+
+                    // 2. Рендерим карточки товаров и вешаем события клика
+                    data.results.forEach((item, idx) => {
+                        const title = item.title_ua || item.title_ru || 'Товар';
                         const img = (item.images && item.images.length > 0) ? item.images[0] : (item.image || '/assets/icons/company.png');
 
-                        // Статус наличия (классы из styles.css)
                         const stockClass = item.in_stock ? 'is-instock' : 'is-out';
                         const stockText = item.in_stock ? 'В наявності' : 'Немає';
                         const btnText = 'Купити';
 
-                        // Формируем карточку (используем классы из styles.css)
-                        const html = `
-                            <article class="product-card is-clickable" onclick="pushGA4Event('select_item', [{item_id: '${item.sku || item.id}', item_name: '${(title || '').replace(/'/g, "\\'")}', price: ${item.price}, item_category: '${item.category || 'general'}'}]); location.href='product.html?id=${item.id}';">
-                                <div class="product-card__img">
-                                     <img src="${img}" alt="${title}" loading="lazy">
-                                </div>
-                                <h3 class="product-card__title">${title}</h3>
-                                <div class="product-card__meta">Арт: <span>${item.sku}</span></div>
-                                <div class="product-card__price">${item.price} ₴</div>
-                                <div class="product-card__status ${stockClass}">${stockText}</div>
-                                <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${item.id});">${btnText}</button>
-                            </article>
+                        const link = document.createElement('a');
+                        link.href = `product.html?id=${item.id}`;
+                        link.className = 'product-card is-clickable';
+                        link.innerHTML = `
+                            <div class="product-card__img">
+                                 <img src="${img}" alt="${title}" loading="lazy">
+                            </div>
+                            <h3 class="product-card__title">${title}</h3>
+                            <div class="product-card__meta">Арт: <span>${item.sku || '-'}</span></div>
+                            <div class="product-card__price">${item.price} ₴</div>
+                            <div class="product-card__status ${stockClass}">${stockText}</div>
+                            <button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${item.id});">${btnText}</button>
                         `;
-                        wrapper.insertAdjacentHTML('beforeend', html);
+
+                        // Отправка select_item при клике
+                        link.addEventListener('click', (e) => {
+                            // Не блокируем клик по кнопке "Купить"
+                            if (e.target.closest('.product-card__buy')) return;
+
+                            e.preventDefault();
+                            if (typeof pushGA4Event === 'function') {
+                                pushGA4Event('select_item', [{
+                                    item_id: String(item.sku || item.id),
+                                    item_name: title,
+                                    price: parseFloat(item.price || 0),
+                                    item_category: item.category || 'general',
+                                    item_list_id: 'search_results_page',
+                                    item_list_name: listName,
+                                    index: idx + 1
+                                }]);
+                            }
+                            setTimeout(() => { window.location.href = link.href; }, 150);
+                        });
+
+                        wrapper.appendChild(link);
                     });
-
-                    const searchListItems = data.results.map(item => ({
-                        item_id: String(item.sku || item.id),
-                        item_name: item.title_ua || item.title_ru || 'Товар',
-                        price: parseFloat(item.price || 0),
-                        item_category: item.category || 'general'
-                    }));
-                    pushGA4Event('view_item_list', searchListItems);
-
                 } else {
                     wrapper.innerHTML = '<div class="no-results-msg">На жаль, нічого не знайдено. Спробуйте змінити запит.</div>';
                 }
