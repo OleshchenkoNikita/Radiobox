@@ -1214,13 +1214,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- GA4: VIEW CART ---
         let cart = getCart();
+        let catalog = getCatalog(); // Подтягиваем каталог для надежного определения категории
         let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
-        let ga4Items = cart.map(i => ({
-            item_id: i.sku || i.id,
-            item_name: i.title,
-            price: parseFloat(i.price),
-            quantity: i.qty
-        }));
+        let ga4Items = cart.map(i => {
+            const prod = catalog.find(p => p.id == i.id) || {};
+            return {
+                item_id: i.sku || i.id,
+                item_name: i.title,
+                price: parseFloat(i.price),
+                quantity: i.qty,
+                item_category: prod.category || i.category || 'general' // Добавлена категория
+            };
+        });
         pushGA4Event('view_cart', ga4Items, totalValue);
     };
 
