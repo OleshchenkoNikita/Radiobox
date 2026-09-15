@@ -1009,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveCart = (cart) => localStorage.setItem(CART_KEY, JSON.stringify(cart));
 
     // Добавить товар
-    window.rbAddToCart = (id) => {
+    window.rbAddToCart = (id, skipGA4 = false) => {
         const catalog = getCatalog();
         const product = catalog.find(p => p.id == id);
 
@@ -1040,13 +1040,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- GA4: ADD TO CART ---
-        pushGA4Event('add_to_cart', [{
-            item_id: product.sku || product.id,
-            item_name: product.title_ru || product.title || "",
-            price: parseFloat(product.price || 0),
-            quantity: 1,
-            item_category: product.category || 'general'
-        }], parseFloat(product.price || 0));
+        if (!skipGA4) {
+            const itemName = IS_UA ? (product.title_ua || product.title_ru || product.title) : (product.title_ru || product.title || product.title_ua);
+            if (typeof pushGA4Event === 'function') {
+                pushGA4Event('add_to_cart', [{
+                    item_id: String(product.sku || product.id),
+                    item_name: itemName || "Товар",
+                    price: parseFloat(product.price || 0),
+                    quantity: 1,
+                    item_category: product.category || 'general'
+                }], parseFloat(product.price || 0));
+            }
+        }
 
         saveCart(cart);
         renderCart();
