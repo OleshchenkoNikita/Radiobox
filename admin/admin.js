@@ -1080,6 +1080,16 @@ const AdminProducts = {
     closeModal: function() {
         const modal = document.getElementById('productModal');
         if(modal) modal.classList.remove('active');
+
+        // Очищаем инстансы CKEditor, чтобы при следующем открытии они создались заново без ошибок
+        if (typeof CKEDITOR !== 'undefined') {
+            if (CKEDITOR.instances.p_desc_ru) {
+                CKEDITOR.instances.p_desc_ru.destroy();
+            }
+            if (CKEDITOR.instances.p_desc_ua) {
+                CKEDITOR.instances.p_desc_ua.destroy();
+            }
+        }
     }
 };
 
