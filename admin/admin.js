@@ -22,8 +22,14 @@ const Admin = {
 
     init: function() {
         this.lang = document.documentElement.lang === 'uk' ? 'ua' : 'ru';
-        console.log("Admin panel loaded. Lang:", this.lang);
-        this.loadOrders();
+        if(window.location.pathname.includes('products')) {
+            this.load();
+            // Инициализируем CKEditor здесь, один раз при загрузке вкладки Товары
+            if (typeof CKEDITOR !== 'undefined') {
+                if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
+                if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+            }
+        }
     },
 
     // --- ФИЛЬТРЫ И СОРТИРОВКА ---
