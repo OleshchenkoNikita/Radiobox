@@ -797,16 +797,18 @@ const AdminProducts = {
             const descRu = product.description_ru || product.description || '';
             const descUa = product.description_ua || product.description || '';
 
-            if (typeof CKEDITOR !== 'undefined') {
-                // 1. Инициализируем редактор, если его еще нет (он появится в открытой модалке)
-                if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
-                if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+            if (typeof tinymce !== 'undefined') {
+                if (!tinymce.get('p_desc_ru')) {
+                    tinymce.init({ selector: '#p_desc_ru', height: 250, menubar: false, plugins: 'link lists paste', toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link' });
+                }
+                if (!tinymce.get('p_desc_ua')) {
+                    tinymce.init({ selector: '#p_desc_ua', height: 250, menubar: false, plugins: 'link lists paste', toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link' });
+                }
 
-                // 2. Ждем, пока он точно загрузится, и вставляем данные
                 setTimeout(() => {
-                    if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData(descRu);
-                    if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData(descUa);
-                }, 100);
+                    if (tinymce.get('p_desc_ru')) tinymce.get('p_desc_ru').setContent(descRu);
+                    if (tinymce.get('p_desc_ua')) tinymce.get('p_desc_ua').setContent(descUa);
+                }, 200);
             } else {
                 document.getElementById('p_desc_ru').value = descRu;
                 document.getElementById('p_desc_ua').value = descUa;
@@ -863,23 +865,26 @@ const AdminProducts = {
                  }
             }
         } else {
-        title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
-        document.getElementById('p_id').value = '';
+            title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
+            document.getElementById('p_id').value = '';
 
-        // ✅ ОЧИЩАЕМ РЕДАКТОР ТОЛЬКО ЗДЕСЬ
-        if (typeof CKEDITOR !== 'undefined') {
-            if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
-            if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+            if (typeof tinymce !== 'undefined') {
+                if (!tinymce.get('p_desc_ru')) {
+                    tinymce.init({ selector: '#p_desc_ru', height: 250, menubar: false, plugins: 'link lists', toolbar: 'bold italic | bullist numlist' });
+                }
+                if (!tinymce.get('p_desc_ua')) {
+                    tinymce.init({ selector: '#p_desc_ua', height: 250, menubar: false, plugins: 'link lists', toolbar: 'bold italic | bullist numlist' });
+                }
 
-            setTimeout(() => {
-                if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData('');
-                if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData('');
-            }, 100);
-        } else {
-            document.getElementById('p_desc_ru').value = '';
-            document.getElementById('p_desc_ua').value = '';
+                setTimeout(() => {
+                    if (tinymce.get('p_desc_ru')) tinymce.get('p_desc_ru').setContent('');
+                    if (tinymce.get('p_desc_ua')) tinymce.get('p_desc_ua').setContent('');
+                }, 200);
+            } else {
+                document.getElementById('p_desc_ru').value = '';
+                document.getElementById('p_desc_ua').value = '';
+            }
         }
-    }
     modal.classList.add('active');
 },
 
@@ -915,8 +920,8 @@ const AdminProducts = {
             category: document.getElementById('p_category').value,
             in_stock: document.getElementById('p_stock').value,
             brand: document.getElementById('p_brand').value,
-            description_ru: (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances.p_desc_ru) ? CKEDITOR.instances.p_desc_ru.getData() : document.getElementById('p_desc_ru').value,
-            description_ua: (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances.p_desc_ua) ? CKEDITOR.instances.p_desc_ua.getData() : document.getElementById('p_desc_ua').value,
+            description_ru: (typeof tinymce !== 'undefined' && tinymce.get('p_desc_ru')) ? tinymce.get('p_desc_ru').getContent() : document.getElementById('p_desc_ru').value,
+            description_ua: (typeof tinymce !== 'undefined' && tinymce.get('p_desc_ua')) ? tinymce.get('p_desc_ua').getContent() : document.getElementById('p_desc_ua').value,
             on_index: document.getElementById('p_on_index').checked ? 1 : 0,
 
             // Новые поля
@@ -1081,14 +1086,9 @@ const AdminProducts = {
         const modal = document.getElementById('productModal');
         if(modal) modal.classList.remove('active');
 
-        // Очищаем инстансы CKEditor, чтобы при следующем открытии они создались заново без ошибок
-        if (typeof CKEDITOR !== 'undefined') {
-            if (CKEDITOR.instances.p_desc_ru) {
-                CKEDITOR.instances.p_desc_ru.destroy();
-            }
-            if (CKEDITOR.instances.p_desc_ua) {
-                CKEDITOR.instances.p_desc_ua.destroy();
-            }
+        if (typeof tinymce !== 'undefined') {
+            if (tinymce.get('p_desc_ru')) tinymce.get('p_desc_ru').remove();
+            if (tinymce.get('p_desc_ua')) tinymce.get('p_desc_ua').remove();
         }
     }
 };
