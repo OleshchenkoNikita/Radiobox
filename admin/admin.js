@@ -763,7 +763,7 @@ const AdminProducts = {
         } catch(e) { console.error(e); }
     },
 
-// === 1. ОТКРЫТИЕ МОДАЛКИ (Заполнение полей) ===
+    // === 1. ОТКРЫТИЕ МОДАЛКИ (Заполнение полей) ===
     openModal: function(pEncoded) {
         const product = (typeof pEncoded === 'object') ? pEncoded :
                         (pEncoded ? JSON.parse(decodeURIComponent(pEncoded)) : null);
@@ -774,7 +774,7 @@ const AdminProducts = {
 
         form.reset();
 
-        // СНАЧАЛА открываем модалку, чтобы элементы появились в DOM и имели размеры для TinyMCE
+        // 1. СНАЧАЛА открываем модалку, чтобы элементы появились в DOM и имели реальные размеры для TinyMCE
         modal.classList.add('active');
 
         // Очищаем фото
@@ -783,108 +783,96 @@ const AdminProducts = {
         document.getElementById('placeholder_main').style.display = 'block';
         document.getElementById('gallery_container').innerHTML = '';
 
+        const descRu = product ? (product.description_ru || product.description || '') : '';
+        const descUa = product ? (product.description_ua || product.description || '') : '';
+
+        // 2. Инициализируем или обновляем TinyMCE безопасно
+        if (typeof tinymce !== 'undefined') {
+            if (tinymce.get('p_desc_ru')) {
+                tinymce.get('p_desc_ru').setContent(descRu);
+            } else {
+                tinymce.init({
+                    selector: '#p_desc_ru',
+                    height: 250,
+                    menubar: false,
+                    plugins: 'link lists paste',
+                    toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.setContent(descRu);
+                        });
+                    }
+                });
+            }
+
+            if (tinymce.get('p_desc_ua')) {
+                tinymce.get('p_desc_ua').setContent(descUa);
+            } else {
+                tinymce.init({
+                    selector: '#p_desc_ua',
+                    height: 250,
+                    menubar: false,
+                    plugins: 'link lists paste',
+                    toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                    setup: function(editor) {
+                        editor.on('init', function() {
+                            editor.setContent(descUa);
+                        });
+                    }
+                });
+            }
+        } else {
+            document.getElementById('p_desc_ru').value = descRu;
+            document.getElementById('p_desc_ua').value = descUa;
+        }
+
         if (product) {
             title.textContent = product.id ? (this.lang==='ua'?'Редагування':'Редактирование') : (this.lang==='ua'?'Створення копії':'Создание копии');
             document.getElementById('p_id').value = product.id || '';
 
-            document.getElementById('p_title').value = product.title_ru;
-            document.getElementById('p_title_ua').value = product.title_ua || product.title_ru;
-            document.getElementById('p_sku').value = product.sku;
-            document.getElementById('p_price').value = product.price;
+            document.getElementById('p_title').value = product.title_ru || '';
+            document.getElementById('p_title_ua').value = product.title_ua || product.title_ru || '';
+            document.getElementById('p_sku').value = product.sku || '';
+            document.getElementById('p_price').value = product.price || '';
             document.getElementById('p_qty_stock').value = product.qty_stock || 0;
             document.getElementById('p_unit').value = product.unit_type || 'pcs';
-            document.getElementById('p_category').value = product.category;
-            document.getElementById('p_stock').value = product.in_stock;
+            document.getElementById('p_category').value = product.category || '';
+            document.getElementById('p_stock').value = product.in_stock ?? 1;
             document.getElementById('p_brand').value = product.brand || '';
-
-            const descRu = product.description_ru || product.description || '';
-            const descUa = product.description_ua || product.description || '';
-
-            if (typeof tinymce !== 'undefined') {
-                if (tinymce.get('p_desc_ru')) {
-                    tinymce.get('p_desc_ru').setContent(descRu);
-                } else {
-                    tinymce.init({
-                        selector: '#p_desc_ru',
-                        height: 250,
-                        menubar: false,
-                        plugins: 'link lists paste',
-                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
-                        setup: function(editor) {
-                            editor.on('init', function() {
-                                editor.setContent(descRu);
-                            });
-                        }
-                    });
-                }
-
-                if (tinymce.get('p_desc_ua')) {
-                    tinymce.get('p_desc_ua').setContent(descUa);
-                } else {
-                    tinymce.init({
-                        selector: '#p_desc_ua',
-                        height: 250,
-                        menubar: false,
-                        plugins: 'link lists paste',
-                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
-                        setup: function(editor) {
-                            editor.on('init', function() {
-                                editor.setContent(descUa);
-                            });
-                        }
-                    });
-                }
-            } else {
-                document.getElementById('p_desc_ru').value = descRu;
-                document.getElementById('p_desc_ua').value = descUa;
-            }
             document.getElementById('p_on_index').checked = (product.on_index == 1);
 
-            // Функция для удаления HTML-тегов (чтобы в SEO-описании был чистый текст)
+            // Функция для удаления HTML-тегов для SEO
             const stripHTML = (html) => {
                 const tmp = document.createElement("DIV");
                 tmp.innerHTML = html;
                 return (tmp.textContent || tmp.innerText || "").trim().replace(/\s+/g, ' ');
             };
 
-            // Если SEO-описание в базе пустое, берем первые 240 символов из обычного описания
             const autoSeoDescRu = stripHTML(descRu).substring(0, 240);
             const autoSeoDescUa = stripHTML(descUa).substring(0, 240);
 
-            // Заполняем SEO поля (с умным фолбэком)
             document.getElementById('p_seo_title').value = product.seo_title || product.title_ru || '';
             document.getElementById('p_seo_title_ua').value = product.seo_title_ua || product.title_ua || product.title_ru || '';
             document.getElementById('p_seo_desc').value = product.seo_description || autoSeoDescRu;
             document.getElementById('p_seo_desc_ua').value = product.seo_description_ua || autoSeoDescUa || autoSeoDescRu;
 
-            // --- ЗАГРУЗКА ФОТО ---
-            // --- ЗАГРУЗКА ФОТО/ВИДЕО (ОБНОВЛЕНО) ---
+            // Загрузка фото/видео
             if(product.images && product.images.length > 0) {
                  const mainImg = product.images[0];
-
                  if(mainImg) {
-                     // Устанавливаем путь в скрытое поле
                      document.getElementById('path_main').value = mainImg;
-
-                     // Находим контейнер превью (квадратик)
                      const previewImg = document.getElementById('preview_main');
                      const container = previewImg.parentElement;
 
-                     // Генерируем HTML в зависимости от типа файла
                      let mediaHtml = '';
                      if (this.isVideo(mainImg)) {
-                         // Если видео — тег video с контролами
                          mediaHtml = `<video id="preview_main" src="${mainImg}" style="width:100%; height:100%; object-fit:contain; display:block;" controls muted></video>`;
                      } else {
-                         // Если фото — тег img
                          mediaHtml = `<img id="preview_main" src="${mainImg}" style="width:100%; height:100%; object-fit:contain; display:block;">`;
                      }
-
-                     // Переписываем содержимое квадратика: Медиа + Скрытая надпись "Нет фото"
                      container.innerHTML = mediaHtml + `<span id="placeholder_main" style="display:none; font-size:11px; color:#94a3b8; text-align:center;">Нет фото</span>`;
                  }
 
-                 // Загружаем остальные файлы в галерею
                  for(let i = 1; i < product.images.length; i++) {
                      this.addGalleryItem(product.images[i]);
                  }
@@ -892,45 +880,7 @@ const AdminProducts = {
         } else {
             title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
             document.getElementById('p_id').value = '';
-
-            if (typeof tinymce !== 'undefined') {
-                if (tinymce.get('p_desc_ru')) {
-                    tinymce.get('p_desc_ru').setContent('');
-                } else {
-                    tinymce.init({
-                        selector: '#p_desc_ru',
-                        height: 250,
-                        menubar: false,
-                        plugins: 'link lists paste',
-                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
-                        setup: function(editor) {
-                            editor.on('init', function() {
-                                editor.setContent('');
-                            });
-                        }
-                    });
-                }
-
-                if (tinymce.get('p_desc_ua')) {
-                    tinymce.get('p_desc_ua').setContent('');
-                } else {
-                    tinymce.init({
-                        selector: '#p_desc_ua',
-                        height: 250,
-                        menubar: false,
-                        plugins: 'link lists paste',
-                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
-                        setup: function(editor) {
-                            editor.on('init', function() {
-                                editor.setContent('');
-                            });
-                        }
-                    });
-                }
-            } else {
-                document.getElementById('p_desc_ru').value = '';
-                document.getElementById('p_desc_ua').value = '';
-            }
+            document.getElementById('p_on_index').checked = false;
         }
     },
 
