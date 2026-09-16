@@ -798,17 +798,39 @@ const AdminProducts = {
             const descUa = product.description_ua || product.description || '';
 
             if (typeof tinymce !== 'undefined') {
-                if (!tinymce.get('p_desc_ru')) {
-                    tinymce.init({ selector: '#p_desc_ru', height: 250, menubar: false, plugins: 'link lists paste', toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link' });
-                }
-                if (!tinymce.get('p_desc_ua')) {
-                    tinymce.init({ selector: '#p_desc_ua', height: 250, menubar: false, plugins: 'link lists paste', toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link' });
+                if (tinymce.get('p_desc_ru')) {
+                    tinymce.get('p_desc_ru').setContent(descRu);
+                } else {
+                    tinymce.init({
+                        selector: '#p_desc_ru',
+                        height: 250,
+                        menubar: false,
+                        plugins: 'link lists paste',
+                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                        setup: function(editor) {
+                            editor.on('init', function() {
+                                editor.setContent(descRu);
+                            });
+                        }
+                    });
                 }
 
-                setTimeout(() => {
-                    if (tinymce.get('p_desc_ru')) tinymce.get('p_desc_ru').setContent(descRu);
-                    if (tinymce.get('p_desc_ua')) tinymce.get('p_desc_ua').setContent(descUa);
-                }, 200);
+                if (tinymce.get('p_desc_ua')) {
+                    tinymce.get('p_desc_ua').setContent(descUa);
+                } else {
+                    tinymce.init({
+                        selector: '#p_desc_ua',
+                        height: 250,
+                        menubar: false,
+                        plugins: 'link lists paste',
+                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                        setup: function(editor) {
+                            editor.on('init', function() {
+                                editor.setContent(descUa);
+                            });
+                        }
+                    });
+                }
             } else {
                 document.getElementById('p_desc_ru').value = descRu;
                 document.getElementById('p_desc_ua').value = descUa;
