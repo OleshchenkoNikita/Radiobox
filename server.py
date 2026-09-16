@@ -77,7 +77,7 @@ def add_security_headers(response):
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://tagmanager.google.com https://www.google-analytics.com https://static.liqpay.ua https://cdnjs.cloudflare.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.googletagmanager.com https://tagmanager.google.com; "
         "img-src 'self' data: https: https://www.googletagmanager.com https://ssl.gstatic.com https://www.gstatic.com https://*.google-analytics.com; "
-        "connect-src 'self' https://api.novaposhta.ua https://api.keepincrm.com https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.google.com https://*.g.doubleclick.net https://pagead2.googlesyndication.com ws: wss:; "
+        "connect-src 'self' https://cdnjs.cloudflare.com https://api.novaposhta.ua https://api.keepincrm.com https://www.google-analytics.com https://region1.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.google.com https://*.g.doubleclick.net https://pagead2.googlesyndication.com ws: wss:; "
         "frame-src 'self' https://www.googletagmanager.com https://static.liqpay.ua; "
         "font-src 'self' https://fonts.gstatic.com data:;"
     )
