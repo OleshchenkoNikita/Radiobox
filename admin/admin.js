@@ -763,7 +763,7 @@ const AdminProducts = {
         } catch(e) { console.error(e); }
     },
 
-    // === 1. ОТКРЫТИЕ МОДАЛКИ (Заполнение полей) ===
+// === 1. ОТКРЫТИЕ МОДАЛКИ (Заполнение полей) ===
     openModal: function(pEncoded) {
         const product = (typeof pEncoded === 'object') ? pEncoded :
                         (pEncoded ? JSON.parse(decodeURIComponent(pEncoded)) : null);
@@ -773,6 +773,9 @@ const AdminProducts = {
         if(!modal) return;
 
         form.reset();
+
+        // СНАЧАЛА открываем модалку, чтобы элементы появились в DOM и имели размеры для TinyMCE
+        modal.classList.add('active');
 
         // Очищаем фото
         document.getElementById('path_main').value = '';
@@ -891,24 +894,45 @@ const AdminProducts = {
             document.getElementById('p_id').value = '';
 
             if (typeof tinymce !== 'undefined') {
-                if (!tinymce.get('p_desc_ru')) {
-                    tinymce.init({ selector: '#p_desc_ru', height: 250, menubar: false, plugins: 'link lists', toolbar: 'bold italic | bullist numlist' });
-                }
-                if (!tinymce.get('p_desc_ua')) {
-                    tinymce.init({ selector: '#p_desc_ua', height: 250, menubar: false, plugins: 'link lists', toolbar: 'bold italic | bullist numlist' });
+                if (tinymce.get('p_desc_ru')) {
+                    tinymce.get('p_desc_ru').setContent('');
+                } else {
+                    tinymce.init({
+                        selector: '#p_desc_ru',
+                        height: 250,
+                        menubar: false,
+                        plugins: 'link lists paste',
+                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                        setup: function(editor) {
+                            editor.on('init', function() {
+                                editor.setContent('');
+                            });
+                        }
+                    });
                 }
 
-                setTimeout(() => {
-                    if (tinymce.get('p_desc_ru')) tinymce.get('p_desc_ru').setContent('');
-                    if (tinymce.get('p_desc_ua')) tinymce.get('p_desc_ua').setContent('');
-                }, 200);
+                if (tinymce.get('p_desc_ua')) {
+                    tinymce.get('p_desc_ua').setContent('');
+                } else {
+                    tinymce.init({
+                        selector: '#p_desc_ua',
+                        height: 250,
+                        menubar: false,
+                        plugins: 'link lists paste',
+                        toolbar: 'undo redo | formatselect | bold italic | alignleft aligncenter alignright | bullist numlist | link',
+                        setup: function(editor) {
+                            editor.on('init', function() {
+                                editor.setContent('');
+                            });
+                        }
+                    });
+                }
             } else {
                 document.getElementById('p_desc_ru').value = '';
                 document.getElementById('p_desc_ua').value = '';
             }
         }
-    modal.classList.add('active');
-},
+    },
 
     // Новая функция
     openModalById: function(id) {
