@@ -774,7 +774,7 @@ const AdminProducts = {
 
         form.reset();
 
-        // 1. СНАЧАЛА открываем модалку, чтобы элементы появились в DOM и имели реальные размеры для TinyMCE
+        // 1. СНАЧАЛА открываем модалку, чтобы элементы появились в DOM
         modal.classList.add('active');
 
         // Очищаем фото
@@ -784,20 +784,26 @@ const AdminProducts = {
         document.getElementById('gallery_container').innerHTML = '';
 
         const descRu = product ? (product.description_ru || product.description || '') : '';
-            const descUa = product ? (product.description_ua || product.description || '') : '';
+        const descUa = product ? (product.description_ua || product.description || '') : '';
 
+        // 2. Даем браузеру 50мс на отрисовку модалки, затем инициализируем CKEditor и заполняем текст
+        setTimeout(() => {
             if (typeof CKEDITOR !== 'undefined') {
-                if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
-                if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+                if (!CKEDITOR.instances.p_desc_ru) {
+                    CKEDITOR.replace('p_desc_ru');
+                }
+                if (!CKEDITOR.instances.p_desc_ua) {
+                    CKEDITOR.replace('p_desc_ua');
+                }
 
-                setTimeout(() => {
-                    if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData(descRu);
-                    if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData(descUa);
-                }, 150);
+                // Устанавливаем данные после полной инициализации
+                if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData(descRu);
+                if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData(descUa);
             } else {
                 document.getElementById('p_desc_ru').value = descRu;
                 document.getElementById('p_desc_ua').value = descUa;
             }
+        }, 50);
 
         if (product) {
             title.textContent = product.id ? (this.lang==='ua'?'Редагування':'Редактирование') : (this.lang==='ua'?'Створення копії':'Создание копии');
