@@ -24,11 +24,6 @@ const Admin = {
         this.lang = document.documentElement.lang === 'uk' ? 'ua' : 'ru';
         if(window.location.pathname.includes('products')) {
             this.load();
-            // Инициализируем CKEditor здесь, один раз при загрузке вкладки Товары
-            if (typeof CKEDITOR !== 'undefined') {
-                if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
-                if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
-            }
         }
     },
 
@@ -803,11 +798,15 @@ const AdminProducts = {
             const descUa = product.description_ua || product.description || '';
 
             if (typeof CKEDITOR !== 'undefined') {
-            // Добавляем микро-задержку для страховки
+                // 1. Инициализируем редактор, если его еще нет (он появится в открытой модалке)
+                if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
+                if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+
+                // 2. Ждем, пока он точно загрузится, и вставляем данные
                 setTimeout(() => {
                     if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData(descRu);
                     if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData(descUa);
-                }, 50);
+                }, 100);
             } else {
                 document.getElementById('p_desc_ru').value = descRu;
                 document.getElementById('p_desc_ua').value = descUa;
@@ -869,10 +868,13 @@ const AdminProducts = {
 
         // ✅ ОЧИЩАЕМ РЕДАКТОР ТОЛЬКО ЗДЕСЬ
         if (typeof CKEDITOR !== 'undefined') {
+            if (!CKEDITOR.instances.p_desc_ru) CKEDITOR.replace('p_desc_ru');
+            if (!CKEDITOR.instances.p_desc_ua) CKEDITOR.replace('p_desc_ua');
+
             setTimeout(() => {
                 if (CKEDITOR.instances.p_desc_ru) CKEDITOR.instances.p_desc_ru.setData('');
                 if (CKEDITOR.instances.p_desc_ua) CKEDITOR.instances.p_desc_ua.setData('');
-            }, 50);
+            }, 100);
         } else {
             document.getElementById('p_desc_ru').value = '';
             document.getElementById('p_desc_ua').value = '';
