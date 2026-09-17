@@ -320,8 +320,11 @@ const AdminProducts = {
     filterTab: function(type) {
         this.currentTab = type;
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
         if (type === 'active') document.getElementById('tabActive').classList.add('active');
+        if (type === 'hidden') document.getElementById('tabHidden').classList.add('active');
         if (type === 'deleted') document.getElementById('tabDeleted').classList.add('active');
+
         this.load();
     },
 
@@ -458,6 +461,11 @@ const AdminProducts = {
 
     renderLocal: function() {
         let list = this.allLoadedProducts;
+
+        if (this.currentTab === 'hidden') {
+            // Показываем ТОЛЬКО скрытые позиции
+            list = list.filter(p => p.is_visible === 0 || p.is_visible === false);
+        }
 
         if (this.searchQuery) {
             // 1. Исходный запрос (маленькими)
