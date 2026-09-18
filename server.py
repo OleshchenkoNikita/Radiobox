@@ -1977,7 +1977,7 @@ def public_search_api():
             )
             AND is_visible = 1 
             AND deleted_at IS NULL
-            ORDER BY in_stock DESC, position ASC
+            ORDER BY in_stock DESC, price DESC
         """
 
         # Передаем параметры: 3 раза оригинал, 2 раза исправленный (для названий)

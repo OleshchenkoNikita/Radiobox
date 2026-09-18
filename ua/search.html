@@ -171,7 +171,10 @@
                             <div class="product-card__meta">Арт: <span>${item.sku || '-'}</span></div>
                             <div class="product-card__price">${item.price} ₴</div>
                             <div class="product-card__status ${stockClass}">${stockText}</div>
-                            ${item.in_stock ? `<button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${item.id});">${btnText}</button>` : ''}
+                            ${item.in_stock
+                                ? `<button class="product-card__buy" type="button" onclick="event.stopPropagation(); window.rbAddToCart(${item.id});">${btnText}</button>`
+                                : `<div style="color:#dc2626; font-size:14px; font-weight:bold; text-align:center; padding: 6px 0;">${stockText}</div>`
+                            }
                         `;
 
                         // Отправка select_item при клике
