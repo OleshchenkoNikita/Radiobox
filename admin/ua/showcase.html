@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Керування вітриною — RadioBox</title>
+    <title>Огляд вітрини — RadioBox</title>
     <link rel="stylesheet" href="/styles.css">
     <style>
         body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
@@ -17,7 +17,6 @@
 
         .main-content { flex: 1; overflow-y: auto; padding: 30px; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .btn-primary { background: #189BFF; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; border: none; cursor: pointer; font-weight: 700; }
 
         .showcase-list { display: flex; flex-direction: column; gap: 10px; max-width: 800px; margin: 0 auto; }
         .showcase-item {
@@ -30,12 +29,7 @@
         .item-info { flex: 1; }
         .item-title { font-weight: 700; color: #0f172a; font-size: 15px; }
         .item-sku { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-        /* Стилі для ручки перетягування та візуального «привида» елемента в повітрі */
-        .drag-handle:hover { color: #189BFF !important; }
-        .sortable-ghost { opacity: 0.5; background: #f0f9ff; border: 1px dashed #189BFF; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="/admin/admin.js" defer></script>
 </head>
 <body>
@@ -47,7 +41,7 @@
             <li><a href="/admin/ua/products">Товари</a></li>
             <li><a href="/admin/ua/reviews">Відгуки</a></li>
             <li><a href="/admin/ru/messages">Повідомлення (Чат)</a></li>
-            <li><a href="/admin/ua/showcase.html" class="active">Вітрина (Сортування)</a></li>
+            <li><a href="/admin/ua/showcase.html" class="active">Вітрина (Огляд)</a></li>
             <li><a href="/admin/ua/banners">Банери</a></li>
             <li><a href="/admin/ua/settings">Налаштування</a></li>
         </ul>
@@ -58,21 +52,18 @@
 
     <main class="main-content">
         <div class="page-header">
-            <h1 style="margin:0; font-size:24px;">Налаштування Вітрини</h1>
+            <h1 style="margin:0; font-size:24px;">Огляд Вітрини</h1>
             <div style="display:flex; align-items:center; gap: 20px;">
                 <div class="admin-lang">
                     <a href="/admin/ru/showcase.html" style="text-decoration:none; color:#94a3b8;">RU</a>
                     <a href="/admin/ua/showcase.html" style="text-decoration:underline; color:#0f172a; margin-left:8px;">UA</a>
                 </div>
-                <span id="saveStatus" style="color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 14px; transition: color 0.3s;">
-                    ✅ Автозбереження увімкнено
-                </span>
             </div>
         </div>
 
         <div style="margin-bottom:20px; color:#64748b; text-align:center;">
-            Перетягуйте товари, затиснувши ліву кнопку миші на іконці <b>:::</b> зліва від картинки товару, щоб змінити їхній порядок на головній сторінці.<br>
-            Товари, що знаходяться вище у списку, будуть відображатися першими.
+            Тут відображаються товари, додані на вітрину.<br>
+            Товари сортуються автоматично за ціною (від більшої до меншої) і показуються, тільки якщо вони є в наявності.
         </div>
 
         <div id="showcaseContainer" class="showcase-list">

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Управление витриной — RadioBox</title>
+    <title>Обзор витрины — RadioBox</title>
     <link rel="stylesheet" href="/styles.css">
     <style>
         body { background: #f1f5f9; padding: 0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
@@ -17,7 +17,6 @@
 
         .main-content { flex: 1; overflow-y: auto; padding: 30px; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .btn-primary { background: #189BFF; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; border: none; cursor: pointer; font-weight: 700; }
 
         .showcase-list { display: flex; flex-direction: column; gap: 10px; max-width: 800px; margin: 0 auto; }
         .showcase-item {
@@ -30,12 +29,7 @@
         .item-info { flex: 1; }
         .item-title { font-weight: 700; color: #0f172a; font-size: 15px; }
         .item-sku { font-size: 12px; color: #64748b; margin-top: 2px; }
-
-        /* Стили для ручки перетаскивания (которых не хватало в RU версии) */
-        .drag-handle:hover { color: #189BFF !important; }
-        .sortable-ghost { opacity: 0.5; background: #f0f9ff; border: 1px dashed #189BFF; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="/admin/admin.js" defer></script>
 </head>
 <body>
@@ -47,7 +41,7 @@
             <li><a href="/admin/ru/products">Товары</a></li>
             <li><a href="/admin/ru/reviews">Отзывы</a></li>
             <li><a href="/admin/ru/messages">Сообщения (Чат)</a></li>
-            <li><a href="/admin/ru/showcase.html" class="active">Витрина (Сортировка)</a></li>
+            <li><a href="/admin/ru/showcase.html" class="active">Витрина (Обзор)</a></li>
             <li><a href="/admin/ru/banners">Баннеры</a></li>
             <li><a href="/admin/ru/settings">Настройки</a></li>
         </ul>
@@ -58,21 +52,18 @@
 
     <main class="main-content">
         <div class="page-header">
-            <h1 style="margin:0; font-size:24px;">Настройка Витрины</h1>
+            <h1 style="margin:0; font-size:24px;">Обзор Витрины</h1>
             <div style="display:flex; align-items:center; gap: 20px;">
                 <div class="admin-lang">
                     <a href="/admin/ru/showcase.html" style="text-decoration:underline; color:#0f172a;">RU</a>
                     <a href="/admin/ua/showcase.html" style="text-decoration:none; color:#94a3b8; margin-left:8px;">UA</a>
                 </div>
-                <span id="saveStatus" style="color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 6px; font-size: 14px; transition: color 0.3s;">
-                    ✅ Автосохранение включено
-                </span>
             </div>
         </div>
 
         <div style="margin-bottom:20px; color:#64748b; text-align:center;">
-            Перетягивайте товар, зажав левую кнопку мыши на точки <b>:::</b> слева от картинки товара, чтобы изменить их порядок на главной странице.<br>
-            Товары, которые выше в списке, будут отображаться первыми.
+            Здесь отображаются товары, добавленные на витрину.<br>
+            Товары сортируются автоматически по цене (от большей к меньшей) и показываются только если они есть в наличии.
         </div>
 
         <div id="showcaseContainer" class="showcase-list">

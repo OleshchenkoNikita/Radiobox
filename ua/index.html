@@ -234,11 +234,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === ФУНКЦИЯ ОТРИСОВКИ ===
     function renderShowcase(list) {
-        let displayItems = list.filter(p => p.on_index == 1);
+        // Фільтруємо: товар повинен бути на вітрині ТА в наявності
+        let displayItems = list.filter(p => p.on_index == 1 && p.in_stock == 1);
+
+        // Сортуємо за ціною від більшої до меншої
+        displayItems.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
+
+        // Беремо перші 15
         displayItems = displayItems.slice(0, 15);
 
         if (displayItems.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста. (Нет товаров с on_index=1)</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Вітрина порожня. (Немає товарів у наявності)</div>';
             return;
         }
 

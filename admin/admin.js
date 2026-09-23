@@ -1095,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// === УПРАВЛЕНИЕ ВИТРИНОЙ (СОРТИРОВКА) ===
+// === УПРАВЛЕНИЕ ВИТРИНОЙ (ОБЗОР) ===
 const AdminShowcase = {
     items: [],
 
@@ -1108,17 +1108,15 @@ const AdminShowcase = {
         const container = document.getElementById('showcaseContainer');
         container.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
 
-        // Запрашиваем ВСЕ товары, но потом отфильтруем только витрину
         try {
             const res = await fetch('/api/admin/products?sort_by=def&sort_dir=asc');
             const data = await res.json();
             if (data.success) {
-                // Берем только те, что on_index == 1
-                this.items = data.products.filter(p => p.on_index == 1);
+                // Берем только те, что on_index == 1 И есть в наличии
+                this.items = data.products.filter(p => p.on_index == 1 && p.in_stock == 1);
 
-                // ИСПРАВЛЕНИЕ: Принудительно сортируем по позиции на стороне клиента,
-                // чтобы серверная группировка по категориям не ломала витрину
-                this.items.sort((a, b) => a.position - b.position);
+                // Сортируем по цене (от большей к меньшей)
+                this.items.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
 
                 this.render();
             }
@@ -1130,19 +1128,16 @@ const AdminShowcase = {
         const isUA = document.documentElement.lang === 'uk';
 
         if(this.items.length === 0) {
-            container.innerHTML = `<div style="text-align:center; padding:20px;">${isUA?'Немає товарів':'Нет товаров'}</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:20px;">${isUA?'Немає товарів на вітрині (або їх немає в наявності)':'Нет товаров на витрине (или их нет в наличии)'}</div>`;
             return;
         }
 
-        container.innerHTML = this.items.map((p, index) => {
+        container.innerHTML = this.items.map((p) => {
             const img = (p.images && p.images[0]) ? p.images[0] : '';
             const title = isUA ? (p.title_ua || p.title_ru) : p.title_ru;
-            const unitLabel = (p.unit_type === 'set') ? 'комплект.' : 'шт.';
 
             return `
             <div class="showcase-item" data-id="${p.id}">
-                <div class="drag-handle" style="cursor:grab; padding:10px; font-size:20px; color:#cbd5e1;">:::</div>
-
                 <img src="${img || '/assets/no-photo.png'}" class="item-img">
                 <div class="item-info">
                     <div class="item-title">${title}</div>
@@ -1151,55 +1146,6 @@ const AdminShowcase = {
             </div>
             `;
         }).join('');
-
-        // ВКЛЮЧАЕМ DRAG-AND-DROP
-        new Sortable(container, {
-            handle: '.drag-handle',
-            animation: 150,
-            onEnd: function () {
-                AdminShowcase.saveRealTime();
-            }
-        });
-    },
-
-    // Функция авто-сохранения (адаптировано под задержки боевого сервера)
-    saveRealTime: async function() {
-        const container = document.getElementById('showcaseContainer');
-        const ids = Array.from(container.querySelectorAll('.showcase-item')).map(el => el.getAttribute('data-id'));
-
-        const statusEl = document.getElementById('saveStatus');
-        const isUA = document.documentElement.lang === 'uk';
-
-        if (statusEl) {
-            statusEl.style.color = '#f59e0b';
-            statusEl.textContent = isUA ? '⏳ Оновлення вітрини на сайті...' : '⏳ Обновление витрины на сайте...';
-        }
-
-        try {
-            await fetch('/api/admin/reorder', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ ids: ids })
-            });
-
-            // Ждем 4.5 секунды (4500 мс) — реальное время синхронизации боевого сервера
-            await new Promise(resolve => setTimeout(resolve, 4500));
-
-            if (statusEl) {
-                statusEl.style.color = '#10b981';
-                statusEl.textContent = isUA ? '✅ Готово! Можна перевіряти' : '✅ Готово! Можно проверять';
-
-                setTimeout(() => {
-                    statusEl.textContent = isUA ? '✅ Автозбереження увімкнено' : '✅ Автосохранение включено';
-                }, 3000);
-            }
-        } catch(e) {
-            console.error(e);
-            if (statusEl) {
-                statusEl.style.color = '#ef4444';
-                statusEl.textContent = isUA ? '❌ Помилка збереження' : '❌ Ошибка сохранения';
-            }
-        }
     }
 };
 

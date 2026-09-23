@@ -232,11 +232,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === ФУНКЦИЯ ОТРИСОВКИ ===
     function renderShowcase(list) {
-        let displayItems = list.filter(p => p.on_index == 1);
+        // Фильтруем: товар должен быть отмечен для витрины И быть в наличии
+        let displayItems = list.filter(p => p.on_index == 1 && p.in_stock == 1);
+
+        // Сортируем по цене от большей к меньшей
+        displayItems.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
+
+        // Берем первые 15
         displayItems = displayItems.slice(0, 15);
 
         if (displayItems.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста. (Нет товаров с on_index=1)</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:20px; color:#6b7280;">Витрина пуста.</div>';
             return;
         }
 
