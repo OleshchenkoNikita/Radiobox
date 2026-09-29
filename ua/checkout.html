@@ -1406,9 +1406,9 @@
         function formatFullAddress(city, rawAddress) {
             let addr = rawAddress.trim();
             if (/^\d{5}/.test(addr)) {
-                return addr.replace(/^(\d{5})(.+)/, `$1, м. ${city}$2`);
+                return addr.replace(/^(\d{5})(.+)/, `$1, ${city}$2`); // Прибрали "м. "
             }
-            return `м. ${city}, ${addr}`;
+            return `${city}, ${addr}`; // Прибрали "м. "
         }
 
         // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
@@ -1496,9 +1496,9 @@
                     deliveryLabel = 'Нова Пошта';
                     const city = document.getElementById('npCitySearch').value;
                     const type = document.querySelector('input[name="np_type"]:checked').value;
-                    if (type === 'branch') addressText = `м. ${city}, ` + document.getElementById('npBranchSearch').value;
-                    else if (type === 'postomat') addressText = `м. ${city}, ` + document.getElementById('npPostomatSearch').value;
-                    else addressText = `м. ${city}, ` + document.getElementById('npStreetSearch').value + ', буд. ' + formData.get('np_house');
+                    if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
+                    else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
+                    else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ', буд. ' + formData.get('np_house');
                 }
                 else if (deliveryType === 'up') {
                     deliveryLabel = 'Укрпошта Базовий';
@@ -1510,7 +1510,7 @@
                         const street = document.getElementById('upStreetSearch').value;
                         const house = formData.get('up_house') || '';
                         const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
-                        addressText = `м. ${city}, вул. ${street}, буд. ${house}${flat}`;
+                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
                     }
                 }
                 else if (deliveryType === 'upe') {
@@ -1523,7 +1523,7 @@
                         const street = document.getElementById('upeStreetSearch').value;
                         const house = formData.get('upe_house') || '';
                         const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
-                        addressText = `м. ${city}, вул. ${street}, буд. ${house}${flat}`;
+                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
                     }
                 }
                 else if (deliveryType === 'meest') {
@@ -1531,14 +1531,14 @@
                     const city = document.getElementById('meestCitySearch').value;
                     const type = document.querySelector('input[name="meest_type"]:checked').value;
                     if(type === 'branch') {
-                        addressText = `м. ${city}, ` + (formData.get('meest_branch_text') || 'Відділення не вказано');
+                        addressText = `${city}, ` + (formData.get('meest_branch_text') || 'Відділення не вказано');
                     } else if(type === 'postomat') {
-                        addressText = `м. ${city}, ` + (formData.get('meest_post_text') || 'Поштомат не вказано');
+                        addressText = `${city}, ` + (formData.get('meest_post_text') || 'Поштомат не вказано');
                     } else {
                         const street = document.getElementById('meestStreetSearch').value;
                         const house = formData.get('meest_house') || '';
                         const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
-                        addressText = `м. ${city}, вул. ${street}, буд. ${house}${flat}`;
+                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
                     }
                 }
                 else if (deliveryType === 'self') {

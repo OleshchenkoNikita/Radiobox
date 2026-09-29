@@ -1415,9 +1415,9 @@
         function formatFullAddress(city, rawAddress) {
             let addr = rawAddress.trim();
             if (/^\d{5}/.test(addr)) {
-                return addr.replace(/^(\d{5})(.+)/, `$1, г. ${city}$2`);
+                return addr.replace(/^(\d{5})(.+)/, `$1, ${city}$2`);
             }
-            return `г. ${city}, ${addr}`;
+            return `${city}, ${addr}`;
         }
 
         // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
@@ -1506,47 +1506,47 @@
                   ? dynamicAddr.textContent.trim()
                   : (document.documentElement.lang === 'uk' ? 'м. Шостка, Україна' : 'г. Шостка, Украина');
                     } else if (deliveryType === 'np') {
-                        deliveryLabel = 'Новая Почта';
-                        const type = document.querySelector('input[name="np_type"]:checked').value;
-                        if (type === 'branch') addressText = `г. ${city}, ` + document.getElementById('npBranchSearch').value;
-                        else if (type === 'postomat') addressText = `г. ${city}, ` + document.getElementById('npPostomatSearch').value;
-                        else addressText = `г. ${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
-                    } else if (deliveryType === 'up') {
-                        deliveryLabel = 'Укрпочта Базовый';
-                        const type = document.querySelector('input[name="up_type"]:checked').value;
-                        if (type === 'branch') {
-                            addressText = `г. ${city}, ` + (formData.get('up_branch_text') || 'Отделение не указано');
-                        } else {
-                            const street = document.getElementById('upStreetSearch').value;
-                            const house = formData.get('up_house') || '';
-                            const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
-                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
-                        }
-                    } else if (deliveryType === 'upe') {
-                        deliveryLabel = 'Укрпочта Приоритетный';
-                        const type = document.querySelector('input[name="upe_type"]:checked').value;
-                        if (type === 'branch') {
-                            addressText = `г. ${city}, ` + (formData.get('upe_branch_text') || 'Отделение не указано');
-                        } else {
-                            const street = document.getElementById('upeStreetSearch').value;
-                            const house = formData.get('upe_house') || '';
-                            const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
-                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
-                        }
-                    } else if (deliveryType === 'meest') {
-                        deliveryLabel = 'Meest Почта';
-                        const type = document.querySelector('input[name="meest_type"]:checked').value;
-                        if (type === 'branch') {
-                            addressText = `г. ${city}, ` + (formData.get('meest_branch_text') || 'Отделение не указано');
-                        } else if (type === 'postomat') {
-                            addressText = `г. ${city}, ` + (formData.get('meest_post_text') || 'Почтомат не указан');
-                        } else {
-                            const street = document.getElementById('meestStreetSearch').value;
-                            const house = formData.get('meest_house') || '';
-                            const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
-                            addressText = `г. ${city}, ул. ${street}, д. ${house}${flat}`;
-                        }
+                    deliveryLabel = 'Новая Почта';
+                    const type = document.querySelector('input[name="np_type"]:checked').value;
+                    if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
+                    else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
+                    else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
+                } else if (deliveryType === 'up') {
+                    deliveryLabel = 'Укрпочта Базовый';
+                    const type = document.querySelector('input[name="up_type"]:checked').value;
+                    if (type === 'branch') {
+                        addressText = formatFullAddress(city, formData.get('up_branch_text') || 'Отделение не указано');
+                    } else {
+                        const street = document.getElementById('upStreetSearch').value;
+                        const house = formData.get('up_house') || '';
+                        const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
+                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
                     }
+                } else if (deliveryType === 'upe') {
+                    deliveryLabel = 'Укрпочта Приоритетный';
+                    const type = document.querySelector('input[name="upe_type"]:checked').value;
+                    if (type === 'branch') {
+                        addressText = formatFullAddress(city, formData.get('upe_branch_text') || 'Отделение не указано');
+                    } else {
+                        const street = document.getElementById('upeStreetSearch').value;
+                        const house = formData.get('upe_house') || '';
+                        const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
+                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
+                    }
+                } else if (deliveryType === 'meest') {
+                    deliveryLabel = 'Meest Почта';
+                    const type = document.querySelector('input[name="meest_type"]:checked').value;
+                    if (type === 'branch') {
+                        addressText = `${city}, ` + (formData.get('meest_branch_text') || 'Отделение не указано');
+                    } else if (type === 'postomat') {
+                        addressText = `${city}, ` + (formData.get('meest_post_text') || 'Почтомат не указан');
+                    } else {
+                        const street = document.getElementById('meestStreetSearch').value;
+                        const house = formData.get('meest_house') || '';
+                        const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
+                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
+                    }
+                }
 
                     document.getElementById('hiddenAddress').value = addressText;
 
