@@ -815,12 +815,18 @@ def create_order():
     point_ref = ""
 
     if delivery_method == 'np':
-        city = request.form.get('city_np', '')
+        city_name = request.form.get('city_np', '')
+        region_name = request.form.get('region_np', '')  # Ловим область с фронтенда
+        city = f"{region_name} обл., м. {city_name}" if region_name else city_name
+
         city_ref = request.form.get('city_ref_np', '')
         point = next((val for val in request.form.getlist('point_np') if val.strip()), '')
         point_ref = request.form.get('point_ref_np', '')
     elif delivery_method in ['up', 'upe', 'meest']:
-        city = request.form.get(f'city_{delivery_method}', '')
+        city_name = request.form.get(f'city_{delivery_method}', '')
+        region_name = request.form.get(f'region_{delivery_method}', '')  # Ловим область с фронтенда
+        city = f"{region_name} обл., м. {city_name}" if region_name else city_name
+
         city_ref = request.form.get(f'city_ref_{delivery_method}', '')
         point = request.form.get(f'{delivery_method}_branch_text', '')
 
