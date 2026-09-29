@@ -200,7 +200,6 @@
                                 <input type="text" id="npCitySearch" name="city_np" class="co-input-search" placeholder="Начните вводить название..." autocomplete="off">
                                 <input type="hidden" id="npCityRef" name="city_ref_np">
                                 <input type="hidden" id="npSettlementRef" name="settlement_ref_np">
-                                <input type="hidden" id="npRegion" name="region_np">
                                 <div id="npCityDropdown" class="co-dropdown-list" hidden></div>
                             </div>
 
@@ -272,7 +271,6 @@
                                 <input type="text" id="upCitySearch" name="city_up" class="co-input-search" placeholder="Начните вводить название..." autocomplete="off">
                                 <input type="hidden" id="upCityRef">
                                 <input type="hidden" id="upSettlementRef">
-                                <input type="hidden" id="upRegion" name="region_up">
                                 <div id="upCityDropdown" class="co-dropdown-list" hidden></div>
                             </div>
 
@@ -333,7 +331,6 @@
                                 <input type="text" id="upeCitySearch" name="city_upe" class="co-input-search" placeholder="Начните вводить название..." autocomplete="off">
                                 <input type="hidden" id="upeCityRef">
                                 <input type="hidden" id="upeSettlementRef">
-                                <input type="hidden" id="upeRegion" name="region_upe">
                                 <div id="upeCityDropdown" class="co-dropdown-list" hidden></div>
                             </div>
 
@@ -398,7 +395,6 @@
                             <input type="text" id="meestCitySearch" name="city_meest" class="co-input-search" placeholder="Начните вводить название..." autocomplete="off">
                             <input type="hidden" id="meestCityRef">
                             <input type="hidden" id="meestSettlementRef">
-                            <input type="hidden" id="meestRegion" name="region_meest">
                             <div id="meestCityDropdown" class="co-dropdown-list" hidden></div>
                         </div>
 
@@ -857,19 +853,34 @@
         function renderList(container, items) {
             if (items.length > 0) {
                 container.innerHTML = items.map(cit => {
-                    // Пытаемся взять русское название, если нет - обычное
-                    const label = cit.MainDescription || cit.Present;
-                    const region = cit.AreaDescription || cit.Region || '';
+                    // Разбираем данные от API
+                    const type = cit.SettlementTypeCode || ''; // м., с., смт.
+                    const name = cit.MainDescription || '';    // Виноградів
+                    const area = cit.Area ? cit.Area + ' обл.' : ''; // Закарпатська обл.
+                    const region = cit.Region ? cit.Region + ' р-н' : ''; // Виноградівський р-н
+
+                    // Склеиваем область и район для скобок
+                    let extra = [area, region].filter(Boolean).join(', ');
+
+                    // Формируем основное название (например: "м. Виноградів")
+                    let displayLabel = name ? `${type} ${name}`.trim() : (cit.Present || '');
+
+                    // Добавляем скобки, как на Prom.ua
+                    if (extra && name) {
+                        displayLabel += ` (${extra})`;
+                    }
+
+                    // data-name теперь содержит всю готовую строку!
                     return `<div class="co-dropdown-item"
                                 data-delivery-ref="${cit.DeliveryCity || ''}"
                                 data-settlement-ref="${cit.Ref || ''}"
-                                data-name="${label}"
-                                data-region="${region}"> <!-- ДОБАВЛЕН АТРИБУТ -->
-                                ${label} ${region ? `<span>${region}</span>` : ''}
+                                data-name="${displayLabel}">
+                                ${displayLabel}
                             </div>`;
                 }).join('');
             } else {
-                container.innerHTML = '<div style="padding:10px;">Ничего не найдено</div>';
+                const isUA = document.documentElement.lang === 'uk';
+                container.innerHTML = `<div style="padding:10px;">${isUA ? 'Нічого не знайдено' : 'Ничего не найдено'}</div>`;
             }
         }
 
@@ -980,7 +991,6 @@
         setupCitySearch(els.cityInp, els.cityList, (item) => {
             els.cityRef.value = item.dataset.deliveryRef;
             els.settlementRef.value = item.dataset.settlementRef;
-            document.getElementById('npRegion').value = item.dataset.region || ''; // НОВАЯ СТРОКА
             els.branchInp.value = ''; els.postInp.value = ''; els.streetInp.value = '';
         });
         setupWarehouseSearch(els.branchInp, els.branchList, els.branchRef, false);
@@ -1000,7 +1010,6 @@
         setupCitySearch(els.upCityInp, els.upCityList, (item) => {
             els.upCityRef.value = item.dataset.deliveryRef;
             els.upSettlementRef.value = item.dataset.settlementRef;
-            document.getElementById('upRegion').value = item.dataset.region || ''; // НОВАЯ СТРОКА
             els.upStreetInp.value = '';
         });
         setupStreetSearch(els.upStreetInp, els.upStreetList, els.upSettlementRef);
@@ -1017,7 +1026,6 @@
         setupCitySearch(els.upeCityInp, els.upeCityList, (item) => {
             els.upeCityRef.value = item.dataset.deliveryRef;
             els.upeSettlementRef.value = item.dataset.settlementRef;
-            document.getElementById('upeRegion').value = item.dataset.region || ''; // НОВАЯ СТРОКА
             els.upeStreetInp.value = '';
         });
         setupStreetSearch(els.upeStreetInp, els.upeStreetList, els.upeSettlementRef);
@@ -1035,7 +1043,6 @@
         setupCitySearch(els.meestCityInp, els.meestCityList, (item) => {
             els.meestCityRef.value = item.dataset.deliveryRef;
             els.meestSettlementRef.value = item.dataset.settlementRef;
-            document.getElementById('meestRegion').value = item.dataset.region || ''; // НОВАЯ СТРОКА
             els.meestStreetInp.value = '';
         });
         // 2. Улица (база НП)
