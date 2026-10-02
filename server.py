@@ -2399,8 +2399,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     utm_data = session.get('utm_data', {})
 
     # --- 5. Формирование сделки ---
-    # Генерируем дату со смещением часового пояса (например, +03:00)
-    current_time_iso = datetime.now().astimezone().isoformat()
 
     payload = {
         'title': str(order_id),
