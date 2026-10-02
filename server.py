@@ -2399,8 +2399,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     utm_data = session.get('utm_data', {})
 
     # --- 5. Формирование сделки ---
+    # Формируем дату строго в формате ISO 8601 (с буквой T посередине)
+    current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
     payload = {
         'title': str(order_id),
+        'ordered_at': current_time,  # Системная "Дата створення"
         'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
@@ -2412,7 +2416,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         },
         'comment': crm_data.get('comment', ''),
         'custom_fields': [
-            {'name': 'marketplace_created_at', 'value': datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
+            {'name': 'marketplace_created_at', 'value': current_time},
             {'name': 'sluzhba_dostavki_335', 'value': crm_data.get('delivery')},
             {'name': 'oplata_334', 'value': crm_data.get('payment')},
             {'name': 'misto_dostavki_338', 'value': crm_data.get('city')},
