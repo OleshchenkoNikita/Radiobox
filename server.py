@@ -2399,11 +2399,12 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     utm_data = session.get('utm_data', {})
 
     # --- 5. Формирование сделки ---
-    current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    # Генерируем дату со смещением часового пояса (например, +03:00)
+    current_time_iso = datetime.now().astimezone().isoformat()
 
     payload = {
         'title': str(order_id),
-        'marketplace_created_at': current_time,
+        'marketplace_created_at': current_time_iso, # Передаем строго в корне
         'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
