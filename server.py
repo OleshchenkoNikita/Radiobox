@@ -2401,7 +2401,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
     # --- 5. Формирование сделки ---
     payload = {
         'title': str(order_id),
-        'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'ordered_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
