@@ -2404,7 +2404,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
 
     payload = {
         'title': str(order_id),
-        'marketplace_created_at': current_time_iso, # Передаем строго в корне
         'source_id': 7,
         'status_id': 5,
         'main_responsible_id': 1,
