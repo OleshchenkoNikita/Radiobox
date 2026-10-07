@@ -2418,7 +2418,8 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             {'name': 'misto_dostavki_338', 'value': crm_data.get('city')},
             {'name': 'viddiliennia_339', 'value': crm_data.get('point')},
             {'name': 'utm_source_353', 'value': utm_data.get('utm_source', '')},
-            {'name': 'gclid_354', 'value': utm_data.get('gclid', '')}
+            {'name': 'gclid_354', 'value': utm_data.get('gclid', '')},
+            {'name': 'status_oplati_356', 'value': 'Не сплачено'}
         ],
         'jobs_attributes': products_list
     }
@@ -3201,7 +3202,14 @@ def liqpay_callback():
                                 'X-Auth-Token': api_token.strip(),
                                 'Content-Type': 'application/json'
                             }
-                            payload = {'stage_id': 8}  # Этап "Оплачено"
+
+                            payload = {
+                                'stage_id': 5,  # Меняем этап на "Договір"
+                                'custom_fields': [
+                                    {'name': 'status_oplati_356', 'value': 'Сплачено'}
+                                ]
+                            } # Этап "Оплачено"
+
                             try:
                                 requests.patch(url, json=payload, headers=headers, timeout=10)
                                 print(f"[+] Статус сделки {crm_id} в KeepinCRM успешно обновлен на этап Оплачено")
