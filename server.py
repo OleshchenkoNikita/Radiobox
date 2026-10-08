@@ -783,7 +783,7 @@ def update_db_structure():
 
 
 @app.route('/create_order', methods=['POST'])
-@limiter.limit("2 per hour") # Максимум 2 заказа в час с одного IP
+@limiter.limit("6 per hour") # Максимум 2 заказа в час с одного IP
 def create_order():
     # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
