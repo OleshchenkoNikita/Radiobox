@@ -1426,7 +1426,7 @@
                 const isUA = true;
 
                 try {
-                    const formData = new FormData(form);
+                    let formData = new FormData(form);
                     const deliveryType = formData.get('delivery');
                     const paymentType = formData.get('payment');
 
@@ -1581,6 +1581,12 @@
                     }
                     cartInput.value = finalJson;
                     form.appendChild(cartInput);
+
+                    // Обновляем FormData после добавления корзины и адреса
+                    formData = new FormData(form);
+                    formData.set('full_address', addressText);
+                    formData.set('cart_json', finalJson);
+                    formData.set('payment_status', 'waiting');
 
                     // --- 4. СТАТУС ОПЛАТИ ---
                     const payStatusInput = document.getElementById('hiddenPayStatus');
