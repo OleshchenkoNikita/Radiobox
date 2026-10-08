@@ -1420,13 +1420,18 @@
             return `${city}, ${addr}`;
         }
 
-        // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
+       // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
+        let lastFormDataString = "";
+        let lastOrderId = null;
+        let lastRedirectUrl = null;
+
         if (form) {
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault(); // Стоп, сначала готовим данные
 
                 const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
                 const originalBtnText = btn ? btn.textContent : 'Оформить';
+                const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
 
                 try {
                     const formData = new FormData(form);
@@ -1434,123 +1439,120 @@
                     const paymentType = formData.get('payment');
 
                     // --- 1. ВАЛИДАЦИЯ (Проверки) ---
-                    if(!document.getElementById('coPhone').value) return showError('Введите телефон', 'coPhone');
-                    if(!document.getElementById('coSurname').value) return showError('Введите фамилию', 'coSurname');
-                    if(!document.getElementById('coName').value) return showError('Введите имя', 'coName');
+                    if(!document.getElementById('coPhone').value) return showError(isUA ? 'Введіть телефон' : 'Введите телефон', 'coPhone');
+                    if(!document.getElementById('coSurname').value) return showError(isUA ? 'Введіть прізвище' : 'Введите фамилию', 'coSurname');
+                    if(!document.getElementById('coName').value) return showError(isUA ? 'Введіть ім`я' : 'Введите имя', 'coName');
 
                     if (!deliveryType) {
-                        alert('Выберите способ доставки!');
+                        alert(isUA ? 'Оберіть спосіб доставки!' : 'Выберите способ доставки!');
                         const sect = document.getElementById('optNP')?.closest('.co-section');
                         if(sect) sect.scrollIntoView({ behavior: 'smooth' });
                         return;
                     }
 
-                    // Валидация адресов доставки
                     if (deliveryType === 'np') {
-                        if (!document.getElementById('npCitySearch').value.trim()) return showError('Укажите город', 'npCitySearch');
+                        if (!document.getElementById('npCitySearch').value.trim()) return showError(isUA ? 'Вкажіть місто' : 'Укажите город', 'npCitySearch');
                         const subType = document.querySelector('input[name="np_type"]:checked').value;
-                        if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Выберите отделение', 'npBranchSearch');
-                        if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Выберите почтомат', 'npPostomatSearch');
-                        if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Укажите улицу и дом', 'npStreetSearch');
+                        if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError(isUA ? 'Оберіть відділення' : 'Выберите отделение', 'npBranchSearch');
+                        if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError(isUA ? 'Оберіть поштомат' : 'Выберите почтомат', 'npPostomatSearch');
+                        if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError(isUA ? 'Вкажіть вулицю та будинок' : 'Укажите улицу и дом', 'npStreetSearch');
                     }
                     else if (deliveryType === 'up') {
-                        if (!document.getElementById('upCitySearch').value.trim()) return showError('Укажите город', 'upCitySearch');
+                        if (!document.getElementById('upCitySearch').value.trim()) return showError(isUA ? 'Вкажіть місто' : 'Укажите город', 'upCitySearch');
                         const subType = document.querySelector('input[name="up_type"]:checked').value;
                         if (subType === 'branch') {
                             const val = formData.get('up_branch_text');
-                            if (!val) return showError('Заполните индекс и адрес', 'up_branch_text');
+                            if (!val) return showError(isUA ? 'Заповніть індекс і адресу' : 'Заполните индекс и адрес', 'up_branch_text');
                             if (!validateUpAddr(val, 'up_branch_text')) return;
                         }
-                        else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Укажите улицу и дом', 'upStreetSearch');
+                        else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError(isUA ? 'Вкажіть вулицю та будинок' : 'Укажите улицу и дом', 'upStreetSearch');
                     }
                     else if (deliveryType === 'upe') {
-                        if (!document.getElementById('upeCitySearch').value.trim()) return showError('Укажите город', 'upeCitySearch');
+                        if (!document.getElementById('upeCitySearch').value.trim()) return showError(isUA ? 'Вкажіть місто' : 'Укажите город', 'upeCitySearch');
                         const subType = document.querySelector('input[name="upe_type"]:checked').value;
                         if (subType === 'branch') {
                             const val = formData.get('upe_branch_text');
-                            if (!val) return showError('Заполните индекс и адрес', 'upe_branch_text');
+                            if (!val) return showError(isUA ? 'Заповніть індекс і адресу' : 'Заполните индекс и адрес', 'upe_branch_text');
                             if (!validateUpAddr(val, 'upe_branch_text')) return;
                         }
-                        else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').trim())) return showError('Укажите улицу и дом', 'upeStreetSearch');
+                        else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError(isUA ? 'Вкажіть вулицю та будинок' : 'Укажите улицу и дом', 'upeStreetSearch');
                     }
                     else if (deliveryType === 'meest') {
-                        if (!document.getElementById('meestCitySearch').value.trim()) return showError('Укажите город', 'meestCitySearch');
+                        if (!document.getElementById('meestCitySearch').value.trim()) return showError(isUA ? 'Вкажіть місто' : 'Укажите город', 'meestCitySearch');
                         const subType = document.querySelector('input[name="meest_type"]:checked').value;
-                        if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Укажите отделение', 'meest_branch_text');
-                        if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Укажите почтомат', 'meest_post_text');
-                        if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Укажите улицу и дом', 'meestStreetSearch');
+                        if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError(isUA ? 'Вкажіть відділення' : 'Укажите отделение', 'meest_branch_text');
+                        if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError(isUA ? 'Вкажіть поштомат' : 'Укажите почтомат', 'meest_post_text');
+                        if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError(isUA ? 'Вкажіть вулицю та будинок' : 'Укажите улицу и дом', 'meestStreetSearch');
                     }
 
-                    // Усиленная проверка оплаты
                     if (!paymentType || paymentType === '') {
-                        alert('Выберите способ оплаты!');
+                        alert(isUA ? 'Оберіть спосіб оплати!' : 'Выберите способ оплаты!');
                         const paySection = document.getElementById('payCod')?.closest('.co-section');
                         if (paySection) {
                             paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }
-                        return; // Остановка выполнения
+                        return;
                     }
 
-                    // --- 2. СБОР АДРЕСА И НАЗВАНИЯ ДОСТАВКИ ---
+                    // --- 2. СБОР АДРЕСА ---
                     let addressText = '';
-                    let deliveryLabel = ''; // Исправляем баг с "Самовывозом"
+                    let deliveryLabel = '';
 
                     const cityInput = document.getElementById(deliveryType + 'CitySearch');
                     const city = cityInput ? cityInput.value : '';
 
                     if (deliveryType === 'self') {
-                        deliveryLabel = 'Самовывоз';
-                        // Берем адрес из динамического блока
+                        deliveryLabel = isUA ? 'Самовивіз' : 'Самовывоз';
                         const dynamicAddr = document.getElementById('checkout-pickup-address');
                         addressText = (dynamicAddr && dynamicAddr.textContent.trim().length > 5)
-                  ? dynamicAddr.textContent.trim()
-                  : (document.documentElement.lang === 'uk' ? 'м. Шостка, Україна' : 'г. Шостка, Украина');
+                            ? dynamicAddr.textContent.trim()
+                            : (isUA ? 'м. Шостка, Україна' : 'г. Шостка, Украина');
                     } else if (deliveryType === 'np') {
-                    deliveryLabel = 'Новая Почта';
-                    const type = document.querySelector('input[name="np_type"]:checked').value;
-                    if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
-                    else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
-                    else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
-                } else if (deliveryType === 'up') {
-                    deliveryLabel = 'Укрпочта Базовый';
-                    const type = document.querySelector('input[name="up_type"]:checked').value;
-                    if (type === 'branch') {
-                        addressText = formatFullAddress(city, formData.get('up_branch_text') || 'Отделение не указано');
-                    } else {
-                        const street = document.getElementById('upStreetSearch').value;
-                        const house = formData.get('up_house') || '';
-                        const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
-                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
+                        deliveryLabel = isUA ? 'Нова Пошта' : 'Новая Почта';
+                        const type = document.querySelector('input[name="np_type"]:checked').value;
+                        if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
+                        else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
+                        else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ' ' + formData.get('np_house');
+                    } else if (deliveryType === 'up') {
+                        deliveryLabel = isUA ? 'Укрпошта Стандарт' : 'Укрпочта Базовый';
+                        const type = document.querySelector('input[name="up_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = formatFullAddress(city, formData.get('up_branch_text') || (isUA ? 'Відділення не вказано' : 'Отделение не указано'));
+                        } else {
+                            const street = document.getElementById('upStreetSearch').value;
+                            const house = formData.get('up_house') || '';
+                            const flat = formData.get('up_flat') ? `, ${isUA ? 'кв.' : 'кв.'} ${formData.get('up_flat')}` : '';
+                            addressText = `${city}, ${isUA ? 'вул.' : 'ул.'} ${street}, ${isUA ? 'б.' : 'д.'} ${house}${flat}`;
+                        }
+                    } else if (deliveryType === 'upe') {
+                        deliveryLabel = isUA ? 'Укрпошта Експрес' : 'Укрпочта Приоритетный';
+                        const type = document.querySelector('input[name="upe_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = formatFullAddress(city, formData.get('upe_branch_text') || (isUA ? 'Відділення не вказано' : 'Отделение не указано'));
+                        } else {
+                            const street = document.getElementById('upeStreetSearch').value;
+                            const house = formData.get('upe_house') || '';
+                            const flat = formData.get('upe_flat') ? `, ${isUA ? 'кв.' : 'кв.'} ${formData.get('upe_flat')}` : '';
+                            addressText = `${city}, ${isUA ? 'вул.' : 'ул.'} ${street}, ${isUA ? 'б.' : 'д.'} ${house}${flat}`;
+                        }
+                    } else if (deliveryType === 'meest') {
+                        deliveryLabel = isUA ? 'Meest ПОШТА' : 'Meest Почта';
+                        const type = document.querySelector('input[name="meest_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = `${city}, ` + (formData.get('meest_branch_text') || (isUA ? 'Відділення не вказано' : 'Отделение не указано'));
+                        } else if (type === 'postomat') {
+                            addressText = `${city}, ` + (formData.get('meest_post_text') || (isUA ? 'Поштомат не вказаний' : 'Почтомат не указан'));
+                        } else {
+                            const street = document.getElementById('meestStreetSearch').value;
+                            const house = formData.get('meest_house') || '';
+                            const flat = formData.get('meest_flat') ? `, ${isUA ? 'кв.' : 'кв.'} ${formData.get('meest_flat')}` : '';
+                            addressText = `${city}, ${isUA ? 'вул.' : 'ул.'} ${street}, ${isUA ? 'б.' : 'д.'} ${house}${flat}`;
+                        }
                     }
-                } else if (deliveryType === 'upe') {
-                    deliveryLabel = 'Укрпочта Приоритетный';
-                    const type = document.querySelector('input[name="upe_type"]:checked').value;
-                    if (type === 'branch') {
-                        addressText = formatFullAddress(city, formData.get('upe_branch_text') || 'Отделение не указано');
-                    } else {
-                        const street = document.getElementById('upeStreetSearch').value;
-                        const house = formData.get('upe_house') || '';
-                        const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
-                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
-                    }
-                } else if (deliveryType === 'meest') {
-                    deliveryLabel = 'Meest Почта';
-                    const type = document.querySelector('input[name="meest_type"]:checked').value;
-                    if (type === 'branch') {
-                        addressText = `${city}, ` + (formData.get('meest_branch_text') || 'Отделение не указано');
-                    } else if (type === 'postomat') {
-                        addressText = `${city}, ` + (formData.get('meest_post_text') || 'Почтомат не указан');
-                    } else {
-                        const street = document.getElementById('meestStreetSearch').value;
-                        const house = formData.get('meest_house') || '';
-                        const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
-                        addressText = `${city}, ул. ${street}, д. ${house}${flat}`;
-                    }
-                }
 
                     document.getElementById('hiddenAddress').value = addressText;
 
-                    // --- 3. СБОР КОРЗИНЫ (JSON) ---
+                    // --- 3. СБОР КОРЗИНЫ ---
                     const oldInput = form.querySelector('input[name="cart_json"]');
                     if (oldInput) oldInput.remove();
 
@@ -1560,10 +1562,7 @@
 
                     let finalJson = '[]';
                     try {
-                        // 1. Берем сырые данные из LocalStorage (там уже должны быть SKU и Image после правок в script.js)
                         const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
-
-                        // 2. Пытаемся найти каталог для обогащения данных (на случай, если чего-то не хватает)
                         let catalog = [];
                         try {
                             const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
@@ -1573,14 +1572,11 @@
 
                         const enriched = rawCart.map(item => {
                             const product = catalog.find(p => p.id == item.id) || {};
-
                             return {
                                 id: item.id,
                                 qty: item.qty,
-                                // Приоритет данным из корзины, если нет - из каталога
                                 title: item.title || product.title_ru || product.title || `Товар ID ${item.id}`,
                                 price: item.price || product.price || 0,
-                                // ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ:
                                 sku: item.sku || product.sku || "",
                                 image: item.image || (product.images ? product.images[0] : ""),
                                 category: item.category || product.category || 'general'
@@ -1596,63 +1592,138 @@
 
                     // --- 4. СТАТУС ОПЛАТЫ ---
                     const payStatusInput = document.getElementById('hiddenPayStatus');
-                    if (paymentType === 'card_online' && typeof isOrderPaid !== 'undefined' && isOrderPaid) {
-                        payStatusInput.value = 'paid';
+                    payStatusInput.value = 'waiting';
+
+                    // --- 5. ВЫЗОВ LIQPAY И ОТПРАВКА ДАННЫХ ---
+                    const currentDataString = new URLSearchParams(formData).toString();
+
+                    // Если данные не менялись и заказ уже был успешно создан, просто показываем LiqPay снова
+                    if (paymentType === 'card_online' && lastOrderId && currentDataString === lastFormDataString) {
+                        showLiqPayWidget(lastOrderId, lastRedirectUrl, btn, originalBtnText, isUA);
+                        return;
+                    }
+
+                    if(btn) { btn.textContent = isUA ? 'Оформлюємо...' : 'Оформляем...'; btn.disabled = true; }
+
+                    // Отправляем данные на сервер через AJAX (создаем заказ)
+                    const response = await fetch('/create_order', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(text);
+                    }
+
+                    const res = await response.json();
+
+                    if (res.success) {
+                        // Сохраняем стейт, если пользователь закроет окно и нажмет кнопку еще раз
+                        lastOrderId = res.order_id;
+                        lastRedirectUrl = res.redirect_url;
+                        lastFormDataString = currentDataString;
+
+                        let paymentLabel = 'Способ не выбран';
+                        if (paymentType === 'cod') paymentLabel = isUA ? 'Післяплата' : 'Наложенный платеж';
+                        else if (paymentType === 'card_online') paymentLabel = isUA ? 'Карткою Online' : 'Картой Online';
+                        else if (paymentType === 'seller_privat') paymentLabel = isUA ? 'На картку ФОП' : 'На карту ФОП';
+                        else if (paymentType === 'seller_cashless') paymentLabel = isUA ? 'Безготівковий розрахунок' : 'Безналичный расчет';
+
+                        // Сохраняем данные для страницы order-success.html
+                        localStorage.setItem('rb_last_order_details', JSON.stringify({
+                            id: res.order_id,
+                            contact: {
+                                name: document.getElementById('coName').value,
+                                surname: document.getElementById('coSurname').value,
+                                phone: document.getElementById('coPhone').value
+                            },
+                            delivery: {
+                                method: deliveryLabel,
+                                address: addressText
+                            },
+                            payment: {
+                                type: paymentType,
+                                label: paymentLabel,
+                                status: payStatusInput.value
+                            },
+                            total: document.getElementById('coFinalSum').textContent,
+                            comment: document.getElementById('orderComment').value
+                        }));
+
+                        // Если оплата картой - вызываем виджет, иначе сразу редирект
+                        if (paymentType === 'card_online') {
+                            showLiqPayWidget(lastOrderId, lastRedirectUrl, btn, originalBtnText, isUA);
+                        } else {
+                            window.location.href = lastRedirectUrl;
+                        }
                     } else {
-                        payStatusInput.value = 'waiting';
+                        alert((isUA ? "Помилка: " : "Ошибка: ") + res.error);
+                        if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
                     }
-
-                    // --- 5. СОХРАНЕНИЕ ДЛЯ ORDER-SUCCESS ---
-                    // Генерируем ID для красоты (сервер может перезаписать)
-                    const orderId = generateUniqueOrderId();
-
-                    // Красивое название оплаты
-                    let paymentLabel = 'Способ не выбран';
-
-                    if (paymentType === 'cod') {
-                        paymentLabel = 'Наложенный платеж';
-                    } else if (paymentType === 'card_online') {
-                        paymentLabel = 'Картой Online';
-                    } else if (paymentType === 'seller_privat') {
-                        paymentLabel = 'На карту ФОП';
-                    } else if (paymentType === 'seller_cashless') {
-                        paymentLabel = 'Безналичный расчет';
-                    }
-
-                    localStorage.setItem('rb_last_order_details', JSON.stringify({
-                        id: orderId,
-                        contact: {
-                            name: document.getElementById('coName').value,
-                            surname: document.getElementById('coSurname').value,
-                            phone: document.getElementById('coPhone').value
-                        },
-                        delivery: {
-                            method: deliveryLabel, // <--- ТЕПЕРЬ ТУТ БУДЕТ ПРАВИЛЬНО (не всегда Самовывоз)
-                            address: addressText
-                        },
-                        payment: {
-                            type: paymentType,
-                            label: paymentLabel,
-                            status: payStatusInput.value
-                        },
-                        total: document.getElementById('coFinalSum').textContent,
-                        comment: document.getElementById('orderComment').value
-                    }));
-
-                    // Отправка
-                    if(btn) { btn.textContent = 'Оформляем...'; btn.disabled = true; }
-
-                    console.log("Отправляем форму...");
-                    form.action = "/create_order";
-                    form.method = "POST";
-                    form.submit();
 
                 } catch (err) {
-                    alert("Ошибка: " + err.message);
+                    alert((isUA ? "Помилка: " : "Ошибка: ") + err.message);
                     console.error(err);
                     if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
                 }
             });
+        }
+
+        async function showLiqPayWidget(orderId, redirectUrl, btn, originalBtnText, isUA) {
+            if(btn) { btn.textContent = isUA ? 'Очікування оплати...' : 'Ожидание оплаты...'; btn.disabled = true; }
+
+            try {
+                const res = await fetch('/api/liqpay/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    LiqPayCheckout.init({
+                        data: data.data,
+                        signature: data.signature,
+                        embedTo: "#liqpay_checkout",
+                        language: isUA ? "uk" : "ru",
+                        mode: "popup"
+                    }).on("liqpay.callback", function(callbackData){
+                        if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
+                            // Обновляем статус в localStorage чтобы кнопка на success-странице была скрыта
+                            try {
+                                let savedOrder = JSON.parse(localStorage.getItem('rb_last_order_details') || '{}');
+                                if (savedOrder && savedOrder.payment) {
+                                    savedOrder.payment.status = 'paid';
+                                    localStorage.setItem('rb_last_order_details', JSON.stringify(savedOrder));
+                                }
+                            } catch(e) {}
+
+                            // Подтверждаем серверу статус оплаты и переходим на страницу успеха
+                            fetch('/api/pay_order', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            }).then(() => {
+                                window.location.href = redirectUrl;
+                            });
+                        } else if (['error', 'failure'].includes(callbackData.status)) {
+                            alert(isUA ? "Помилка при оплаті. Спробуйте ще раз." : "Ошибка при оплате. Попробуйте еще раз.");
+                        }
+                    }).on("liqpay.close", function(){
+                        // Восстанавливаем кнопку. Перехода не происходит.
+                        if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+                    });
+                } else {
+                    alert((isUA ? "Помилка сервера: " : "Ошибка сервера: ") + data.error);
+                    if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+                }
+            } catch (err) {
+                console.error("Ошибка при инициализации LiqPay:", err);
+                alert(isUA ? "Помилка мережі" : "Ошибка сети");
+                if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+            }
         }
     });
     </script>

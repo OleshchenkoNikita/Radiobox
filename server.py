@@ -783,7 +783,7 @@ def update_db_structure():
 
 
 @app.route('/create_order', methods=['POST'])
-@limiter.limit("2 per hour") # Максимум 2 заказа в час с одного IP
+@limiter.limit("4 per hour") # Максимум 4 заказа в час с одного IP
 def create_order():
     # 1. Получаем данные из формы (Вернул как в GitHub)
     phone = request.form.get('phone')
@@ -940,7 +940,6 @@ def create_order():
         "value": float(total_sum),
         "currency": "UAH",
         "shipping": 0,
-        # Конвертируем массив сразу в JSON-строку на стороне Python:
         "items_json": json.dumps(ga4_items, ensure_ascii=False)
     }
     print("GA4 DATA READY:", session['purchase_data'])
@@ -948,6 +947,16 @@ def create_order():
 
     referer = request.referrer or ""
     lang = '/ua/' if '/ua/' in referer else '/ru/'
+
+    # ЕСЛИ ЗАПРОС ПРИШЕЛ ЧЕРЕЗ AJAX (JS fetch), ОТДАЕМ JSON
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({
+            "success": True,
+            "order_id": order_id,
+            "redirect_url": f'{lang}order-success.html?order_id={order_id}'
+        })
+
+    # СТАНДАРТНЫЙ ПЕРЕХОД (Резерв)
     return redirect(f'{lang}order-success.html?order_id={order_id}')
 
 # === API: ОПЛАТА ЗАКАЗА (ОБНОВЛЕНИЕ СТАТУСА) ===

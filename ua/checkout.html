@@ -1411,235 +1411,313 @@
             return `${city}, ${addr}`; // Прибрали "м. "
         }
 
-        // --- ОТПРАВКА ФОРМЫ (С ВАЛИДАЦИЕЙ И СБОРОМ ДАННЫХ) ---
+        // --- ВІДПРАВКА ФОРМИ (З ВАЛІДАЦІЄЮ ТА ЗБОРОМ ДАНИХ) ---
+        let lastFormDataString = "";
+        let lastOrderId = null;
+        let lastRedirectUrl = null;
+
         if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Стоп, спочатку готуємо дані
 
-                const formData = new FormData(form);
-                const deliveryType = formData.get('delivery');
-                const paymentType = formData.get('payment');
-
-                // --- ПРОВЕРКИ (ВАЛИДАЦИЯ) ---
-                if(!document.getElementById('coPhone').value) return showError('Введіть номер телефону', 'coPhone');
-                if(!document.getElementById('coSurname').value) return showError('Введіть прізвище', 'coSurname');
-                if(!document.getElementById('coName').value) return showError('Введіть ім\'я', 'coName');
-
-                if (!deliveryType) {
-                    alert('Будь ласка, оберіть спосіб доставки!');
-                    const deliverySection = document.querySelector('#optNP').closest('.co-section');
-                    if (deliverySection) {
-                        deliverySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                    return; // Остановить отправку
-                }
-
-                // Усиленная проверка оплаты
-                if (!paymentType || paymentType === '') {
-                    alert('Оберіть спосіб оплати!');
-                    const paySection = document.getElementById('payCod')?.closest('.co-section');
-                    if (paySection) {
-                        paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                    return; // Остановка выполнения
-                }
-
-                // Валидация адресов доставки
-                if (deliveryType === 'np') {
-                    if (!document.getElementById('npCitySearch').value.trim()) return showError('Вкажіть місто', 'npCitySearch');
-                    const subType = document.querySelector('input[name="np_type"]:checked').value;
-                    if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Оберіть відділення', 'npBranchSearch');
-                    if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Оберіть поштомат', 'npPostomatSearch');
-                    if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Вкажіть вулицю та будинок', 'npStreetSearch');
-                }
-                else if (deliveryType === 'up') {
-                    if (!document.getElementById('upCitySearch').value.trim()) return showError('Вкажіть місто', 'upCitySearch');
-                    const subType = document.querySelector('input[name="up_type"]:checked').value;
-                    if (subType === 'branch') {
-                        const val = formData.get('up_branch_text');
-                        if (!val) return showError('Заповніть індекс та адресу', 'up_branch_text');
-                        if (!validateUpAddr(val, 'up_branch_text')) return;
-                    }
-                    else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Вкажіть вулицю та будинок', 'upStreetSearch');
-                }
-                else if (deliveryType === 'upe') {
-                    if (!document.getElementById('upeCitySearch').value.trim()) return showError('Вкажіть місто', 'upeCitySearch');
-                    const subType = document.querySelector('input[name="upe_type"]:checked').value;
-                    if (subType === 'branch') {
-                        const val = formData.get('upe_branch_text');
-                        if (!val) return showError('Заповніть індекс та адресу', 'upe_branch_text');
-                        if (!validateUpAddr(val, 'upe_branch_text')) return;
-                    }
-                    else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').trim())) return showError('Вкажіть вулицю та будинок', 'upeStreetSearch');
-                }
-                else if (deliveryType === 'meest') {
-                    if (!document.getElementById('meestCitySearch').value.trim()) return showError('Вкажіть місто', 'meestCitySearch');
-                    const subType = document.querySelector('input[name="meest_type"]:checked').value;
-                    if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Вкажіть відділення', 'meest_branch_text');
-                    if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Вкажіть поштомат', 'meest_post_text');
-                    if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Вкажіть вулицю та будинок', 'meestStreetSearch');
-                }
-
-                // Проверка оплаты
-                const paySection = document.getElementById('payCod')?.closest('.co-section');
-                if (deliveryType !== 'self' && (!paymentType || paymentType === '')) {
-                    alert('Будь ласка, оберіть спосіб оплати!');
-                    if(paySection) paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    return;
-                }
-
-                // --- СБОР ДАННЫХ ---
-                let deliveryLabel = '';
-                let addressText = '';
-
-                if (deliveryType === 'np') {
-                    deliveryLabel = 'Нова Пошта';
-                    const city = document.getElementById('npCitySearch').value;
-                    const type = document.querySelector('input[name="np_type"]:checked').value;
-                    if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
-                    else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
-                    else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ', буд. ' + formData.get('np_house');
-                }
-                else if (deliveryType === 'up') {
-                    deliveryLabel = 'Укрпошта Базовий';
-                    const city = document.getElementById('upCitySearch').value;
-                    const type = document.querySelector('input[name="up_type"]:checked').value;
-                    if (type === 'branch') {
-                        addressText = formatFullAddress(city, formData.get('up_branch_text'));
-                    } else {
-                        const street = document.getElementById('upStreetSearch').value;
-                        const house = formData.get('up_house') || '';
-                        const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
-                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
-                    }
-                }
-                else if (deliveryType === 'upe') {
-                    deliveryLabel = 'Укрпошта Пріоритетний';
-                    const city = document.getElementById('upeCitySearch').value;
-                    const type = document.querySelector('input[name="upe_type"]:checked').value;
-                    if (type === 'branch') {
-                        addressText = formatFullAddress(city, formData.get('upe_branch_text'));
-                    } else {
-                        const street = document.getElementById('upeStreetSearch').value;
-                        const house = formData.get('upe_house') || '';
-                        const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
-                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
-                    }
-                }
-                else if (deliveryType === 'meest') {
-                    deliveryLabel = 'Meest ПОШТА';
-                    const city = document.getElementById('meestCitySearch').value;
-                    const type = document.querySelector('input[name="meest_type"]:checked').value;
-                    if(type === 'branch') {
-                        addressText = `${city}, ` + (formData.get('meest_branch_text') || 'Відділення не вказано');
-                    } else if(type === 'postomat') {
-                        addressText = `${city}, ` + (formData.get('meest_post_text') || 'Поштомат не вказано');
-                    } else {
-                        const street = document.getElementById('meestStreetSearch').value;
-                        const house = formData.get('meest_house') || '';
-                        const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
-                        addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
-                    }
-                }
-                else if (deliveryType === 'self') {
-                    deliveryLabel = 'Самовивіз';
-                    // Берем адрес из того самого блока, который обновил script.js
-                    const dynamicAddr = document.getElementById('checkout-pickup-address');
-                    addressText = (dynamicAddr && dynamicAddr.textContent.trim().length > 5)
-                  ? dynamicAddr.textContent.trim()
-                  : (document.documentElement.lang === 'uk' ? 'м. Шостка, Україна' : 'г. Шостка, Украина');
-                }
-
-                // Метки оплаты
-                let paymentLabel = 'Спосіб не обраний';
-                if (paymentType === 'cod') {
-                    paymentLabel = 'Післяплата';
-                } else if (paymentType === 'card_online') {
-                    paymentLabel = 'Оплата карткою Visa/Mastercard';
-                } else if (paymentType === 'seller_privat') {
-                    paymentLabel = 'Оплата на рахунок ФОП';
-                } else if (paymentType === 'seller_cashless') {
-                    paymentLabel = 'Безготівковий розрахунок';
-                }
-
-                // !!! ЗДЕСЬ ГЕНЕРИРУЕМ УНИКАЛЬНЫЙ ID !!!
-                const orderId = generateUniqueOrderId();
-
-                let finalPayStatus = 'waiting';
-
-                const orderData = {
-                    id: orderId,
-                    contact: {
-                        name: document.getElementById('coName').value,
-                        surname: document.getElementById('coSurname').value,
-                        phone: document.getElementById('coPhone').value
-                    },
-                    delivery: {
-                        method: deliveryLabel,
-                        address: addressText || 'Адреса уточнюється'
-                    },
-                    payment: {
-                        type: paymentType,
-                        label: paymentLabel,
-                        status: finalPayStatus // <--- Статус оплаты
-                    },
-                    comment: document.getElementById('orderComment').value.trim(),
-                    total: document.getElementById('coFinalSum').textContent
-                };
-
-                localStorage.setItem('rb_last_order_details', JSON.stringify(orderData));
-
-                // 1. Заповнюємо приховані поля даними
-                document.getElementById('hiddenAddress').value = addressText;
-
-                // --- ЗБІР РОЗШИРЕНОГО КОШИКА (SKU + IMAGE) ---
-                let finalJson = '[]';
-                try {
-                    const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
-                    let catalog = [];
-                    try {
-                        const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
-                        const c2 = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{}').items || [];
-                        catalog = [...c1, ...c2];
-                    } catch(e){}
-
-                    const enriched = rawCart.map(item => {
-                        const product = catalog.find(p => p.id == item.id) || {};
-                        return {
-                            id: item.id,
-                            qty: item.qty,
-                            // Виправляємо проблему з назвою "Товар"
-                            title: item.title || product.title_ua || product.title_ru || product.title || `Товар ID ${item.id}`,
-                            price: item.price || product.price || 0,
-                            sku: item.sku || product.sku || "",
-                            image: item.image || (product.images ? product.images[0] : ""),
-                            category: item.category || product.category || 'general'
-                        };
-                    });
-                    finalJson = JSON.stringify(enriched);
-                } catch (e) {
-                    console.error("Помилка збірки JSON", e);
-                }
-                document.getElementById('hiddenCart').value = finalJson;
-
-                // 2. Визуально блокируем кнопку
                 const btn = document.querySelector('.btn-submit-main') || document.querySelector('.co-submit-btn');
-                if(btn) {
-                    btn.textContent = 'Оформлюємо...';
-                    btn.disabled = true;
+                const originalBtnText = btn ? btn.textContent : 'Оформити замовлення';
+                const isUA = true;
+
+                try {
+                    const formData = new FormData(form);
+                    const deliveryType = formData.get('delivery');
+                    const paymentType = formData.get('payment');
+
+                    // --- 1. ВАЛІДАЦІЯ (Перевірки) ---
+                    if(!document.getElementById('coPhone').value) return showError('Введіть номер телефону', 'coPhone');
+                    if(!document.getElementById('coSurname').value) return showError('Введіть прізвище', 'coSurname');
+                    if(!document.getElementById('coName').value) return showError('Введіть ім\'я', 'coName');
+
+                    if (!deliveryType) {
+                        alert('Будь ласка, оберіть спосіб доставки!');
+                        const sect = document.getElementById('optNP')?.closest('.co-section');
+                        if(sect) sect.scrollIntoView({ behavior: 'smooth' });
+                        return;
+                    }
+
+                    if (deliveryType === 'np') {
+                        if (!document.getElementById('npCitySearch').value.trim()) return showError('Вкажіть місто', 'npCitySearch');
+                        const subType = document.querySelector('input[name="np_type"]:checked').value;
+                        if (subType === 'branch' && !document.getElementById('npBranchSearch').value.trim()) return showError('Оберіть відділення', 'npBranchSearch');
+                        if (subType === 'postomat' && !document.getElementById('npPostomatSearch').value.trim()) return showError('Оберіть поштомат', 'npPostomatSearch');
+                        if (subType === 'courier' && (!document.getElementById('npStreetSearch').value.trim() || !formData.get('np_house').trim())) return showError('Вкажіть вулицю та будинок', 'npStreetSearch');
+                    }
+                    else if (deliveryType === 'up') {
+                        if (!document.getElementById('upCitySearch').value.trim()) return showError('Вкажіть місто', 'upCitySearch');
+                        const subType = document.querySelector('input[name="up_type"]:checked').value;
+                        if (subType === 'branch') {
+                            const val = formData.get('up_branch_text');
+                            if (!val) return showError('Заповніть індекс та адресу', 'up_branch_text');
+                            if (!validateUpAddr(val, 'up_branch_text')) return;
+                        }
+                        else if (subType === 'courier' && (!document.getElementById('upStreetSearch').value.trim() || !formData.get('up_house').trim())) return showError('Вкажіть вулицю та будинок', 'upStreetSearch');
+                    }
+                    else if (deliveryType === 'upe') {
+                        if (!document.getElementById('upeCitySearch').value.trim()) return showError('Вкажіть місто', 'upeCitySearch');
+                        const subType = document.querySelector('input[name="upe_type"]:checked').value;
+                        if (subType === 'branch') {
+                            const val = formData.get('upe_branch_text');
+                            if (!val) return showError('Заповніть індекс та адресу', 'upe_branch_text');
+                            if (!validateUpAddr(val, 'upe_branch_text')) return;
+                        }
+                        else if (subType === 'courier' && (!document.getElementById('upeStreetSearch').value.trim() || !formData.get('upe_house').trim())) return showError('Вкажіть вулицю та будинок', 'upeStreetSearch');
+                    }
+                    else if (deliveryType === 'meest') {
+                        if (!document.getElementById('meestCitySearch').value.trim()) return showError('Вкажіть місто', 'meestCitySearch');
+                        const subType = document.querySelector('input[name="meest_type"]:checked').value;
+                        if (subType === 'branch' && !formData.get('meest_branch_text').trim()) return showError('Вкажіть відділення', 'meest_branch_text');
+                        if (subType === 'postomat' && !formData.get('meest_post_text').trim()) return showError('Вкажіть поштомат', 'meest_post_text');
+                        if (subType === 'courier' && (!document.getElementById('meestStreetSearch').value.trim() || !formData.get('meest_house').trim())) return showError('Вкажіть вулицю та будинок', 'meestStreetSearch');
+                    }
+
+                    if (!paymentType || paymentType === '') {
+                        alert('Будь ласка, оберіть спосіб оплати!');
+                        const paySection = document.getElementById('payCod')?.closest('.co-section');
+                        if (paySection) {
+                            paySection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        return;
+                    }
+
+                    // --- 2. ЗБІР АДРЕСИ ---
+                    let addressText = '';
+                    let deliveryLabel = '';
+
+                    const cityInput = document.getElementById(deliveryType + 'CitySearch');
+                    const city = cityInput ? cityInput.value : '';
+
+                    if (deliveryType === 'self') {
+                        deliveryLabel = 'Самовивіз';
+                        const dynamicAddr = document.getElementById('checkout-pickup-address');
+                        addressText = (dynamicAddr && dynamicAddr.textContent.trim().length > 5)
+                            ? dynamicAddr.textContent.trim()
+                            : 'м. Шостка, Україна';
+                    } else if (deliveryType === 'np') {
+                        deliveryLabel = 'Нова Пошта';
+                        const type = document.querySelector('input[name="np_type"]:checked').value;
+                        if (type === 'branch') addressText = `${city}, ` + document.getElementById('npBranchSearch').value;
+                        else if (type === 'postomat') addressText = `${city}, ` + document.getElementById('npPostomatSearch').value;
+                        else addressText = `${city}, ` + document.getElementById('npStreetSearch').value + ', буд. ' + formData.get('np_house');
+                    } else if (deliveryType === 'up') {
+                        deliveryLabel = 'Укрпошта Базовий';
+                        const type = document.querySelector('input[name="up_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = formatFullAddress(city, formData.get('up_branch_text') || 'Відділення не вказано');
+                        } else {
+                            const street = document.getElementById('upStreetSearch').value;
+                            const house = formData.get('up_house') || '';
+                            const flat = formData.get('up_flat') ? `, кв. ${formData.get('up_flat')}` : '';
+                            addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
+                        }
+                    } else if (deliveryType === 'upe') {
+                        deliveryLabel = 'Укрпошта Пріоритетний';
+                        const type = document.querySelector('input[name="upe_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = formatFullAddress(city, formData.get('upe_branch_text') || 'Відділення не вказано');
+                        } else {
+                            const street = document.getElementById('upeStreetSearch').value;
+                            const house = formData.get('upe_house') || '';
+                            const flat = formData.get('upe_flat') ? `, кв. ${formData.get('upe_flat')}` : '';
+                            addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
+                        }
+                    } else if (deliveryType === 'meest') {
+                        deliveryLabel = 'Meest ПОШТА';
+                        const type = document.querySelector('input[name="meest_type"]:checked').value;
+                        if (type === 'branch') {
+                            addressText = `${city}, ` + (formData.get('meest_branch_text') || 'Відділення не вказано');
+                        } else if (type === 'postomat') {
+                            addressText = `${city}, ` + (formData.get('meest_post_text') || 'Поштомат не вказано');
+                        } else {
+                            const street = document.getElementById('meestStreetSearch').value;
+                            const house = formData.get('meest_house') || '';
+                            const flat = formData.get('meest_flat') ? `, кв. ${formData.get('meest_flat')}` : '';
+                            addressText = `${city}, вул. ${street}, буд. ${house}${flat}`;
+                        }
+                    }
+
+                    document.getElementById('hiddenAddress').value = addressText;
+
+                    // --- 3. ЗБІР КОШИКА (JSON) ---
+                    const oldInput = form.querySelector('input[name="cart_json"]');
+                    if (oldInput) oldInput.remove();
+
+                    let cartInput = document.createElement('input');
+                    cartInput.type = 'hidden';
+                    cartInput.name = 'cart_json';
+
+                    let finalJson = '[]';
+                    try {
+                        const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
+                        let catalog = [];
+                        try {
+                            const c1 = JSON.parse(localStorage.getItem('rb_catalog_v1_ru') || '{}').items || [];
+                            const c2 = JSON.parse(localStorage.getItem('rb_catalog_v1_ua') || '{}').items || [];
+                            catalog = [...c1, ...c2];
+                        } catch(e){}
+
+                        const enriched = rawCart.map(item => {
+                            const product = catalog.find(p => p.id == item.id) || {};
+                            return {
+                                id: item.id,
+                                qty: item.qty,
+                                title: item.title || product.title_ua || product.title_ru || product.title || `Товар ID ${item.id}`,
+                                price: item.price || product.price || 0,
+                                sku: item.sku || product.sku || "",
+                                image: item.image || (product.images ? product.images[0] : ""),
+                                category: item.category || product.category || 'general'
+                            };
+                        });
+                        finalJson = JSON.stringify(enriched);
+                    } catch (e) {
+                        console.error("Помилка збірки JSON", e);
+                        finalJson = '[]';
+                    }
+                    cartInput.value = finalJson;
+                    form.appendChild(cartInput);
+
+                    // --- 4. СТАТУС ОПЛАТИ ---
+                    const payStatusInput = document.getElementById('hiddenPayStatus');
+                    payStatusInput.value = 'waiting';
+
+                    // --- 5. ВИКЛИК LIQPAY ТА ВІДПРАВКА ДАНИХ ---
+                    const currentDataString = new URLSearchParams(formData).toString();
+
+                    // Якщо дані не мінялись і замовлення вже створено, просто відкриваємо віджет знову
+                    if (paymentType === 'card_online' && lastOrderId && currentDataString === lastFormDataString) {
+                        showLiqPayWidget(lastOrderId, lastRedirectUrl, btn, originalBtnText, isUA);
+                        return;
+                    }
+
+                    if(btn) { btn.textContent = 'Оформлюємо...'; btn.disabled = true; }
+
+                    // Відправляємо дані на сервер через AJAX (створюємо замовлення)
+                    const response = await fetch('/create_order', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json' },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(text);
+                    }
+
+                    const res = await response.json();
+
+                    if (res.success) {
+                        // Зберігаємо стейт, щоб не дублювати замовлення
+                        lastOrderId = res.order_id;
+                        lastRedirectUrl = res.redirect_url;
+                        lastFormDataString = currentDataString;
+
+                        let paymentLabel = 'Спосіб не обраний';
+                        if (paymentType === 'cod') paymentLabel = 'Післяплата';
+                        else if (paymentType === 'card_online') paymentLabel = 'Оплата карткою Visa / Mastercard';
+                        else if (paymentType === 'seller_privat') paymentLabel = 'Оплата на рахунок ФОП';
+                        else if (paymentType === 'seller_cashless') paymentLabel = 'Безготівковий розрахунок';
+
+                        // Зберігаємо для сторінки order-success
+                        localStorage.setItem('rb_last_order_details', JSON.stringify({
+                            id: res.order_id,
+                            contact: {
+                                name: document.getElementById('coName').value,
+                                surname: document.getElementById('coSurname').value,
+                                phone: document.getElementById('coPhone').value
+                            },
+                            delivery: {
+                                method: deliveryLabel,
+                                address: addressText
+                            },
+                            payment: {
+                                type: paymentType,
+                                label: paymentLabel,
+                                status: payStatusInput.value
+                            },
+                            total: document.getElementById('coFinalSum').textContent,
+                            comment: document.getElementById('orderComment').value.trim()
+                        }));
+
+                        localStorage.setItem('rb_session_v1', JSON.stringify({
+                            phone: document.getElementById('coPhone').value,
+                            surname: document.getElementById('coSurname').value,
+                            name: document.getElementById('coName').value
+                        }));
+
+                        // Якщо онлайн оплата - викликаємо віджет, інакше редірект
+                        if (paymentType === 'card_online') {
+                            showLiqPayWidget(lastOrderId, lastRedirectUrl, btn, originalBtnText, isUA);
+                        } else {
+                            window.location.href = lastRedirectUrl;
+                        }
+                    } else {
+                        alert("Помилка: " + res.error);
+                        if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+                    }
+
+                } catch (err) {
+                    alert("Помилка: " + err.message);
+                    console.error(err);
+                    if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
                 }
-
-                localStorage.setItem('rb_session_v1', JSON.stringify({
-                    phone: document.getElementById('coPhone').value,
-                    surname: document.getElementById('coSurname').value,
-                    name: document.getElementById('coName').value
-                }));
-
-                // 3. Отправляем форму на Python (а он сам перекинет на order-success)
-                form.action = "/create_order";
-                form.method = "POST";
-                form.submit();
             });
+        }
+
+        async function showLiqPayWidget(orderId, redirectUrl, btn, originalBtnText, isUA) {
+            if(btn) { btn.textContent = 'Очікування оплати...'; btn.disabled = true; }
+
+            try {
+                const res = await fetch('/api/liqpay/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    LiqPayCheckout.init({
+                        data: data.data,
+                        signature: data.signature,
+                        embedTo: "#liqpay_checkout",
+                        language: "uk",
+                        mode: "popup"
+                    }).on("liqpay.callback", function(callbackData){
+                        if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
+                            try {
+                                let savedOrder = JSON.parse(localStorage.getItem('rb_last_order_details') || '{}');
+                                if (savedOrder && savedOrder.payment) {
+                                    savedOrder.payment.status = 'paid';
+                                    localStorage.setItem('rb_last_order_details', JSON.stringify(savedOrder));
+                                }
+                            } catch(e) {}
+
+                            fetch('/api/pay_order', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ order_id: orderId })
+                            }).then(() => {
+                                window.location.href = redirectUrl;
+                            });
+                        } else if (['error', 'failure'].includes(callbackData.status)) {
+                            alert("Помилка при оплаті. Спробуйте ще раз.");
+                        }
+                    }).on("liqpay.close", function(){
+                        if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+                    });
+                } else {
+                    alert("Помилка сервера: " + data.error);
+                    if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+                }
+            } catch (err) {
+                console.error("Помилка при ініціалізації LiqPay:", err);
+                alert("Помилка мережі");
+                if(btn) { btn.textContent = originalBtnText; btn.disabled = false; }
+            }
         }
     });
     </script>
