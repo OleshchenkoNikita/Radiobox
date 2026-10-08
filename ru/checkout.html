@@ -1648,6 +1648,7 @@
                                 label: paymentLabel,
                                 status: payStatusInput.value
                             },
+                            items: JSON.parse(finalJson),
                             total: document.getElementById('coFinalSum').textContent,
                             comment: document.getElementById('orderComment').value
                         }));
