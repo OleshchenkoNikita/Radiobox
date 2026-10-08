@@ -329,14 +329,18 @@
                 listEl.innerHTML = cart.map(item => {
                     const p = catalog.find(x => x.id == item.id) || {};
                     let title = isUA ? (p.title_ua || p.title_ru) : (p.title_ru || p.title_ua);
-                    if(!title) title = `Товар ID ${item.id}`;
+                    if (!title) title = item.title || `Товар ID ${item.id}`;
+
+                    const price = p.price !== undefined ? p.price : (item.price || 0);
+                    const qty = item.qty || 1;
+
                     return `
                     <div class="os-item">
                         <div>
                             <div class="os-item-name">${title}</div>
-                            <div class="os-item-meta">${item.qty} шт.</div>
+                            <div class="os-item-meta">${qty} шт.</div>
                         </div>
-                        <div class="os-item-price">${(p.price || 0) * item.qty} ₴</div>
+                        <div class="os-item-price">${price * qty} ₴</div>
                     </div>`;
                 }).join('');
             }
