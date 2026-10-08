@@ -14,7 +14,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Заказ оформлен — RadioBox</title>
     <link rel="stylesheet" href="../styles.css">
-    <script src="//static.liqpay.ua/libjs/checkout.js"></script>
     <link rel="icon" type="image/png" href="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png">
     <style>
         body { background: #f4f6f8; margin: 0; font-family: sans-serif; }
@@ -120,9 +119,8 @@
                 <div class="os-status-badge" id="osBadge">Заказ оформлен</div>
                 <h2 style="margin: 0 0 10px; font-size: 24px;" id="osBannerTitle">...</h2>
                 <div style="font-size: 15px; opacity: 0.95; line-height: 1.5;" id="osBannerText">...</div>
-
-                <button id="payNowBtn" class="pay-now-btn">Оплатить сейчас</button>
             </div>
+
             <img src="../assets/icons/company.png" class="os-banner__img">
         </div>
 
@@ -198,8 +196,6 @@
     </div>
 
     <div id="toast" class="toast">Скопировано!</div>
-
-    <div id="liqpay_checkout"></div>
 
     {% if purchase_data %}
     <script>
@@ -292,19 +288,18 @@
 
         const bannerTitle = document.getElementById('osBannerTitle');
         const bannerText = document.getElementById('osBannerText');
-        const payBtn = document.getElementById('payNowBtn');
 
         if (bannerTitle) bannerTitle.textContent = isUA ? 'Замовлення прийнято!' : 'Заказ принят!';
 
         if (bannerText) {
-            if (order.payment.type === 'card_online' && order.payment.status !== 'paid') {
-                bannerText.innerHTML = isUA ? "Очікуйте підтвердження. Ви можете сплатити замовлення зараз." : "Ожидайте подтверждения. Вы можете оплатить заказ сейчас.";
-                if(payBtn) {
-                    payBtn.style.display = 'inline-block';
-                }
+            if (order.payment.type === 'card_online') {
+                bannerText.innerHTML = isUA
+                    ? "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної."
+                    : "Заказ оплачен!<br>Спасибо, что вы с нами! Ожидайте сообщения с номером накладной.";
             } else {
-                bannerText.innerHTML = isUA ? "Дякуємо! Наш менеджер зв'яжеться з вами." : "Спасибо! Наш менеджер свяжется с вами.";
-                if(payBtn) payBtn.style.display = 'none';
+                bannerText.innerHTML = isUA
+                    ? "Дякуємо! Наш менеджер зв'яжеться з вами."
+                    : "Спасибо! Наш менеджер свяжется с вами.";
             }
         }
 
@@ -345,64 +340,7 @@
                     </div>`;
                 }).join('');
             }
-        } catch (err) { console.error(err); }
-
-        // === ВЫЗОВ LIQPAY (КЛИК ПО КНОПКЕ) ===
-        if(payBtn) {
-            payBtn.addEventListener('click', async () => {
-                const originalText = payBtn.textContent;
-                payBtn.textContent = isUA ? "Завантаження..." : "Загрузка...";
-                payBtn.disabled = true;
-
-                try {
-                    const res = await fetch('/api/liqpay/generate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ order_id: order.id })
-                    });
-                    const data = await res.json();
-
-                    if (data.success) {
-                        LiqPayCheckout.init({
-                            data: data.data,
-                            signature: data.signature,
-                            embedTo: "#liqpay_checkout",
-                            language: isUA ? "uk" : "ru",
-                            mode: "popup"
-                        }).on("liqpay.callback", function(callbackData){
-                            if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
-                                fetch('/api/pay_order', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ order_id: order.id })
-                                }).then(() => {
-                                    alert(isUA ? "Оплата пройшла успішно!" : "Оплата прошла успешно!");
-                                    // Обновляем статус в localStorage чтобы кнопка пропала
-                                    order.payment.status = 'paid';
-                                    localStorage.setItem('rb_last_order_details', JSON.stringify(order));
-                                    window.location.reload();
-                                });
-                            } else if (['error', 'failure'].includes(callbackData.status)) {
-                                alert(isUA ? "Помилка при оплаті. Спробуйте ще раз." : "Ошибка при оплате. Попробуйте еще раз.");
-                            }
-                        }).on("liqpay.close", function(){
-                            payBtn.textContent = originalText;
-                            payBtn.disabled = false;
-                        });
-                    } else {
-                        alert("Ошибка сервера: " + data.error);
-                        payBtn.textContent = originalText;
-                        payBtn.disabled = false;
-                    }
-                } catch (err) {
-                    console.error("Ошибка при инициализации LiqPay:", err);
-                    alert("Ошибка сети");
-                    payBtn.textContent = originalText;
-                    payBtn.disabled = false;
-                }
-            });
-        }
-    });
+        } catch (err) { console.error(err); } });
 
     async function cancelOrder() {
         const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');

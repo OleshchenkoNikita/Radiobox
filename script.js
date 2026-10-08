@@ -1889,17 +1889,6 @@ function renderOrdersPage() {
             cancelBtnHtml = `<button class="btn-cancel-order" onclick="event.stopPropagation(); window.cancelOrderFromHistory(${order.id})">${isUA ? 'Скасувати замовлення' : 'Отменить заказ'}</button>`;
         }
 
-        let payBtnHtml = '';
-        const isCard = (order.payment_method === 'card_online' || (order.payment_method && order.payment_method.toLowerCase().includes('карт')));
-        const isUnpaid = (order.payment_status !== 'paid' && order.payment_status !== 'Оплачено');
-        const isNotCancelled = !stLower.includes('отмен') && !stLower.includes('скасовано');
-
-        if (isCard && isUnpaid && isNotCancelled) {
-            payBtnHtml = `<button class="btn-pay-late" onclick="event.stopPropagation(); window.payOrderLiqPay(${order.id}, this)" style="margin-right:8px; padding:4px 10px; background:#22c55e; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">
-                ${isUA ? 'Оплатити зараз' : 'Оплатить сейчас'}
-            </button>`;
-        }
-
         // --- ЛОГИ ИСТОРИИ ---
         const logsHtml = (order.logs || []).map(log => `
             <div class="log-item" style="display:flex; gap:10px; font-size:12px; margin-bottom:4px;">
@@ -1922,7 +1911,6 @@ function renderOrdersPage() {
                     <span class="ob-date">${isUA ? 'від' : 'от'} ${order.created_at}</span>
                 </div>
                 <div class="ob-actions" style="display:flex; align-items:center;">
-                    ${payBtnHtml}
                     <span class="ob-status ${stClass}">${displayStatus}</span>
                     <span class="expand-icon" style="margin-left:10px; font-size:12px;">▼</span>
                 </div>
@@ -2043,71 +2031,6 @@ function renderOrdersPage() {
         document.querySelector('.cab-content').scrollIntoView({ behavior: 'smooth' });
     };
 });
-
-// === ЛОГИКА ОПЛАТЫ ЧЕРЕЗ LIQPAY ДЛЯ ПРОФИЛЯ ===
-window.payOrderLiqPay = async function(orderId, btnElement) {
-    const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
-    const originalText = btnElement.textContent;
-    btnElement.textContent = isUA ? "Завантаження..." : "Загрузка...";
-    btnElement.disabled = true;
-
-    try {
-        const res = await fetch('/api/liqpay/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: orderId })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            LiqPayCheckout.init({
-                data: data.data,
-                signature: data.signature,
-                embedTo: "#liqpay_checkout",
-                language: isUA ? "uk" : "ru",
-                mode: "popup"
-            }).on("liqpay.callback", function(callbackData){
-                if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
-                    // Делаем небольшую задержку в 1.5 секунды, чтобы сервер успел принять прямой callback от LiqPay
-                    setTimeout(async () => {
-                        try {
-                            const checkRes = await fetch('/api/pay_order', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ order_id: orderId })
-                            });
-                            const checkData = await checkRes.json();
-
-                            if (checkData.success) {
-                                alert(isUA ? "Оплата пройшла успішно!" : "Оплата прошла успешно!");
-                            } else {
-                                // Если транзакция обрабатывается банком чуть дольше обычного
-                                alert(isUA ? "Платіж обробляється банком. Статус оновиться в кабінеті найближчим часом." : "Платеж обрабатывается банком. Статус обновится в кабинете в ближайшее время.");
-                            }
-                            window.location.reload();
-                        } catch (err) {
-                            window.location.reload();
-                        }
-                    }, 1500);
-                } else if (['error', 'failure'].includes(callbackData.status)) {
-                    alert(isUA ? "Помилка при оплаті. Спробуйте ще раз." : "Ошибка при оплате. Попробуйте еще раз.");
-                }
-            }).on("liqpay.close", function(){
-                btnElement.textContent = originalText;
-                btnElement.disabled = false;
-            });
-        } else {
-            alert((isUA ? "Помилка сервера: " : "Ошибка сервера: ") + data.error);
-            btnElement.textContent = originalText;
-            btnElement.disabled = false;
-        }
-    } catch (err) {
-        console.error("Ошибка при инициализации LiqPay:", err);
-        alert(isUA ? "Помилка мережі" : "Ошибка сети");
-        btnElement.textContent = originalText;
-        btnElement.disabled = false;
-    }
-};
 
 // ============================================
 // SEO + GA4: ДИНАМИЧЕСКИЕ МЕТА-ТЕГИ И VIEW_ITEM

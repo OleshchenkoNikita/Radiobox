@@ -14,7 +14,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Замовлення оформлено — RadioBox</title>
     <link rel="stylesheet" href="../styles.css">
-    <script src="//static.liqpay.ua/libjs/checkout.js"></script>
     <link rel="icon" type="image/png" href="../assets/4024808380_w170_h85_internet-magazin-radiobox_logo.png">
     <style>
         body { background: #f4f6f8; margin: 0; font-family: sans-serif; }
@@ -120,8 +119,6 @@
                 <div class="os-status-badge" id="osBadge">Замовлення оформлено</div>
                 <h2 style="margin: 0 0 10px; font-size: 24px;" id="osBannerTitle">...</h2>
                 <div style="font-size: 15px; opacity: 0.95; line-height: 1.5;" id="osBannerText">...</div>
-
-                <button id="payNowBtn" class="pay-now-btn">Сплатити зараз</button>
             </div>
             <img src="../assets/icons/company.png" class="os-banner__img">
         </div>
@@ -197,8 +194,6 @@
     </div>
 
     <div id="toast" class="toast">Скопійовано!</div>
-
-    <div id="liqpay_checkout"></div>
 
     {% if purchase_data %}
     <script>
@@ -280,9 +275,7 @@
             const badge = document.getElementById('osBadge');
             const title = document.getElementById('osBannerTitle');
             const text = document.getElementById('osBannerText');
-            const payBtn = document.getElementById('payNowBtn');
 
-            payBtn.style.display = 'none';
             banner.className = 'os-banner type-info';
             badge.textContent = 'Нове замовлення';
             title.textContent = 'Замовлення прийнято!';
@@ -298,13 +291,7 @@
             } else if (pType === 'seller_privat') {
                 text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами! Наш менеджер зв'яжеться з вами для підтвердження замовлення.<br>Будь ласка, залишайтеся на зв'язку!";
             } else if (pType === 'card_online') {
-                if (pStatus === 'paid') {
-                    text.innerHTML = "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
-                    payBtn.style.display = 'none';
-                } else {
-                    text.innerHTML = "Замовлення прийнято!<br>Очікуйте підтвердження. Ви можете сплатити замовлення зараз.";
-                    payBtn.style.display = 'inline-block';
-                }
+                text.innerHTML = "Замовлення оплачено!<br>Дякуємо, що ви з нами! Очікуйте повідомлення з номером накладної.";
             } else {
                 text.innerHTML = "Замовлення прийнято!<br>Дякуємо, що ви з нами!";
             }
@@ -349,62 +336,7 @@
                     }).join('');
                 }
             } catch (err) { console.error(err); }
-
-            // === ЛОГИКА ОПЛАТЫ LIQPAY ===
-            if (payBtn) {
-                payBtn.addEventListener('click', async () => {
-                    const originalText = payBtn.textContent;
-                    payBtn.textContent = "Завантаження...";
-                    payBtn.disabled = true;
-
-                    try {
-                        const res = await fetch('/api/liqpay/generate', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ order_id: order.id })
-                        });
-                        const data = await res.json();
-
-                        if (data.success) {
-                            LiqPayCheckout.init({
-                                data: data.data,
-                                signature: data.signature,
-                                embedTo: "#liqpay_checkout",
-                                language: "uk", // Украинский интерфейс Ликпей
-                                mode: "popup"
-                            }).on("liqpay.callback", function(callbackData){
-                                if (['success', 'wait_secure', 'sandbox'].includes(callbackData.status)) {
-                                    fetch('/api/pay_order', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ order_id: order.id })
-                                    }).then(() => {
-                                        alert("Оплата пройшла успішно!");
-                                        order.payment.status = 'paid';
-                                        localStorage.setItem('rb_last_order_details', JSON.stringify(order));
-                                        window.location.reload();
-                                    });
-                                } else if (['error', 'failure'].includes(callbackData.status)) {
-                                    alert("Помилка при оплаті. Спробуйте ще раз.");
-                                }
-                            }).on("liqpay.close", function(){
-                                payBtn.textContent = originalText;
-                                payBtn.disabled = false;
-                            });
-                        } else {
-                            alert("Помилка сервера: " + data.error);
-                            payBtn.textContent = originalText;
-                            payBtn.disabled = false;
-                        }
-                    } catch (err) {
-                        console.error("Помилка при ініціалізації LiqPay:", err);
-                        alert("Помилка мережі");
-                        payBtn.textContent = originalText;
-                        payBtn.disabled = false;
-                    }
-                });
-            }
-        });
+            });
 
         async function cancelOrder() {
             if(confirm("Ви дійсно хочете скасувати замовлення?")) {
