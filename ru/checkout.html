@@ -1556,13 +1556,6 @@
                     document.getElementById('hiddenAddress').value = addressText;
 
                     // --- 3. СБОР КОРЗИНЫ ---
-                    const oldInput = form.querySelector('input[name="cart_json"]');
-                    if (oldInput) oldInput.remove();
-
-                    let cartInput = document.createElement('input');
-                    cartInput.type = 'hidden';
-                    cartInput.name = 'cart_json';
-
                     let finalJson = '[]';
                     try {
                         const rawCart = JSON.parse(localStorage.getItem('rb_cart_v1') || '[]');
@@ -1590,8 +1583,12 @@
                         console.error("Ошибка сборки JSON", e);
                         finalJson = '[]';
                     }
-                    cartInput.value = finalJson;
-                    form.appendChild(cartInput);
+
+                    // Обновляем и существующий инпут, и сам formData!
+                    const hiddenCartEl = document.getElementById('hiddenCart');
+                    if (hiddenCartEl) hiddenCartEl.value = finalJson;
+                    formData.set('cart_json', finalJson);
+                    formData.set('full_address', addressText);
 
                     // --- 4. СТАТУС ОПЛАТЫ ---
                     const payStatusInput = document.getElementById('hiddenPayStatus');
