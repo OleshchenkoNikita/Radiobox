@@ -1758,6 +1758,7 @@ def admin_product_visibility():
 
 # === API: ПУБЛИЧНЫЙ СПИСОК ТОВАРОВ (ДЛЯ МАГАЗИНА) ===
 @app.route('/api/products', methods=['GET'])
+@limiter.exempt
 def get_public_products():
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
@@ -1908,6 +1909,7 @@ def admin_reorder_general():
 
 # === API: ПОЛУЧИТЬ КАТЕГОРИИ (ДЕРЕВОМ) ===
 @app.route('/api/categories', methods=['GET'])
+@limiter.exempt
 def get_categories_api():
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
