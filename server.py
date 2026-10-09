@@ -916,15 +916,23 @@ def create_order():
                     (int(item.get('qty', 0)), int(item.get('qty', 0)), int(item.get('qty', 0)), item.get('id')))
             conn.commit()
 
+            # Получаем метки из формы (с фоллбэком на сессию Flask)
+            utm_session = session.get('utm_data', {})
+            gclid_val = request.form.get('gclid') or utm_session.get('gclid', '')
+            utm_source_val = request.form.get('utm_source') or utm_session.get('utm_source', '')
+
             # Интеграция CRM (Вернул переменные как были)
             crm_data = {
                 'name': f"{name} {surname}", 'phone': phone, 'delivery': delivery_display,
                 'address': address, 'city': city, 'point': point,
                 'city_ref': city_ref, 'point_ref': point_ref,
-                'payment': payment_display, 'comment': comment, 'email': user_email
+                'payment': payment_display, 'comment': comment, 'email': user_email,
+                'gclid': gclid_val,
+                'utm_source': utm_source_val
             }
 
             crm_id_from_api = send_to_keepincrm(order_id, crm_data, items, total_sum)
+
             if crm_id_from_api:
                 cursor.execute("UPDATE orders SET crm_id = ? WHERE id = ?", (crm_id_from_api, order_id))
                 conn.commit()
@@ -2416,8 +2424,6 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             }
         })
 
-    utm_data = session.get('utm_data', {})
-
     # --- 5. Формирование сделки ---
 
     payload = {
@@ -2437,8 +2443,8 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             {'name': 'oplata_334', 'value': crm_data.get('payment')},
             {'name': 'misto_dostavki_338', 'value': crm_data.get('city')},
             {'name': 'viddiliennia_339', 'value': crm_data.get('point')},
-            {'name': 'utm_source_353', 'value': utm_data.get('utm_source', '')},
-            {'name': 'gclid_354', 'value': utm_data.get('gclid', '')},
+            {'name': 'utm_source_353', 'value': crm_data.get('utm_source', '')},
+            {'name': 'gclid_354', 'value': crm_data.get('gclid', '')},
             {'name': 'status_oplati_356', 'value': 'Не сплачено'}
         ],
         'jobs_attributes': products_list

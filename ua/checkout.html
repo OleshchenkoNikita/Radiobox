@@ -1563,6 +1563,11 @@
 
                     // 6. Сбор FormData строго ПОСЛЕ заполнения скрытых полей
                     const formData = new FormData(form);
+                    formData.append('gclid', localStorage.getItem('rb_gclid') || '');
+                    formData.append('utm_source', localStorage.getItem('rb_utm_source') || '');
+                    formData.append('utm_medium', localStorage.getItem('rb_utm_medium') || '');
+                    formData.append('utm_campaign', localStorage.getItem('rb_utm_campaign') || '');
+
                     const currentDataString = new URLSearchParams(formData).toString();
 
                     // Если данные не менялись и заказ уже отправлен, открываем LiqPay заново

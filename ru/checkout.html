@@ -1438,6 +1438,11 @@
 
                 try {
                     const formData = new FormData(form);
+                    formData.append('gclid', localStorage.getItem('rb_gclid') || '');
+                    formData.append('utm_source', localStorage.getItem('rb_utm_source') || '');
+                    formData.append('utm_medium', localStorage.getItem('rb_utm_medium') || '');
+                    formData.append('utm_campaign', localStorage.getItem('rb_utm_campaign') || '');
+
                     const deliveryType = formData.get('delivery');
                     const paymentType = formData.get('payment');
 

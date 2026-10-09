@@ -1,3 +1,17 @@
+// === СОХРАНЕНИЕ UTM И GCLID В LOCALSTORAGE ===
+(function() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        ['gclid', 'gbraid', 'wbraid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(key => {
+            if (params.has(key)) {
+                localStorage.setItem('rb_' + key, params.get(key));
+            }
+        });
+    } catch (e) {
+        console.error("Ошибка сохранения меток аналитики:", e);
+    }
+})();
+
 // === ИНИЦИАЛИЗАЦИЯ GA4 DATALAYER ===
 window.dataLayer = window.dataLayer || [];
 window.sentGA4Lists = window.sentGA4Lists || new Set();
