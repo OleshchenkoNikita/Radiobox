@@ -277,7 +277,7 @@ def init_db():
 
         # Заполним дефолтными, если пусто
         default_settings = {
-            'site_url': 'https://radiobox.in.ua',
+            'site_url': 'https://radio-box.com.ua',
             'gtm_id': 'GTM-NLXR4MGP',
             'ga4_id': 'G-N62XN9JLT7',
             'google_verification': '',
@@ -1400,13 +1400,17 @@ def sitemap():
         # 1. Получаем домен из настроек
         cursor.execute("SELECT value FROM settings WHERE key = 'site_url'")
         domain_row = cursor.fetchone()
-        domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radiobox.in.ua"
+        domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radio-box.com.ua"
 
         urls = []
 
-        # 2. Основные статические страницы (для обеих языковых версий)
+        # Канонические корни главных страниц для языковых разделов
+        urls.append(f"{domain}/ru/")
+        urls.append(f"{domain}/ua/")
+
+        # 2. Основные статические страницы (без index.html)
         static_pages = [
-            'index.html', 'about.html', 'contacts.html', 'delivery.html',
+            'about.html', 'contacts.html', 'delivery.html',
             'offer.html', 'privacy_policy.html', 'return_policy.html',
             'products.html', 'reviews.html'
         ]
@@ -3699,7 +3703,7 @@ def admin_export_custom_feed():
             # Узнаем домен сайта для абсолютных ссылок на картинки
             cursor.execute("SELECT value FROM settings WHERE key = 'site_url'")
             domain_row = cursor.fetchone()
-            domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radiobox.in.ua"
+            domain = domain_row[0].rstrip('/') if domain_row and domain_row[0] else "https://radio-box.com.ua"
 
             # Подтягиваем названия категорий
             cursor.execute("SELECT slug, title_ru, title_ua FROM categories")

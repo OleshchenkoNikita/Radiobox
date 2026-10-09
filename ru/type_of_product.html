@@ -17,18 +17,13 @@
     <meta name="description" content="" id="meta-description">
 
     <!-- Канонический URL и языковые версии для Google -->
-    {% set is_ua = '/ua/' in request.path %}
     {% set cat_param = request.args.get('cat', '') %}
     {% set sub_param = request.args.get('sub', '') %}
     {% if cat_param %}
         {% set query_str = '?cat=' ~ cat_param ~ ('&sub=' ~ sub_param if sub_param else '') %}
-        {% if is_ua %}
-            <link rel="canonical" href="https://radio-box.com.ua/ua/type_of_product.html{{ query_str }}">
-        {% else %}
-            <link rel="canonical" href="https://radio-box.com.ua/ru/type_of_product.html{{ query_str }}">
-        {% endif %}
-        <link rel="alternate" hreflang="uk-UA" href="https://radio-box.com.ua/ua/type_of_product.html{{ query_str }}" />
+        <link rel="canonical" href="https://radio-box.com.ua/ru/type_of_product.html{{ query_str }}" />
         <link rel="alternate" hreflang="ru-UA" href="https://radio-box.com.ua/ru/type_of_product.html{{ query_str }}" />
+        <link rel="alternate" hreflang="uk-UA" href="https://radio-box.com.ua/ua/type_of_product.html{{ query_str }}" />
         <link rel="alternate" hreflang="x-default" href="https://radio-box.com.ua/ua/type_of_product.html{{ query_str }}" />
     {% endif %}
 
@@ -240,7 +235,7 @@
             </nav>
 
             <!-- Заголовок -->
-            <h2 id="catTitle" class="groups__title">Категория</h2>
+            <h1 id="catTitle" class="groups__title">Категория</h1>
 
             <!-- Подкатегории -->
             <nav id="subcats" class="subcats" aria-label="Подкатегории" hidden></nav>
