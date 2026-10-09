@@ -64,23 +64,17 @@
         <title>Товар | RadioBox</title>
     {% endif %}
 
-    <!-- Каноническая ссылка для Google Merchant -->
-    <script>
-      (function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const productId = urlParams.get('id');
-
-        if (productId) {
-          // Собираем чистый URL: домен + путь к файлу + только ID товара
-          const cleanUrl = window.location.origin + window.location.pathname + '?id=' + productId;
-
-          let canonicalLink = document.createElement('link');
-          canonicalLink.setAttribute('rel', 'canonical');
-          canonicalLink.setAttribute('href', cleanUrl);
-          document.head.appendChild(canonicalLink);
-        }
-      })();
-    </script>
+    <!-- Канонический URL и языковые версии для Google -->
+    {% if product and product.id %}
+        {% if is_ua %}
+            <link rel="canonical" href="https://radio-box.com.ua/ua/product.html?id={{ product.id }}">
+        {% else %}
+            <link rel="canonical" href="https://radio-box.com.ua/ru/product.html?id={{ product.id }}">
+        {% endif %}
+        <link rel="alternate" hreflang="uk-UA" href="https://radio-box.com.ua/ua/product.html?id={{ product.id }}" />
+        <link rel="alternate" hreflang="ru-UA" href="https://radio-box.com.ua/ru/product.html?id={{ product.id }}" />
+        <link rel="alternate" hreflang="x-default" href="https://radio-box.com.ua/ua/product.html?id={{ product.id }}" />
+    {% endif %}
 
     <!-- Стили и предзагрузка -->
     <link rel="stylesheet" href="../styles.css" />
