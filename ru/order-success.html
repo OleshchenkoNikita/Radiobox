@@ -333,14 +333,16 @@
 
                     const price = p.price !== undefined ? p.price : (item.price || 0);
                     const qty = item.qty || 1;
+                    const img = p.image || (p.images && p.images[0]) || item.image || '../assets/icons/company.png';
 
                     return `
-                    <div class="os-item">
-                        <div>
-                            <div class="os-item-name">${title}</div>
-                            <div class="os-item-meta">${qty} шт.</div>
+                    <div class="os-item" style="display: flex; align-items: center; gap: 15px; padding: 12px 0;">
+                        <img src="${img}" alt="${title}" style="width: 60px; height: 60px; object-fit: contain; border-radius: 8px; border: 1px solid #f1f5f9; background: #fff;" onerror="this.src='https://via.placeholder.com/60'">
+                        <div style="flex: 1;">
+                            <div class="os-item-name" style="font-weight: 600; color: #333;">${title}</div>
+                            <div class="os-item-meta" style="color: #666; font-size: 13px;">${qty} шт.</div>
                         </div>
-                        <div class="os-item-price">${price * qty} ₴</div>
+                        <div class="os-item-price" style="font-weight: 700;">${price * qty} ₴</div>
                     </div>`;
                 }).join('');
             }
