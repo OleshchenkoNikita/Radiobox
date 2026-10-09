@@ -99,24 +99,20 @@
         <!-- ПРАВАЯ КОЛОНКА -->
         <div class="home-right">
             <!-- Хлебные крошки -->
-            <nav class="breadcrumbs" aria-label="Хлібні крихти">
-                <a class="crumb-home" href="index.html" aria-label="Головна">🏠</a>
+            <nav class="breadcrumbs" aria-label="Хлебные крошки">
+                <a class="crumb-home" href="{{ '/ua/' if is_ua else '/ru/' }}" aria-label="Главная">🏠</a>
                 <span class="crumb-sep" aria-hidden="true">›</span>
-                <a href="products.html">Товари</a>
+                <a href="products.html">{{ 'Товари' if is_ua else 'Товары' }}</a>
                 <span class="crumb-sep" aria-hidden="true">›</span>
-                <span id="crumbCatWrapper" hidden>
-                    <a id="crumbCatLink" href="#">...</a>
-                    <span class="crumb-sep" aria-hidden="true">›</span>
-                </span>
-                <span id="crumbTitle" class="crumb-current">...</span>
+                <span id="crumbTitle" class="crumb-current">{{ p_title if p_title else '...' }}</span>
             </nav>
 
             <div id="productContainer">
                 <div class="pp-grid">
-                    <!-- 1. ГАЛЕРЕЯ -->
+                    <!-- 1. ГАЛЕРЕЯ (Фото + Слайдер миниатюр) -->
                     <div class="pp-gallery-block">
                         <div class="pp-gallery-main">
-                            <img id="pImage" src="" alt="Фото товару">
+                            <img id="pImage" src="{{ product.image if product and product.image else '' }}" alt="{{ p_title if p_title else 'Фото товара' }}">
                         </div>
 
                         <!-- Миниатюры -->
@@ -131,14 +127,26 @@
 
                     <!-- 2. Инфо и покупка -->
                     <div class="pp-info">
-                        <h1 id="pTitle" class="pp-title">...</h1>
-                        <div class="pp-meta">Код товару: <span id="pSku"></span></div>
-                        <div id="pStatus" class="pp-status"></div>
+                        <h1 id="pTitle" class="pp-title">{{ p_title if p_title else '...' }}</h1>
+                        <div class="pp-meta">{{ 'Код товару:' if is_ua else 'Код товара:' }} <span id="pSku">{{ product.sku if product and product.sku else (product.id if product else '') }}</span></div>
+                        <div id="pStatus" class="pp-status {{ 'is-instock' if product and product.in_stock else 'is-out' }}">
+                            {% if product and product.in_stock %}
+                                {{ 'Готовий до відправки' if is_ua else 'Готово к отправке' }}
+                            {% elif product %}
+                                {{ 'Немає в наявності' if is_ua else 'Нет в наличии' }}
+                            {% endif %}
+                        </div>
 
                         <!-- Блок цены и кнопки -->
                         <div class="pp-price-row">
-                            <div class="pp-price"><span id="pPrice">0</span> ₴</div>
-                            <button id="pBuyBtn" class="pp-buy-btn">Купити</button>
+                            <div class="pp-price"><span id="pPrice">{{ product.price if product and product.price else '0' }}</span> ₴</div>
+                            <button id="pBuyBtn" class="pp-buy-btn" {{ 'disabled' if product and not product.in_stock else '' }}>
+                                {% if product and not product.in_stock %}
+                                    {{ 'Немає в наявності' if is_ua else 'Нет в наличии' }}
+                                {% else %}
+                                    {{ 'Купити' if is_ua else 'Купить' }}
+                                {% endif %}
+                            </button>
                             <div class="pp-phone">
                                 <a href="tel:+380930728887">+380 (93) 072-88-87</a>
                                 <a href="tel:+380501755718">+380 (50) 175-57-18</a>
@@ -177,8 +185,13 @@
 
                 <!-- 3. Описание -->
                 <div class="pp-sections">
-                    <div class="pp-sec-title">Опис</div>
-                    <div id="pDesc" class="pp-text"></div>
+                    <div class="pp-sec-title">{{ 'Опис' if is_ua else 'Описание' }}</div>
+                    <div id="pDesc" class="pp-text">
+                        {% if product %}
+                            {% set raw_desc = product.description_ua if is_ua and product.description_ua else product.description_ru %}
+                            {{ raw_desc | safe if raw_desc else ('Опис відсутній.' if is_ua else 'Описание отсутствует.') }}
+                        {% endif %}
+                    </div>
                 </div>
 
                 <!-- 4. Сопутствующие товары -->
