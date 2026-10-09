@@ -517,18 +517,29 @@ def send_email_real(to_email, subject, body):
 
 @app.route('/')
 def index():
-    return redirect('/ru/index.html')
+    return redirect('/ua/', code=301)
 
 @app.route('/ru')
 @app.route('/ru/')
 def redirect_ru():
-    # code=301 указывает поисковикам, что это постоянный редирект (полезно для SEO)
-    return redirect('/ru/index.html', code=301)
+    return serve_static('ru/index.html')
 
 @app.route('/ua')
 @app.route('/ua/')
 def redirect_ua():
-    return redirect('/ua/index.html', code=301)
+    return serve_static('ua/index.html')
+
+@app.route('/ru/index.html')
+def redirect_ru_index():
+    return redirect('/ru/', code=301)
+
+@app.route('/ua/index.html')
+def redirect_ua_index():
+    return redirect('/ua/', code=301)
+
+@app.route('/index.html')
+def redirect_root_index():
+    return redirect('/ua/', code=301)
 
 class SafeObject:
     def __getattr__(self, name):
