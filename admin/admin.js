@@ -1847,16 +1847,23 @@ const AdminReviews = {
             const isHiddenClass = isVis ? '' : 'hidden-rev';
             const visBtnText = isVis ? TEXT.visible : TEXT.hidden;
 
+            // КРАСИВЫЙ РЕНДЕР КОММЕНТАРИЯ ДЛЯ АДМИНКИ
+            let fmtComment = window.escapeHTML(r.comment || "");
+            if (fmtComment.includes(' | ')) {
+                let parts = fmtComment.split(' | ');
+                fmtComment = `\${parts[0]}<div style="margin-top: 6px; font-size: 13px; color: #64748b;">✨ <b>Теги Prom:</b> \${parts.slice(1).join(', ')}</div>`;
+            }
+
             return `
             <div class="rev-admin-card ${isHiddenClass}" id="arev-${r.id}">
                 <div class="ra-head">
                     <div>
-                        <span class="ra-author">${window.escapeHTML(r.author)}</span>
-                        <span style="color:#f59e0b; margin-left:8px;">${stars}</span>
+                        <span class="ra-author">\${window.escapeHTML(r.author)}</span>
+                        <span style="color:#f59e0b; margin-left:8px;">\${stars}</span>
                     </div>
-                    <div class="ra-date">${r.date}</div>
+                    <div class="ra-date">\${r.date}</div>
                 </div>
-                <div class="ra-text">${window.escapeHTML(r.comment)}</div>
+                <div class="ra-text">\${fmtComment}</div>
 
                 <div class="ra-reply-box">
                     <label class="ra-reply-label">${TEXT.replyLabel}</label>
