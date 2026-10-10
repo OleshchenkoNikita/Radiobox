@@ -1803,7 +1803,7 @@ def get_public_products():
 
 
 @app.route('/api/check_stock', methods=['POST'])
-@limiter.limit("30 per minute")  # Ограничение от спама
+@limiter.limit("30 per minute")
 def check_stock():
     product_ids = request.json.get('ids', [])
     if not product_ids:
@@ -1812,16 +1812,13 @@ def check_stock():
     try:
         with sqlite3.connect(DB_NAME) as conn:
             conn.row_factory = sqlite3.Row
-            # Создаем нужное количество знаков вопроса для IN (?, ?, ?)
             placeholders = ','.join(['?'] * len(product_ids))
 
-            # Делаем сверхбыстрый запрос только по ID из корзины
             cursor = conn.execute(
                 f"SELECT id, in_stock, qty_stock FROM products WHERE id IN ({placeholders})",
                 product_ids
             )
 
-            # Формируем словарь: "ID товара" -> {in_stock: 1, qty_stock: 5}
             stock_data = {
                 str(row['id']): {"in_stock": row['in_stock'], "qty_stock": row['qty_stock']}
                 for row in cursor.fetchall()
