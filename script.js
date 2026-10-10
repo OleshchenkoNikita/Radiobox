@@ -1334,6 +1334,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.rbCartChange = changeQty;
     window.rbCartRemove = removeItem;
     window.rbCartRender = renderCart;
+    window.rbCartOpen = openDrawer;
 
 });
 
@@ -2395,16 +2396,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = drawer ? drawer.querySelector('.cart-drawer__panel') : null;
 
         if (drawer) {
-            const openDrawer = () => {
-                if (window.rbCartRender) window.rbCartRender();
-                drawer.classList.add('is-open');
-                document.body.classList.add('is-cart-open');
-            };
             const closeDrawer = () => {
                 drawer.classList.remove('is-open');
                 document.body.classList.remove('is-cart-open');
             };
-            openers.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); openDrawer(); }));
+
+            // Вызываем глобальную функцию, которая проверяет остатки через /api/check_stock
+            openers.forEach(btn => btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                if (window.rbCartOpen) {
+                    await window.rbCartOpen();
+                } else if (window.rbCartRender) {
+                    window.rbCartRender();
+                    drawer.classList.add('is-open');
+                    document.body.classList.add('is-cart-open');
+                }
+            }));
+
             closers.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); closeDrawer(); }));
             drawer.addEventListener('click', (e) => { if (panel && !panel.contains(e.target)) closeDrawer(); });
         }
