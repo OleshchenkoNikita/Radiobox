@@ -1849,10 +1849,11 @@ const AdminReviews = {
 
             // КРАСИВЫЙ РЕНДЕР КОММЕНТАРИЯ ДЛЯ АДМИНКИ
             let fmtComment = window.escapeHTML(r.comment || "");
+
             if (fmtComment.includes(' | ')) {
                 let parts = fmtComment.split(' | ');
-
                 let rawTags = parts.slice(1).join(' | ');
+
                 let tagsList = rawTags.split(';')
                                       .map(t => t.trim())
                                       .filter(t => t.length > 0)
@@ -1860,6 +1861,15 @@ const AdminReviews = {
                                       .join('');
 
                 fmtComment = `${parts[0]}<div style="margin-top: 8px; font-size: 13px; color: #64748b;"><div style="font-weight: bold; margin-bottom: 4px;">✨ Теги Prom:</div>${tagsList}</div>`;
+            }
+            else if (fmtComment.includes(';') && (fmtComment.includes('Актуальн') || fmtComment.includes('Быстро') || fmtComment.includes('Швидко') || fmtComment.includes('обслуживание') || fmtComment.includes('обслуговування'))) {
+                let tagsList = fmtComment.split(';')
+                                      .map(t => t.trim())
+                                      .filter(t => t.length > 0)
+                                      .map(t => `<span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; margin-right: 4px; display: inline-block; margin-bottom: 4px;">🏷️ ${t}</span>`)
+                                      .join('');
+
+                fmtComment = `<div style="margin-top: 4px; font-size: 13px; color: #64748b;"><div style="font-weight: bold; margin-bottom: 4px;">✨ Теги Prom:</div>${tagsList}</div>`;
             }
 
             return `

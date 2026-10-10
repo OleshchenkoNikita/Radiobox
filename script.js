@@ -560,11 +560,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // КРАСИВЫЙ РЕНДЕР КОММЕНТАРИЯ (Разделяем текст и теги Prom)
             let fmtComment = window.escapeHTML(r.comment || "");
+
+            // Вариант А: Если есть разделитель | (текст + теги)
             if (fmtComment.includes(' | ')) {
                 let parts = fmtComment.split(' | ');
                 let mainText = parts[0];
-
                 let rawTags = parts.slice(1).join(' | ');
+
                 let tagsList = rawTags.split(';')
                                       .map(t => t.trim())
                                       .filter(t => t.length > 0)
@@ -572,9 +574,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                       .join('');
 
                 const tagLabel = IS_RU ? 'Отметил(а):' : 'Відмітив(ла):';
-
                 fmtComment = `${mainText}
                 <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: #334155; border: 1px solid #e2e8f0;">
+                    <div style="font-weight: 700; color: #0d2b4e; margin-bottom: 8px; font-size: 12px; text-transform: uppercase;">✨ ${tagLabel}</div>
+                    ${tagsList}
+                </div>`;
+            }
+            // Вариант Б: Если разделителя нет, но текст состоит ТОЛЬКО из тегов (разделенных ;)
+            else if (fmtComment.includes(';') && (fmtComment.includes('Актуальн') || fmtComment.includes('Быстро') || fmtComment.includes('Швидко') || fmtComment.includes('обслуживание') || fmtComment.includes('обслуговування'))) {
+                let tagsList = fmtComment.split(';')
+                                      .map(t => t.trim())
+                                      .filter(t => t.length > 0)
+                                      .map(t => `<div style="margin-bottom: 4px;">✅ ${t}</div>`)
+                                      .join('');
+
+                const tagLabel = IS_RU ? 'Отметил(а):' : 'Відмітив(ла):';
+                fmtComment = `
+                <div style="margin-top: 6px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: #334155; border: 1px solid #e2e8f0;">
                     <div style="font-weight: 700; color: #0d2b4e; margin-bottom: 8px; font-size: 12px; text-transform: uppercase;">✨ ${tagLabel}</div>
                     ${tagsList}
                 </div>`;
