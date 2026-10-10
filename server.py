@@ -3797,6 +3797,78 @@ def admin_export_custom_feed():
         print(f"Ошибка экспорта фида: {e}")
         return jsonify({"success": False, "error": str(e)})
 
+
+@app.route('/api/admin/import_prom_reviews', methods=['POST'])
+@role_required('manager', 'superadmin')
+def admin_import_prom_reviews():
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "Нет файла"})
+
+    file = request.files['file']
+    if not file:
+        return jsonify({"success": False, "error": "Пустой файл"})
+
+    try:
+        wb = openpyxl.load_workbook(file, data_only=True)
+        sheet = wb.active
+        rows = list(sheet.iter_rows(values_only=True))
+
+        if len(rows) < 2:
+            return jsonify({"success": False, "error": "Файл пуст или нет данных"})
+
+        # Создаем словарь заголовков
+        headers = {str(h).replace('\ufeff', '').strip().lower(): i for i, h in enumerate(rows[0]) if h}
+
+        def get_val(row, possible_names):
+            for n in possible_names:
+                key = n.lower().strip()
+                if key in headers and row[headers[key]] is not None:
+                    return str(row[headers[key]]).strip()
+            return ""
+
+        count = 0
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            for row in rows[1:]:
+                # Подставь сюда названия колонок, как они называются в выгрузке Прома
+                author = get_val(row, ['клиент', 'автор', 'имя', 'client']) or "Аноним"
+                comment = get_val(row, ['отзыв', 'текст', 'комментарий', 'comment'])
+                reply = get_val(row, ['ответ', 'ответ компании', 'reply'])
+                date_str = get_val(row, ['дата', 'date'])
+
+                if not comment:
+                    continue  # Пропускаем пустые строки
+
+                # Преобразуем оценку (Пром может отдавать "Отлично", "Хорошо" или звезды)
+                rating_raw = get_val(row, ['оценка', 'рейтинг', 'rating']).lower()
+                rating = 5
+                if 'хорош' in rating_raw or '4' in rating_raw:
+                    rating = 4
+                elif 'нейтрал' in rating_raw or '3' in rating_raw:
+                    rating = 3
+                elif 'плох' in rating_raw or '2' in rating_raw:
+                    rating = 2
+                elif 'очень плох' in rating_raw or '1' in rating_raw:
+                    rating = 1
+
+                # Дату берем как есть, или ставим текущую
+                if not date_str:
+                    date_str = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+                # Вставляем в БД (product_id = 0, так как это отзывы о магазине в целом)
+                cursor.execute("""
+                    INSERT INTO reviews (product_id, author, rating, comment, date, reply, is_visible) 
+                    VALUES (0, ?, ?, ?, ?, ?, 1)
+                """, (author, rating, comment, date_str, reply))
+                count += 1
+
+            conn.commit()
+
+        return jsonify({"success": True, "message": f"Успешно загружено {count} отзывов"})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 if __name__ == '__main__':
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
 

@@ -74,6 +74,14 @@
             </div>
         </div>
 
+        <!-- Кнопка импорта -->
+        <div style="margin-bottom: 20px;">
+            <label style="background: #189BFF; color: white; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; display: inline-block;">
+                📥 Импорт из Prom (Excel)
+                <input type="file" accept=".xlsx" style="display:none;" onchange="AdminReviews.importPromReviews(this)">
+            </label>
+        </div>
+
         <div id="reviewsContainer" class="rev-admin-list">
             <div style="text-align:center;">Загрузка...</div>
         </div>

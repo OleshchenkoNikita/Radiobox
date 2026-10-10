@@ -1916,6 +1916,38 @@ const AdminReviews = {
             });
             document.getElementById(`arev-${id}`).remove();
         } catch(e){ alert('Error'); }
+    }, // <-- ВАЖНО: Добавлена запятая!
+
+    importPromReviews: async function(input) {
+        if (!input.files || input.files.length === 0) return;
+
+        const formData = new FormData();
+        formData.append('file', input.files[0]);
+
+        // Показываем индикатор загрузки
+        const container = document.getElementById('reviewsContainer');
+        container.innerHTML = '<div style="text-align:center; padding:20px;">Импорт отзывов, подождите...</div>';
+
+        try {
+            const res = await fetch('/api/admin/import_prom_reviews', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert(data.message);
+            } else {
+                alert('Ошибка импорта: ' + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Ошибка сети при импорте');
+        }
+
+        // Сбрасываем input и перезагружаем список
+        input.value = '';
+        this.load();
     }
 };
 
