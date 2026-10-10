@@ -11,6 +11,7 @@ import io
 import re
 import openpyxl
 import requests
+import time
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -55,6 +56,9 @@ limiter = Limiter(
     storage_uri="memory://" # Храним счетчики в оперативной памяти
 )
 
+# Добавляем глобальный словарь для кэша в оперативной памяти
+CATALOG_CACHE = {"data": None, "updated_at": 0}
+CACHE_TTL = 30 # Время жизни кэша в секундах
 
 # ЗАГОЛОВКИ БЕЗОПАСНОСТИ
 @app.after_request
@@ -1760,13 +1764,15 @@ def admin_product_visibility():
 @app.route('/api/products', methods=['GET'])
 @limiter.exempt
 def get_public_products():
+    now = time.time()
+
+    # Если кэш свежий, отдаем его мгновенно, не трогая базу данных!
+    if CATALOG_CACHE["data"] and (now - CATALOG_CACHE["updated_at"] < CACHE_TTL):
+        return CATALOG_CACHE["data"]
+
     with sqlite3.connect(DB_NAME) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-
-        # Мы добавляем LEFT JOIN, чтобы подтянуть названия категорий прямо из таблицы categories
-        # Мы связываем их по полю p.category (где лежит 'solder', 'consum' и т.д.)
-        # и полю c.slug в таблице категорий.
         cursor.execute("""
             SELECT p.*, c.title_ru as cat_title_ru, c.title_ua as cat_title_ua
             FROM products p
@@ -1788,7 +1794,42 @@ def get_public_products():
 
             products.append(p)
 
-    return jsonify({"success": True, "items": products})
+    # Сериализуем и сохраняем в кэш перед отправкой
+    response = jsonify({"success": True, "items": products})
+    CATALOG_CACHE["data"] = response
+    CATALOG_CACHE["updated_at"] = now
+
+    return response
+
+
+@app.route('/api/check_stock', methods=['POST'])
+@limiter.limit("30 per minute")  # Ограничение от спама
+def check_stock():
+    product_ids = request.json.get('ids', [])
+    if not product_ids:
+        return jsonify({"success": True, "stock": {}})
+
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.row_factory = sqlite3.Row
+            # Создаем нужное количество знаков вопроса для IN (?, ?, ?)
+            placeholders = ','.join(['?'] * len(product_ids))
+
+            # Делаем сверхбыстрый запрос только по ID из корзины
+            cursor = conn.execute(
+                f"SELECT id, in_stock, qty_stock FROM products WHERE id IN ({placeholders})",
+                product_ids
+            )
+
+            # Формируем словарь: "ID товара" -> {in_stock: 1, qty_stock: 5}
+            stock_data = {
+                str(row['id']): {"in_stock": row['in_stock'], "qty_stock": row['qty_stock']}
+                for row in cursor.fetchall()
+            }
+
+            return jsonify({"success": True, "stock": stock_data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 # Мягкое удаление (в корзину)
 @app.route('/api/admin/product/delete', methods=['POST'])

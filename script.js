@@ -755,7 +755,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const N = (p) => ({id: ++idCounter, ...p});
 
     // --- 4. Запрос к серверу за свежими данными ---
-    fetch('/api/products?v=' + new Date().getTime())
+    // Округляем до 1 минуты. Браузер будет запрашивать свежий каталог не чаще раза в минуту.
+    const cacheBuster = Math.floor(Date.now() / 60000);
+
+    fetch('/api/products?v=' + cacheBuster)
         .then(r => r.json())
         .then(data => {
             if(data.success) {
@@ -1233,14 +1236,57 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 4. Открытие/Закрытие шторки ---
-    const openDrawer = () => {
+    const openDrawer = async () => {
         const drawer = document.querySelector('.cart-drawer');
         if(!drawer) return;
+
+        let cart = getCart();
+
+        // === ЖИВАЯ ПРОВЕРКА ОСТАТКОВ ПЕРЕД ОТКРЫТИЕМ ===
+        if (cart.length > 0) {
+            try {
+                const ids = cart.map(i => i.id);
+                const res = await fetch('/api/check_stock', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ids})
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    let changed = false;
+                    cart = cart.filter(item => {
+                        const stockInfo = data.stock[item.id];
+                        // Если товара больше нет, он скрыт или остаток 0
+                        if (!stockInfo || stockInfo.qty_stock <= 0 || !stockInfo.in_stock) {
+                            changed = true;
+                            return false; // Удаляем из корзины
+                        }
+                        // Если клиент хочет больше, чем есть на складе -> урезаем
+                        if (item.qty > stockInfo.qty_stock) {
+                            item.qty = stockInfo.qty_stock;
+                            changed = true;
+                        }
+                        return true;
+                    });
+
+                    if (changed) {
+                        saveCart(cart); // Сохраняем очищенную корзину в LocalStorage
+                        renderCart();   // Перерисовываем карточки в корзине
+                        const isUA = document.documentElement.lang === 'uk' || window.location.pathname.includes('/ua/');
+                        alert(isUA
+                            ? "Кількість деяких товарів у кошику змінилася згідно з актуальними залишками на складі."
+                            : "Количество некоторых товаров в корзине изменилось согласно актуальным остаткам на складе."
+                        );
+                    }
+                }
+            } catch(e) { console.error("Ошибка проверки наличия:", e); }
+        }
+
         drawer.classList.add('is-open');
         document.body.classList.add('is-cart-open');
 
         // --- GA4: VIEW CART ---
-        let cart = getCart();
         let catalog = getCatalog(); // Подтягиваем каталог для надежного определения категории
         let totalValue = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0);
         let ga4Items = cart.map(i => {
