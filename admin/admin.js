@@ -1851,19 +1851,27 @@ const AdminReviews = {
             let fmtComment = window.escapeHTML(r.comment || "");
             if (fmtComment.includes(' | ')) {
                 let parts = fmtComment.split(' | ');
-                fmtComment = `\${parts[0]}<div style="margin-top: 6px; font-size: 13px; color: #64748b;">✨ <b>Теги Prom:</b> \${parts.slice(1).join(', ')}</div>`;
+
+                let rawTags = parts.slice(1).join(' | ');
+                let tagsList = rawTags.split(';')
+                                      .map(t => t.trim())
+                                      .filter(t => t.length > 0)
+                                      .map(t => `<span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; margin-right: 4px; display: inline-block; margin-bottom: 4px;">🏷️ ${t}</span>`)
+                                      .join('');
+
+                fmtComment = `${parts[0]}<div style="margin-top: 8px; font-size: 13px; color: #64748b;"><div style="font-weight: bold; margin-bottom: 4px;">✨ Теги Prom:</div>${tagsList}</div>`;
             }
 
             return `
             <div class="rev-admin-card ${isHiddenClass}" id="arev-${r.id}">
                 <div class="ra-head">
                     <div>
-                        <span class="ra-author">\${window.escapeHTML(r.author)}</span>
-                        <span style="color:#f59e0b; margin-left:8px;">\${stars}</span>
+                        <span class="ra-author">${window.escapeHTML(r.author)}</span>
+                        <span style="color:#f59e0b; margin-left:8px;">${stars}</span>
                     </div>
-                    <div class="ra-date">\${r.date}</div>
+                    <div class="ra-date">${r.date}</div>
                 </div>
-                <div class="ra-text">\${fmtComment}</div>
+                <div class="ra-text">${fmtComment}</div>
 
                 <div class="ra-reply-box">
                     <label class="ra-reply-label">${TEXT.replyLabel}</label>

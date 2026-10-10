@@ -563,22 +563,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fmtComment.includes(' | ')) {
                 let parts = fmtComment.split(' | ');
                 let mainText = parts[0];
-                let tags = parts.slice(1).join(', '); // Собираем остатки, если | было несколько
+
+                let rawTags = parts.slice(1).join(' | ');
+                let tagsList = rawTags.split(';')
+                                      .map(t => t.trim())
+                                      .filter(t => t.length > 0)
+                                      .map(t => `<div style="margin-bottom: 4px;">✅ ${t}</div>`)
+                                      .join('');
+
                 const tagLabel = IS_RU ? 'Отметил(а):' : 'Відмітив(ла):';
 
-                fmtComment = `\${mainText}
-                <div style="margin-top: 10px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; font-size: 13px; color: #475569; border: 1px solid #e2e8f0; display: inline-block;">
-                    ✨ <b>${tagLabel}</b>${tags}
+                fmtComment = `${mainText}
+                <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 13px; color: #334155; border: 1px solid #e2e8f0;">
+                    <div style="font-weight: 700; color: #0d2b4e; margin-bottom: 8px; font-size: 12px; text-transform: uppercase;">✨ ${tagLabel}</div>
+                    ${tagsList}
                 </div>`;
             }
 
             wrap.insertAdjacentHTML('beforeend', `
             <article class="rev-card">
               <header class="rev-head">
-                <div class="rev-author">\${window.escapeHTML(r.author)}</div>
-                <div class="rev-date">\${window.escapeHTML(r.date)}</div>
-                <div class="rev-stars" aria-label="Рейтинг: \${r.rating} ${OF_FIVE}">${stars}</div>
-                <div class="rev-grade">\${getGradeText(r.rating)}</div>
+                <div class="rev-author">${window.escapeHTML(r.author)}</div>
+                <div class="rev-date">${window.escapeHTML(r.date)}</div>
+                <div class="rev-stars" aria-label="Рейтинг: ${r.rating} ${OF_FIVE}">${stars}</div>
+                <div class="rev-grade">${getGradeText(r.rating)}</div>
               </header>
               <div class="rev-text">${fmtComment}</div>${replyHtml}
             </article>
