@@ -2193,7 +2193,6 @@ def public_get_banners():
 # === API: ОТЗЫВЫ (ПУБЛИЧНЫЕ) ===
 @app.route('/api/reviews', methods=['GET'])
 @limiter.limit("5 per hour") # Не больше 5 отзывов в час с одного IP
-@role_required('client', 'manager', 'superadmin')
 def get_public_reviews():
     # Получаем список видимых отзывов
     with sqlite3.connect(DB_NAME) as conn:
