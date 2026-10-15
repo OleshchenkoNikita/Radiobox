@@ -841,7 +841,12 @@ def create_order():
 
     full_delivery_info = f"{delivery_display}: {address}"
     order_id = random.randint(100000000, 999999999)
-    user_email = request.form.get('email') or session.get('email', '')
+
+    # Если запрос каким-то образом связан с сессией сотрудника — игнорируем эту почту для заказа
+    if session.get('role') in ['manager', 'superadmin']:
+        user_email = request.form.get('email', '')
+    else:
+        user_email = request.form.get('email') or session.get('email', '')
 
     try:
         raw_items = json.loads(cart_json)
@@ -2364,7 +2369,7 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
         'Accept': 'application/json'
     }
 
-    site_url = get_setting('site_url') or "https://radiobox.in.ua"
+    site_url = get_setting('site_url') or "https://radio-box.com.ua"
 
     # --- 1. Нормализация данных покупателя ---
     raw_phone = str(crm_data.get('phone', '') or '').strip()
@@ -2395,14 +2400,28 @@ def send_to_keepincrm(order_id, crm_data, items, total_sum):
             )
             if r_find.status_code == 200:
                 for c in r_find.json().get('items', []):
-                    all_phones = "".join([re.sub(r'\D', '', p) for p in c.get('phones', [])])
-                    if search_digits in all_phones:
+                    client_phones = [re.sub(r'\D', '', p) for p in c.get('phones', [])]
+                    if any(p.endswith(search_digits) for p in client_phones if len(p) >= 9):
                         client_id = c['id']
                         break
         except Exception as e:
             print(f"⚠️ Ошибка поиска клиента по телефону: {e}")
 
-    if not client_id and user_email:
+    # Проверяем динамически по базе: не принадлежит ли эта почта сотруднику/админу
+    is_staff_email = False
+    if user_email:
+        try:
+            with sqlite3.connect(DB_NAME) as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT id FROM users WHERE email = ? AND role IN ('manager', 'superadmin')",
+                            (user_email,))
+                if cur.fetchone():
+                    is_staff_email = True
+        except Exception as e:
+            print(f"⚠️ Ошибка проверки роли email: {e}")
+
+    # Ищем в CRM по email только реальных клиентов, а не сотрудников
+    if not client_id and user_email and not is_staff_email:
         try:
             r_find_email = requests.get(
                 "https://api.keepincrm.com/v1/clients",
