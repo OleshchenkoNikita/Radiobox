@@ -892,6 +892,15 @@ const AdminProducts = {
             document.getElementById('p_id').value = '';
             document.getElementById('p_on_index').checked = false;
         }
+
+        // Обновляем счетчики SEO в самом конце, чтобы они учли очистку формы или новые данные
+        setTimeout(() => {
+            ['p_seo_title', 'p_seo_title_ua', 'p_seo_desc', 'p_seo_desc_ua'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.updateCharCount(el);
+            });
+        }, 100);
+
     },
 
     // Новая функция
@@ -1392,6 +1401,17 @@ const AdminCats = {
             document.getElementById('catModalTitle').textContent = isUA ? 'Нова група' : 'Новая группа';
         }
         modal.classList.add('active');
+
+        // Обновляем счетчики SEO для категорий
+        setTimeout(() => {
+            if (typeof AdminProducts !== 'undefined' && AdminProducts.updateCharCount) {
+                ['c_seo_title_ru', 'c_seo_title_ua', 'c_seo_desc_ru', 'c_seo_desc_ua'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) AdminProducts.updateCharCount(el);
+                });
+            }
+        }, 100);
+
     },
 
     uploadImage: async function(input) {
