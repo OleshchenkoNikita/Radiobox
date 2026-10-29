@@ -401,6 +401,23 @@ const AdminProducts = {
         });
     },
 
+    updateCharCount: function(el) {
+        if (!el) return;
+        const counter = document.getElementById('counter_' + el.id);
+        if (counter) {
+            const currentLength = el.value.length;
+            const maxLength = el.getAttribute('maxlength') || 250;
+            counter.textContent = `${currentLength} / ${maxLength}`;
+
+            // Если нужно, чтобы при приближении к лимиту текст краснел:
+            if (currentLength >= maxLength) {
+                counter.style.color = '#ef4444'; // Красный
+            } else {
+                counter.style.color = '#64748b'; // Стандартный серый
+            }
+        }
+    },
+
     saveOrder: async function() {
         const tbody = document.getElementById('productsTableBody');
         // Берем ВСЕ строки таблицы (и товары, и заголовки категорий)
@@ -842,6 +859,12 @@ const AdminProducts = {
             document.getElementById('p_seo_title_ua').value = product.seo_title_ua || product.title_ua || product.title_ru || '';
             document.getElementById('p_seo_desc').value = product.seo_description || autoSeoDescRu;
             document.getElementById('p_seo_desc_ua').value = product.seo_description_ua || autoSeoDescUa || autoSeoDescRu;
+
+            // Инициализируем счетчики при открытии модалки
+            this.updateCharCount(document.getElementById('p_seo_title'));
+            this.updateCharCount(document.getElementById('p_seo_title_ua'));
+            this.updateCharCount(document.getElementById('p_seo_desc'));
+            this.updateCharCount(document.getElementById('p_seo_desc_ua'));
 
             // Загрузка фото/видео
             if(product.images && product.images.length > 0) {

@@ -325,22 +325,25 @@
 
                     <div class="form-group full" style="border-top:1px solid #e2e8f0; margin-top:10px; padding-top:15px;">
                         <label style="font-size:15px; color:#1e293b;">🔎 SEO (Для поисковиков)</label>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 5px; line-height: 1.4;">
+                            💡 <b>Рекомендации Google:</b> оптимальная длина SEO-заголовка — до 60-70 символов, SEO-описания — до 150-160 символов. Более длинные тексты будут обрезаны в выдаче (...).
+                        </div>
                     </div>
                     <div class="form-group full">
-                        <label>SEO Заголовок (RU)</label>
-                        <input type="text" id="p_seo_title" class="form-input" maxlength="250">
+                        <label>SEO Заголовок (RU) <span id="counter_p_seo_title" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                        <input type="text" id="p_seo_title" class="form-input" maxlength="250" placeholder="Купить Паяльник 60Вт в Украине | RadioBox" oninput="AdminProducts.updateCharCount(this)">
                     </div>
                     <div class="form-group full">
-                        <label>SEO Заголовок (UA)</label>
-                        <input type="text" id="p_seo_title_ua" class="form-input" maxlength="250">
+                        <label>SEO Заголовок (UA) <span id="counter_p_seo_title_ua" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                        <input type="text" id="p_seo_title_ua" class="form-input" maxlength="250" oninput="AdminProducts.updateCharCount(this)">
                     </div>
                     <div class="form-group full">
-                        <label>SEO Описание (RU)</label>
-                        <textarea id="p_seo_desc" style="height:60px;" maxlength="250"></textarea>
+                        <label>SEO Описание (RU) <span id="counter_p_seo_desc" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                        <textarea id="p_seo_desc" style="height:60px;" maxlength="250" placeholder="Краткое описание товара для Google (до 250 символов)..." oninput="AdminProducts.updateCharCount(this)"></textarea>
                     </div>
                     <div class="form-group full">
-                        <label>SEO Описание (UA)</label>
-                        <textarea id="p_seo_desc_ua" style="height:60px;" maxlength="250"></textarea>
+                        <label>SEO Описание (UA) <span id="counter_p_seo_desc_ua" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                        <textarea id="p_seo_desc_ua" style="height:60px;" maxlength="250" oninput="AdminProducts.updateCharCount(this)"></textarea>
                     </div>
 
                 </div>
@@ -415,24 +418,27 @@
                 </div>
 
                 <!-- === НАЧАЛО БЛОКА SEO === -->
-                <div class="form-group" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                <div class="form-group full" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
                     <label style="color:#1e293b; font-size:14px;">🔎 SEO (Для поисковиков)</label>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 5px; line-height: 1.4;">
+                        💡 <b>Рекомендации Google:</b> оптимальная длина SEO-заголовка — до 60-70 символов, SEO-описания — до 150-160 символов. Более длинные тексты будут обрезаны в выдаче (...).
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>SEO Заголовок (RU)</label>
-                    <input type="text" id="c_seo_title_ru" class="form-input">
+                    <label>SEO Заголовок (RU) <span id="counter_c_seo_title_ru" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                    <input type="text" id="c_seo_title_ru" class="form-input" maxlength="250" oninput="AdminProducts.updateCharCount(this)">
                 </div>
                 <div class="form-group">
-                    <label>SEO Заголовок (UA)</label>
-                    <input type="text" id="c_seo_title_ua" class="form-input">
+                    <label>SEO Заголовок (UA) <span id="counter_c_seo_title_ua" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                    <input type="text" id="c_seo_title_ua" class="form-input" maxlength="250" oninput="AdminProducts.updateCharCount(this)">
                 </div>
                 <div class="form-group">
-                    <label>SEO Описание (RU)</label>
-                    <textarea id="c_seo_desc_ru" class="form-input" style="height:60px;"></textarea>
+                    <label>SEO Описание (RU) <span id="counter_c_seo_desc_ru" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                    <textarea id="c_seo_desc_ru" class="form-input" style="height:60px;" maxlength="250" oninput="AdminProducts.updateCharCount(this)"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>SEO Описание (UA)</label>
-                    <textarea id="c_seo_desc_ua" class="form-input" style="height:60px;"></textarea>
+                    <label>SEO Описание (UA) <span id="counter_c_seo_desc_ua" style="float:right; font-weight:normal; color:#64748b; font-size:12px;">0 / 250</span></label>
+                    <textarea id="c_seo_desc_ua" class="form-input" style="height:60px;" maxlength="250" oninput="AdminProducts.updateCharCount(this)"></textarea>
                 </div>
                 <!-- === КОНЕЦ БЛОКА SEO === -->
 
