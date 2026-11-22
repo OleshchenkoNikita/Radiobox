@@ -506,13 +506,14 @@
             const listName = isUA ? 'Супутні товари' : 'Сопутствующие товары';
 
             try {
-                const relRes = await fetch(`/api/admin/product/${product.id}/related`);
+                const relRes = await fetch(`/api/product/${product.id}/related`);
                 const relData = await relRes.json();
 
                 let related = [];
-                if (relData.success && relData.related && relData.related.length > 0) {
-                    // Превращаем массив ID/объектов в полные данные товаров из общего списка items
-                    related = relData.related.map(rItem => items.find(i => i.id == rItem.id)).filter(Boolean);
+                if (relData.success && relData.items && relData.items.length > 0) {
+                    related = relData.items
+                        .map(rItem => items.find(i => i.id == rItem.id) || rItem)
+                        .filter(p => p && p.in_stock == 1);
                 }
 
                 if (related.length > 0) {

@@ -3971,7 +3971,7 @@ def public_get_related_products(pid):
         cursor.execute('''
             SELECT p.* FROM products p
             JOIN product_related r ON p.id = r.related_id
-            WHERE r.product_id = ? AND p.is_visible = 1 AND p.deleted_at IS NULL
+            WHERE r.product_id = ? AND p.is_visible = 1 AND p.deleted_at IS NULL AND p.in_stock = 1
         ''', (pid,))
 
         rows = cursor.fetchall()
