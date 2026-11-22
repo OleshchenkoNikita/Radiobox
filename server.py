@@ -1612,7 +1612,7 @@ def admin_save_product_api():
     price = float(data.get('price', 0))
     in_stock = int(data.get('in_stock', 1))
 
-    # --- ИСПРАВЛЕНИЕ: Получаем количество из фронтенда ---
+    # --- Получаем количество из фронтенда ---
     qty = int(data.get('qty_stock', 0))
 
     unit_type = data.get('unit_type', 'pcs')
@@ -1657,18 +1657,19 @@ def admin_save_product_api():
                     sku, title_ru, title_ua, description_ru, description_ua, 
                     price, in_stock, quantity, qty_stock, category, subcategory, 
                     images_json, on_index, position, created_at, seo_title, 
-                    seo_description, unit_type, brand
+                    seo_description, seo_title_ua, seo_description_ua, unit_type, brand
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 sku, title_ru, title_ua, desc_ru, desc_ua,
                 price, in_stock, qty, qty, category, subcategory,
                 images, on_index, pos, created_at, seo_title,
-                seo_desc, unit_type
+                seo_desc, seo_title_ua, seo_desc_ua, unit_type, brand
             ))
+            pid = cursor.lastrowid
 
         conn.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "id": pid})
 
 # === API: ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ КАТЕГОРИЙ И ПОДКАТЕГОРИЙ ===
 @app.route('/api/admin/fix_categories', methods=['GET'])
