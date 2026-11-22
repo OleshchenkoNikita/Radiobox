@@ -267,6 +267,33 @@
                     </div>
                     <div class="form-group"></div>
 
+                    <div class="form-group full mt-4" style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <label class="font-weight-bold" style="color:#0f172a; font-size:14px; margin-bottom:10px; display:block;">🔗 Супутні товари (Рекомендовані)</label>
+
+                        <!-- Живой поиск -->
+                        <div style="margin-bottom: 12px;">
+                            <input type="text" id="relatedSearchInput" class="form-input" placeholder="🔍 Фільтрувати за назвою або SKU..." oninput="filterRelatedLists(this.value)">
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; box-sizing: border-box;">
+                            <!-- Колонка 1: Доступные для добавления -->
+                            <div style="min-width: 0;">
+                                <label style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:5px; display:block;">Доступні товари:</label>
+                                <div id="availableRelatedList" style="max-height: 180px; overflow-y: auto; overflow-x: hidden; border:1px solid #cbd5e1; border-radius:6px; background:#fff; padding:5px; box-sizing: border-box;">
+                                    <small class="text-muted">Завантаження...</small>
+                                </div>
+                            </div>
+
+                            <!-- Колонка 2: Уже добавленные сопутствующие -->
+                            <div style="min-width: 0;">
+                                <label style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:5px; display:block;">Обрані супутні:</label>
+                                <div id="selectedRelatedList" style="max-height: 180px; overflow-y: auto; overflow-x: hidden; border:1px solid #cbd5e1; border-radius:6px; background:#fff; padding:5px; box-sizing: border-box;">
+                                    <small class="text-muted">Немає обраних</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group full" style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid #e2e8f0;">
                         <label style="color:#0f172a; font-size:14px; margin-bottom:10px; display:block;">📷 Медіафайли (Фото та Відео)</label>
                         <div style="font-size: 12px; color: #64748b; margin-top: 5px;">Максимальний розмір файлу: 10 МБ</div>

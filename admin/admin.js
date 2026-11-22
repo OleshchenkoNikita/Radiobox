@@ -834,6 +834,12 @@ const AdminProducts = {
             title.textContent = product.id ? (this.lang==='ua'?'Редагування':'Редактирование') : (this.lang==='ua'?'Створення копії':'Создание копии');
             document.getElementById('p_id').value = product.id || '';
 
+            if (product.id) {
+                this.loadRelatedProducts(product.id);
+            } else {
+                document.getElementById('selectedRelatedList').innerHTML = '<small class="text-muted">Сначала сохраните товар...</small>';
+            }
+
             document.getElementById('p_title').value = product.title_ru || '';
             document.getElementById('p_title_ua').value = product.title_ua || product.title_ru || '';
             document.getElementById('p_sku').value = product.sku || '';
@@ -891,6 +897,8 @@ const AdminProducts = {
             title.textContent = this.lang==='ua'?'Новий товар':'Новый товар';
             document.getElementById('p_id').value = '';
             document.getElementById('p_on_index').checked = false;
+            // Очищаем список для нового товара
+            document.getElementById('selectedRelatedList').innerHTML = '<small class="text-muted">Сначала сохраните товар, чтобы добавлять сопутствующие.</small>';
         }
 
         // Обновляем счетчики SEO в самом конце, чтобы они учли очистку формы или новые данные
@@ -955,7 +963,17 @@ const AdminProducts = {
             body: JSON.stringify(data)
         });
         const result = await res.json();
-        if(result.success) { this.closeModal(); this.load(); }
+        if(result.success) {
+            // === ДОБАВЛЕНО: Сохранение привязок сопутствующих товаров ===
+            const savedProductId = result.id || pid;
+            if (savedProductId) {
+                await this.saveRelatedProducts(savedProductId);
+            }
+            // ==========================================================
+
+            this.closeModal();
+            this.load();
+        }
         else { alert('Ошибка сохранения'); }
     },
 
@@ -2657,5 +2675,141 @@ const AdminAutoFeed = {
 
         btn.textContent = oldText;
         btn.disabled = false;
+    }
+};
+
+// === УПРАВЛЕНИЕ СОПУТСТВУЮЩИМИ ТОВАРАМИ (Живой поиск и 2 списка) ===
+let allStoreProducts = [];   // Все товары магазина для выбора
+let selectedRelatedIds = []; // ID выбранных сопутствующих
+
+AdminProducts.loadRelatedProducts = async function(productId) {
+    selectedRelatedIds = [];
+
+    try {
+        // Параллельно загружаем все товары магазина и уже привязанные сопутствующие
+        const [allRes, relRes] = await Promise.all([
+            fetch('/api/admin/products?sort_by=def&sort_dir=asc'),
+            fetch(`/api/admin/product/${productId}/related`)
+        ]);
+
+        const allData = await allRes.json();
+        const relData = await relRes.json();
+
+        if (allData.success) {
+            // Исключаем из общего списка сам редактируемый товар
+            allStoreProducts = allData.products.filter(p => p.id != productId && !p.deleted_at);
+        }
+
+        if (relData.success) {
+            selectedRelatedIds = relData.related.map(item => item.id);
+        }
+
+        this.renderRelatedLists('');
+    } catch (e) {
+        console.error("Ошибка загрузки сопутствующих товаров:", e);
+    }
+};
+
+// Функция отрисовки обоих списков с учетом фильтра (живой поиск)
+AdminProducts.renderRelatedLists = function(filterQuery = '') {
+    const availableContainer = document.getElementById('availableRelatedList');
+    const selectedContainer = document.getElementById('selectedRelatedList');
+    if (!availableContainer || !selectedContainer) return;
+
+    const query = filterQuery.toLowerCase().trim();
+    // Определяем, украинская ли это версия админки
+    const isUaAdmin = this.lang === 'ua' || document.documentElement.lang === 'uk';
+
+    // Функция безопасного выбора названия с учетом языка админки
+    const getTitle = (p) => {
+        if (isUaAdmin) {
+            return p.title_ua || p.title_ru || p.title || 'Товар без назви';
+        }
+        return p.title_ru || p.title || p.title_ua || 'Товар без названия';
+    };
+
+    // 1. Формируем список выбранных
+    const selectedProducts = allStoreProducts.filter(p => selectedRelatedIds.includes(p.id));
+    const filteredSelected = selectedProducts.filter(p => {
+        if (!query) return true;
+        return (p.title_ru || '').toLowerCase().includes(query) ||
+               (p.title_ua || '').toLowerCase().includes(query) ||
+               (p.sku || '').toLowerCase().includes(query);
+    });
+
+    if (filteredSelected.length === 0) {
+        selectedContainer.innerHTML = '<div style="padding:8px; color:#94a3b8; font-size:12px;">Немає обраних</div>';
+    } else {
+        selectedContainer.innerHTML = filteredSelected.map(p => {
+            const pTitle = getTitle(p);
+            return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; border-bottom:1px solid #f1f5f9; font-size:13px;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:5px;" title="${window.escapeHTML(pTitle)}">
+                    <b>${p.sku || ''}</b> - ${window.escapeHTML(pTitle)}
+                </span>
+                <button type="button" onclick="removeRelatedProduct(${p.id})" style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer; font-size:16px; padding:0 4px;" title="Видалити">&times;</button>
+            </div>`;
+        }).join('');
+    }
+
+    // 2. Формируем список доступных (недобавленных)
+    const availableProducts = allStoreProducts.filter(p => !selectedRelatedIds.includes(p.id));
+    const filteredAvailable = availableProducts.filter(p => {
+        if (!query) return true;
+        return (p.title_ru || '').toLowerCase().includes(query) ||
+               (p.title_ua || '').toLowerCase().includes(query) ||
+               (p.sku || '').toLowerCase().includes(query);
+    });
+
+    if (filteredAvailable.length === 0) {
+        availableContainer.innerHTML = '<div style="padding:8px; color:#94a3b8; font-size:12px;">Нічого не знайдено</div>';
+    } else {
+        availableContainer.innerHTML = filteredAvailable.map(p => {
+            const pTitle = getTitle(p);
+            return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 8px; border-bottom:1px solid #f1f5f9; font-size:13px;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:5px;" title="${window.escapeHTML(pTitle)}">
+                    <b>${p.sku || ''}</b> - ${window.escapeHTML(pTitle)}
+                </span>
+                <button type="button" onclick="addRelatedProduct(${p.id})" style="background:none; border:none; color:#16a34a; font-weight:bold; cursor:pointer; font-size:16px; padding:0 4px;" title="Додати">+</button>
+            </div>`;
+        }).join('');
+    }
+};
+
+// Обработчик ввода в поле живого поиска
+function filterRelatedLists(val) {
+    AdminProducts.renderRelatedLists(val);
+}
+
+// Добавление товара в выбранные
+function addRelatedProduct(id) {
+    if (!selectedRelatedIds.includes(id)) {
+        selectedRelatedIds.push(id);
+        const searchVal = document.getElementById('relatedSearchInput').value;
+        AdminProducts.renderRelatedLists(searchVal);
+    }
+}
+
+// Удаление товара из выбранных
+function removeRelatedProduct(id) {
+    selectedRelatedIds = selectedRelatedIds.filter(item_id => item_id !== id);
+    const searchVal = document.getElementById('relatedSearchInput').value;
+    AdminProducts.renderRelatedLists(searchVal);
+}
+
+// Сохранение связей на сервере при сохранении товара
+AdminProducts.saveRelatedProducts = async function(productId) {
+    try {
+        await fetch('/api/admin/product/related/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                product_id: productId,
+                related_ids: selectedRelatedIds
+            })
+        });
+    } catch (e) {
+        console.error("Ошибка сохранения сопутствующих товаров:", e);
     }
 };

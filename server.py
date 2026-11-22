@@ -279,6 +279,17 @@ def init_db():
                     )
                 ''')
 
+        # 10. Сопутствующие товары (связь многие-ко-многим)
+        cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS product_related (
+                        product_id INTEGER NOT NULL,
+                        related_id INTEGER NOT NULL,
+                        PRIMARY KEY (product_id, related_id),
+                        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+                        FOREIGN KEY (related_id) REFERENCES products(id) ON DELETE CASCADE
+                    )
+                ''')
+
         # Заполним дефолтными, если пусто
         default_settings = {
             'site_url': 'https://radio-box.com.ua',
@@ -3887,6 +3898,93 @@ def admin_import_prom_reviews():
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+# === API: ПОЛУЧИТЬ СОПУТСТВУЮЩИЕ ТОВАРЫ ДЛЯ АДМИНКИ ===
+@app.route('/api/admin/product/<int:pid>/related', methods=['GET'])
+@role_required('manager', 'superadmin')
+def admin_get_related_products(pid):
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Достаем все товары, которые привязаны к данному pid
+        cursor.execute('''
+            SELECT p.* FROM products p
+            JOIN product_related r ON p.id = r.related_id
+            WHERE r.product_id = ? AND p.deleted_at IS NULL
+        ''', (pid,))
+
+        rows = cursor.fetchall()
+        products = []
+        for row in rows:
+            p = dict(row)
+            try:
+                images = json.loads(p['images_json'])
+                p['image'] = images[0] if images else ''
+            except:
+                p['image'] = ''
+            products.append(p)
+
+    return jsonify({"success": True, "related": products})
+
+
+# === API: СОХРАНИТЬ СОПУТСТВУЮЩИЕ ТОВАРЫ ===
+@app.route('/api/admin/product/related/save', methods=['POST'])
+@role_required('manager', 'superadmin')
+def admin_save_related_products():
+    data = request.json
+    pid = data.get('product_id')
+    related_ids = data.get('related_ids', [])  # Список ID связанных товаров [12, 45, 67]
+
+    if not pid:
+        return jsonify({"success": False, "error": "No product_id provided"})
+
+    with sqlite3.connect(DB_NAME) as conn:
+        cursor = conn.cursor()
+
+        # 1. Удаляем старые связи для этого товара
+        cursor.execute("DELETE FROM product_related WHERE product_id = ?", (pid,))
+
+        # 2. Вставляем новые связи
+        for rel_id in related_ids:
+            if int(pid) != int(rel_id):  # Защита от самосвязывания
+                cursor.execute(
+                    "INSERT OR IGNORE INTO product_related (product_id, related_id) VALUES (?, ?)",
+                    (pid, rel_id)
+                )
+
+        conn.commit()
+
+    return jsonify({"success": True})
+
+
+# === ПУБЛИЧНЫЙ API: СОПУТСТВУЮЩИЕ ТОВАРЫ ДЛЯ СТРАНИЦЫ ТОВАРА ===
+@app.route('/api/product/<int:pid>/related', methods=['GET'])
+@limiter.exempt
+def public_get_related_products(pid):
+    with sqlite3.connect(DB_NAME) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT p.* FROM products p
+            JOIN product_related r ON p.id = r.related_id
+            WHERE r.product_id = ? AND p.is_visible = 1 AND p.deleted_at IS NULL
+        ''', (pid,))
+
+        rows = cursor.fetchall()
+        products = []
+        for row in rows:
+            p = dict(row)
+            try:
+                images = json.loads(p['images_json'])
+                p['image'] = images[0] if images else ''
+            except:
+                p['image'] = ''
+            products.append(p)
+
+    return jsonify({"success": True, "items": products})
 
 if __name__ == '__main__':
     print("Сервер запущен. Админка: http://127.0.0.1:5000/admin")
